@@ -1,5 +1,7 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+const path = require('path');
+// Cargar variables de entorno desde Backend/.env para garantizar consistencia
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const pool = new Pool({
     user: process.env.DB_USER,

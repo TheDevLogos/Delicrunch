@@ -22,4 +22,24 @@ router.get('/myorders', orderController.getMyOrders);
 // @acceso  Privado (Comercio)
 router.get('/mystoreorders', getStoreId, orderController.getStoreOrders);
 
+// @ruta    GET api/orders/store-metrics
+// @desc    Obtener métricas financieras del comercio
+// @acceso  Privado (Comercio)
+router.get('/store-metrics', getStoreId, orderController.getStoreMetrics);
+
+// @ruta    GET api/orders/store-analytics
+// @desc    Obtener estadísticas detalladas del comercio
+// @acceso  Privado (Comercio)
+router.get('/store-analytics', getStoreId, orderController.getStoreAnalytics);
+
+// @ruta    GET api/orders/:id
+// @desc    Obtener un pedido específico por ID
+// @acceso  Privado (propietario o admin)
+router.get('/:id', orderController.getOrderById);
+
+// @ruta    PATCH api/orders/:id
+// @desc    Actualizar el estado de un pedido
+// @acceso  Privado (Comercio o Admin)
+router.patch('/:id', orderController.updateOrderStatus);
+
 module.exports = router;

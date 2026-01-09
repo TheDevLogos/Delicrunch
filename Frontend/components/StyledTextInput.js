@@ -1,44 +1,92 @@
-import React from 'react';
-import { TextInput, StyleSheet, Platform } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { TextInput, StyleSheet, Platform, View, Text, TouchableWithoutFeedback } from 'react-native';
 import { COLORS, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '../src/constants/theme';
 
-// Este componente acepta todas las propiedades de un TextInput normal (como placeholder, onChangeText, etc.)
-// y les añade nuestro estilo personalizado de Neobrutalism Pop.
+// StyledTextInput ahora muestra un helper overlay (placeholder estilizado)
+// El overlay es más pequeño y semi-transparente, y desaparece cuando el input tiene valor o está en foco.
 const StyledTextInput = (props) => {
+  const { style, value, onFocus: onFocusProp, onBlur: onBlurProp, placeholder } = props;
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef(null);
+
+  const handleFocus = (e) => {
+    setFocused(true);
+    if (onFocusProp) onFocusProp(e);
+  };
+
+  const handleBlur = (e) => {
+    setFocused(false);
+    if (onBlurProp) onBlurProp(e);
+  };
+
+  const showHelper = !focused && (!value || value === '') && placeholder;
+
   return (
-    <TextInput
-      {...props} // Pasa todas las props al TextInput
-      style={[styles.input, props.style]} // Combina nuestros estilos con cualquier estilo adicional que se le pase
-      placeholderTextColor={COLORS.text} // Color del texto de ejemplo
-    />
+    <View style={[styles.container, props.containerStyle]}>
+      <TextInput
+        ref={inputRef}
+        {...props}
+        placeholder={''} // ocultamos placeholder nativo para usar el overlay estilizado
+        style={[
+          styles.input,
+          style,
+          // Forzar color negro al recibir foco para asegurar visibilidad al escribir
+          { color: focused ? COLORS.black : (style && style.color) || COLORS.text },
+        ]}
+        placeholderTextColor={COLORS.textTertiary}
+        cursorColor={COLORS.primary}
+        selectionColor={COLORS.primary}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+      />
+
+      {showHelper && (
+        <TouchableWithoutFeedback onPress={() => { inputRef.current && inputRef.current.focus(); }}>
+          <Text style={styles.helperText}>{placeholder}</Text>
+        </TouchableWithoutFeedback>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    position: 'relative',
+  },
   input: {
     width: '100%',
     height: 50,
-    backgroundColor: COLORS.white,
-    borderWidth: BORDERS.width,
-    borderColor: COLORS.border,
-    borderRadius: BORDERS.radius.small,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#000000',
+    borderRadius: 4,
     paddingHorizontal: SPACING.md,
     fontSize: TYPOGRAPHY.fontSize.body,
     color: COLORS.text,
     ...Platform.select({
       ios: {
-        shadowColor: SHADOWS.hard.color,
+        shadowColor: '#000000',
         shadowOffset: {
-          width: SHADOWS.hard.offset,
-          height: SHADOWS.hard.offset,
+          width: 3,
+          height: 3,
         },
-        shadowOpacity: SHADOWS.hard.opacity,
-        shadowRadius: SHADOWS.hard.radius,
+        shadowOpacity: 1,
+        shadowRadius: 0,
       },
       android: {
-        elevation: SHADOWS.hard.elevation,
+        elevation: 8,
       },
     }),
+  },
+  helperText: {
+    position: 'absolute',
+    left: SPACING.md + 2,
+    top: 14,
+    fontSize: TYPOGRAPHY.fontSize.body - 2,
+    color: 'rgba(0,0,0,0.45)',
+    fontWeight: '600',
+    pointerEvents: 'none',
   },
 });
 

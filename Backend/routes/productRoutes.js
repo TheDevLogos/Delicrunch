@@ -12,6 +12,11 @@ const getStoreId = require('../middleware/getStoreId');
 // @acceso  Público
 router.get('/', productController.getAllAvailableProducts);
 
+// @ruta    GET api/products/available
+// @desc    Obtener productos disponibles (alias para compradores)
+// @acceso  Público
+router.get('/available', productController.getAllAvailableProducts);
+
 // === RUTAS PRIVADAS (Requieren token y rol 'comercio') ===
 
 // @ruta    POST api/products

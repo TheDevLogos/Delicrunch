@@ -1,17 +1,33 @@
 const pool = require('../db');
 const asyncHandler = require('../middleware/asyncHandler');
 
-// @desc    Obtener el perfil del usuario logueado (y su tienda si es comercio)
+// @desc    Obtener el perfil del usuario logueado (con datos de perfil y su tienda si es comercio)
 exports.getLoggedInUserProfile = asyncHandler(async (req, res, next) => {
     // Gracias a nuestro middleware, tenemos acceso a req.user.id
     const userId = req.user.id;
 
-    // Hacemos una consulta que une la tabla de usuarios con la de tiendas.
-    // Un LEFT JOIN asegura que obtengamos los datos del usuario incluso si no es un comercio (en cuyo caso los campos de la tienda serán null).
+    // Unimos users + profiles (datos de comprador) + stores (si es comercio)
     const profileData = await pool.query(
-        `SELECT u.id, u.nombre, u.email, u.rol, u.fecha_creacion,
-                s.id AS store_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud, s.descripcion, s.horario_recogida
+        `SELECT 
+            u.id,
+            u.nombre,
+            u.email,
+            u.rol,
+            u.created_at,
+            p.telefono,
+            p.direccion,
+            p.ciudad,
+            p.foto_perfil,
+            p.preferencias_alimentarias,
+            s.id AS store_id,
+            s.nombre_comercio,
+            s.direccion AS store_direccion,
+            s.latitud,
+            s.longitud,
+            s.descripcion,
+            s.horario AS horario_recogida
          FROM users u
+         LEFT JOIN profiles p ON u.id = p.user_id
          LEFT JOIN stores s ON u.id = s.user_id
          WHERE u.id = $1`,
         [userId]
@@ -22,6 +38,48 @@ exports.getLoggedInUserProfile = asyncHandler(async (req, res, next) => {
     }
 
     res.json(profileData.rows[0]);
+});
+
+// @desc    Actualizar datos del usuario logueado (nombre, teléfono, dirección, ciudad, foto_perfil)
+exports.updateLoggedInUserProfile = asyncHandler(async (req, res, next) => {
+    const userId = req.user.id;
+
+    const { nombre, telefono, direccion, ciudad } = req.body;
+    const fotoFile = req.file; // upload.single('foto_perfil')
+
+    // Empezamos una transacción para consistencia
+    await pool.query('BEGIN');
+    try {
+        // 1) Actualizar nombre del usuario si viene
+        if (nombre && nombre.trim().length > 0) {
+            await pool.query('UPDATE users SET nombre = $1, updated_at = NOW() WHERE id = $2', [nombre.trim(), userId]);
+        }
+
+        // 2) Preparar valores de perfil
+        const foto_perfil = fotoFile ? `/uploads/${fotoFile.filename}` : null; // Ruta relativa servida por /uploads
+
+        // 3) Hacer upsert en profiles
+        const upsertResult = await pool.query(
+            `INSERT INTO profiles (user_id, telefono, direccion, ciudad, foto_perfil, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             ON CONFLICT (user_id)
+             DO UPDATE SET
+                telefono = COALESCE(EXCLUDED.telefono, profiles.telefono),
+                direccion = COALESCE(EXCLUDED.direccion, profiles.direccion),
+                ciudad   = COALESCE(EXCLUDED.ciudad, profiles.ciudad),
+                foto_perfil = COALESCE(EXCLUDED.foto_perfil, profiles.foto_perfil),
+                updated_at = NOW()
+             RETURNING *`,
+            [userId, telefono || null, direccion || null, ciudad || null, foto_perfil]
+        );
+
+        await pool.query('COMMIT');
+
+        res.json({ msg: 'Perfil actualizado correctamente', profile: upsertResult.rows[0] });
+    } catch (err) {
+        await pool.query('ROLLBACK');
+        throw err;
+    }
 });
 
 // @desc    Actualizar el perfil de la tienda para un usuario de tipo 'comercio'

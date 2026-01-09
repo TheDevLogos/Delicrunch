@@ -5,24 +5,42 @@ const asyncHandler = require('./asyncHandler');
  * Middleware para verificar si el usuario es un 'comercio' y obtener el ID de su tienda.
  * Asume que el middleware 'authMiddleware' ya se ha ejecutado.
  * Adjunta el `storeId` al objeto `req`.
+ * 
+ * Casos especiales:
+ * - Admin simulando comercio: usa la primera tienda disponible (demo)
  */
 const getStoreId = asyncHandler(async (req, res, next) => {
-    // 1. Verificar que el usuario tiene el rol de 'comercio'.
-    if (req.user.rol !== 'comercio') {
+    const userId = req.user.id;
+    const userRole = req.user.rol;
+
+    // 1. Verificar permisos
+    if (userRole !== 'comercio' && userRole !== 'admin') {
         return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios.' });
     }
 
-    const userId = req.user.id;
+    // 2. Buscar la tienda asociada al ID del usuario
+    let storeResult = await pool.query('SELECT id FROM stores WHERE user_id = $1 ORDER BY id LIMIT 1', [userId]);
 
-    // 2. Buscar la tienda asociada al ID del usuario.
-    const storeResult = await pool.query('SELECT id FROM stores WHERE user_id = $1', [userId]);
+    console.log(`🔍 getStoreId - userId: ${userId}, role: ${userRole}, stores found: ${storeResult.rows.length}`);
 
-    if (storeResult.rows.length === 0) {
+    // 3. Si es admin y no tiene tienda (está simulando), usar tienda demo
+    if (userRole === 'admin' && storeResult.rows.length === 0) {
+        // Usar la primera tienda disponible como tienda demo para el admin
+        storeResult = await pool.query('SELECT id FROM stores ORDER BY id LIMIT 1');
+        
+        if (storeResult.rows.length === 0) {
+            return res.status(404).json({ msg: 'No hay tiendas disponibles en el sistema.' });
+        }
+        
+        console.log(`🔑 Admin simulando comercio - Usando tienda demo ID: ${storeResult.rows[0].id}`);
+    } else if (storeResult.rows.length === 0) {
         return res.status(404).json({ msg: 'No se encontró una tienda asociada a este usuario.' });
     }
 
-    // 3. Adjuntar el ID de la tienda a la solicitud para que los controladores puedan usarlo.
-    req.storeId = storeResult.rows[0].id;
+    // 4. Adjuntar el ID de la tienda a la solicitud para que los controladores puedan usarlo
+    const assignedStoreId = storeResult.rows[0].id;
+    console.log(`✅ getStoreId - Assigned storeId: ${assignedStoreId} to userId: ${userId}`);
+    req.storeId = assignedStoreId;
     next();
 });
 

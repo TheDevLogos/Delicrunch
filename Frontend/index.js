@@ -1,5 +1,8 @@
 import { registerRootComponent } from 'expo';
 
+// Apply safe EventTarget patch before anything else to avoid noisy Metro errors
+import './patches/eventTargetSafe';
+
 import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);

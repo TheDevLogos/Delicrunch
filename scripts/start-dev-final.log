@@ -1,0 +1,73 @@
+1) Levantando Postgres con docker-compose...
+ Container delicrunch-postgres  Running
+2) Esperando a que Postgres esté listo...
+\n3) Aplicando migraciones y seeds completos...
+✓ Esquema de base de datos aplicado exitosamente
+✓ Usuario admin ya existe
+✓ Datos de ejemplo creados: 2 tiendas y 4 productos
+🌮 Iniciando seed de Delicias, Chihuahua...
+
+✅ Usuario comercio: taqueria.lasdelicias@delicrunch.com
+✅ Usuario comercio: borrego.oro@delicrunch.com
+✅ Usuario comercio: chilaquiles.carreta@delicrunch.com
+✅ Usuario comercio: pizza.orsinis@delicrunch.com
+✅ Usuario comercio: dr.sushi@delicrunch.com
+✅ Usuario comercio: cafe.placeres@delicrunch.com
+🏪 Tienda creada: Taquería Las Delicias
+🏪 Tienda creada: El Borrego de Oro
+🏪 Tienda creada: Chilaquiles La Carreta
+🏪 Tienda creada: Pizza Orsini's
+🏪 Tienda creada: Dr. Sushi
+🏪 Tienda creada: Café Placeres
+
+🍽️  17 productos creados exitosamente
+👤 Perfiles de comerciantes actualizados
+
+════════════════════════════════════════
+✅ SEED DE DELICIAS COMPLETADO
+════════════════════════════════════════
+📍 Ciudad: Delicias, Chihuahua
+🏪 Tiendas creadas: 6
+🍽️  Productos creados: 17
+👤 Usuarios comercio: 6
+
+📝 Credenciales de prueba:
+   Email: taqueria.lasdelicias@delicrunch.com
+   Password: Comercio123
+════════════════════════════════════════
+
+👤 Creando usuario comprador de prueba...
+
+✅ Usuario creado: comprador@delicrunch.com
+✅ Perfil completo creado
+
+════════════════════════════════════════
+✅ USUARIO COMPRADOR CREADO
+════════════════════════════════════════
+📧 Email: comprador@delicrunch.com
+🔐 Password: Comprador123
+📍 Ciudad: Delicias, Chihuahua
+════════════════════════════════════════
+
+✓ Se insertaron 10 productos completos
+4) Iniciando backend (puerto 5001, 0.0.0.0)...
+Matando procesos en 5001: 29685
+   Esperando a que backend responda...
+   Backend listo (PID: 35539)
+5) Configurando API_URL para Expo...
+   Detectado Codespace. API_URL=https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+   Frontend/.env actualizado
+6) Iniciando Expo en /Frontend (intentar túnel, con fallback a LAN/Web)...
+   Iniciando Expo (modo: tunnel, puerto: 8081). Logs: /workspaces/Delicrunch/scripts/expo.log
+\nListo. Revisa Metro y las credenciales de prueba. Logs de Expo: /workspaces/Delicrunch/scripts/expo.log
+Admin: admindeli@delicrunch.com / Admin1234
+Comercio: espiga@demo.com / Admin1234
+Comprador: comprador@delicrunch.com / Comprador123
+Delicias: taqueria.lasdelicias@delicrunch.com / Comercio123
+Prueba rápida de login (local):
+curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:5001/api/auth/login -H "Content-Type: application/json" -d '{"email":"admindeli@delicrunch.com","password":"Admin1234"}' || true
+Verificando logins de prueba...
+   ✅ Logins de prueba verificados correctamente
+   ✅ Productos públicos verificados: 356 productos
+   ✅ Tiendas con productos verificadas: 94 tiendas
+   ✅ EXPO_PUBLIC_API_URL presente en Frontend/.env

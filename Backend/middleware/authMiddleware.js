@@ -1,11 +1,23 @@
 const jwt = require('jsonwebtoken');
+const pool = require('../db');
 require('dotenv').config();
 
-module.exports = function (req, res, next) {
+/**
+ * Middleware de protección de rutas
+ * Verifica que el usuario tenga un token JWT válido
+ */
+const protect = function (req, res, next) {
     // 1. Obtener el token del encabezado de la solicitud
-    // Por convención, los tokens se envían en un encabezado llamado 'x-auth-token'
-    // o 'Authorization: Bearer <token>'. Usaremos 'x-auth-token' por simplicidad.
-    const token = req.header('x-auth-token');
+    // Soportamos dos formatos: 'x-auth-token' y 'Authorization: Bearer <token>'
+    let token = req.header('x-auth-token');
+    
+    // Si no hay x-auth-token, intentar con Authorization Bearer
+    if (!token) {
+        const authHeader = req.header('Authorization');
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
+        }
+    }
 
     // 2. Verificar si no hay token
     if (!token) {
@@ -33,3 +45,44 @@ module.exports = function (req, res, next) {
         res.status(401).json({ msg: 'Token no es válido.' });
     }
 };
+
+/**
+ * Middleware para restringir acceso por rol
+ * @param  {...string} roles - Roles permitidos ('admin', 'comercio', 'comprador')
+ */
+const restrictTo = (...roles) => {
+    return async (req, res, next) => {
+        try {
+            // Obtener el rol del usuario desde la base de datos
+            const result = await pool.query(
+                'SELECT rol FROM users WHERE id = $1',
+                [req.user.id]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(401).json({ msg: 'Usuario no encontrado' });
+            }
+
+            const userRole = result.rows[0].rol;
+
+            // Verificar si el rol del usuario está en los roles permitidos
+            if (!roles.includes(userRole)) {
+                return res.status(403).json({ 
+                    msg: 'No tienes permisos para realizar esta acción' 
+                });
+            }
+
+            // Agregar el rol al objeto request para uso posterior
+            req.userRole = userRole;
+            next();
+        } catch (error) {
+            console.error('Error al verificar rol:', error);
+            res.status(500).json({ msg: 'Error del servidor' });
+        }
+    };
+};
+
+// Exportar como módulo con múltiples funciones
+module.exports = protect;
+module.exports.protect = protect;
+module.exports.restrictTo = restrictTo;

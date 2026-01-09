@@ -1,15 +1,17 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import api from '../services/api'; // El interceptor se encarga del token
 import StyledButton from '../components/StyledButton';
+import { formatPrice } from '../src/utils/format';
 
 // Componente para renderizar cada producto del comercio
 const ProductItem = ({ item }) => (
   <View style={styles.productItem}>
     <Text style={styles.productTitle}>{item.nombre}</Text>
-    <Text style={styles.productDetails}>Precio Original: ${item.precio_original}</Text>
-    <Text style={styles.productDetails}>Precio Descuento: ${item.precio_descuento}</Text>
+    <Text style={styles.productDetails}>Precio Original: ${formatPrice(item.precio_original)}</Text>
+    <Text style={styles.productDetails}>Precio Descuento: ${formatPrice(item.precio_descuento)}</Text>
     <Text style={styles.productStock}>Stock Disponible: {item.cantidad_disponible}</Text>
   </View>
 );

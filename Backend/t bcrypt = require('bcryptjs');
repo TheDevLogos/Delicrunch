@@ -1,0 +1,5 @@
+       conname       |                                                                                                               pg_get_constraintdef                                                                                                                
+---------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ orders_estado_check | CHECK (((estado)::text = ANY ((ARRAY['pendiente'::character varying, 'confirmado'::character varying, 'en_preparacion'::character varying, 'listo'::character varying, 'recogido'::character varying, 'cancelado'::character varying])::text[])))
+(1 row)
+

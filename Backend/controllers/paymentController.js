@@ -148,3 +148,90 @@ exports.getAccountStatus = asyncHandler(async (req, res, next) => {
         chargesEnabled: account.charges_enabled,
     });
 });
+
+/**
+ * @desc    Listar métodos de pago guardados del usuario (solo metadatos)
+ * @route   GET /api/payments/methods
+ * @access  Privado
+ */
+exports.listSavedCards = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const result = await pool.query(
+        'SELECT id, brand, last4, exp_month, exp_year, is_default, created_at FROM saved_cards WHERE user_id = $1 ORDER BY is_default DESC, created_at DESC',
+        [userId]
+    );
+    res.json(result.rows);
+});
+
+/**
+ * @desc    Agregar un método de pago (solo metadatos, no almacenar PAN/CVV)
+ * @route   POST /api/payments/methods
+ * @access  Privado
+ */
+exports.addSavedCard = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const { brand, last4, exp_month, exp_year, make_default } = req.body;
+
+    if (!brand || !last4 || String(last4).length !== 4 || !exp_month || !exp_year) {
+        return res.status(400).json({ msg: 'Datos de tarjeta inválidos (solo metadatos).' });
+    }
+
+    await pool.query('BEGIN');
+    try {
+        let isDefault = false;
+        if (make_default) {
+            await pool.query('UPDATE saved_cards SET is_default = FALSE WHERE user_id = $1', [userId]);
+            isDefault = true;
+        }
+        const insert = await pool.query(
+            `INSERT INTO saved_cards (user_id, brand, last4, exp_month, exp_year, is_default)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, brand, last4, exp_month, exp_year, is_default, created_at`,
+            [userId, brand, String(last4).slice(-4), parseInt(exp_month), parseInt(exp_year), isDefault]
+        );
+        await pool.query('COMMIT');
+        res.status(201).json(insert.rows[0]);
+    } catch (e) {
+        await pool.query('ROLLBACK');
+        throw e;
+    }
+});
+
+/**
+ * @desc    Eliminar un método de pago guardado
+ * @route   DELETE /api/payments/methods/:id
+ * @access  Privado
+ */
+exports.deleteSavedCard = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const id = req.params.id;
+    const del = await pool.query('DELETE FROM saved_cards WHERE id = $1 AND user_id = $2 RETURNING id', [id, userId]);
+    if (del.rowCount === 0) {
+        return res.status(404).json({ msg: 'Tarjeta no encontrada' });
+    }
+    res.json({ msg: 'Eliminada' });
+});
+
+/**
+ * @desc    Establecer un método de pago como predeterminado
+ * @route   PUT /api/payments/methods/:id/default
+ * @access  Privado
+ */
+exports.setDefaultSavedCard = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const id = req.params.id;
+    await pool.query('BEGIN');
+    try {
+        const exists = await pool.query('SELECT id FROM saved_cards WHERE id = $1 AND user_id = $2', [id, userId]);
+        if (exists.rowCount === 0) {
+            await pool.query('ROLLBACK');
+            return res.status(404).json({ msg: 'Tarjeta no encontrada' });
+        }
+        await pool.query('UPDATE saved_cards SET is_default = FALSE WHERE user_id = $1', [userId]);
+        await pool.query('UPDATE saved_cards SET is_default = TRUE WHERE id = $1 AND user_id = $2', [id, userId]);
+        await pool.query('COMMIT');
+        res.json({ msg: 'Tarjeta establecida como predeterminada' });
+    } catch (e) {
+        await pool.query('ROLLBACK');
+        throw e;
+    }
+});

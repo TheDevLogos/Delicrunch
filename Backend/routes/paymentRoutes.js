@@ -4,7 +4,11 @@ const {
     createPaymentIntent, 
     createAccountLink,
     handleOnboardingRefresh,
-    getAccountStatus
+    getAccountStatus,
+    listSavedCards,
+    addSavedCard,
+    deleteSavedCard,
+    setDefaultSavedCard,
 } = require('../controllers/paymentController');
 const authMiddleware = require('../middleware/authMiddleware');
 
@@ -24,5 +28,11 @@ router.post('/create-account-link', authMiddleware, createAccountLink);
 router.get('/stripe-account-status', authMiddleware, getAccountStatus);
 
 router.get('/stripe-onboarding-refresh', handleOnboardingRefresh);
+
+// Métodos de pago guardados (solo metadatos, no PCI)
+router.get('/methods', authMiddleware, listSavedCards);
+router.post('/methods', authMiddleware, addSavedCard);
+router.delete('/methods/:id', authMiddleware, deleteSavedCard);
+router.put('/methods/:id/default', authMiddleware, setDefaultSavedCard);
 
 module.exports = router;

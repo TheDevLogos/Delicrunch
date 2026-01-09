@@ -65,22 +65,30 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
 exports.loginUser = asyncHandler(async (req, res, next) => {
     const { email, password } = req.body;
     
+    // Log para debugging
+    console.log('🔐 Intento de login:', { email, passwordLength: password?.length, body: req.body });
+    
     // Validación básica
     if (!email || !password) {
+        console.log('❌ Validación falló: email o password faltante');
         return res.status(400).json({ msg: 'Por favor, incluye email y contraseña.' });
     }
 
     // 1. Buscar al usuario por email
     const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userResult.rows.length === 0) {
+        console.log('❌ Usuario no encontrado:', email);
         return res.status(400).json({ msg: 'Credenciales inválidas.' });
     }
 
     const user = userResult.rows[0];
+    console.log('✅ Usuario encontrado:', { id: user.id, email: user.email, rol: user.rol });
 
     // 2. Comparar la contraseña enviada con la hasheada en la DB
     const isMatch = await bcrypt.compare(password, user.password_hash);
+    console.log('🔑 Comparación de contraseña:', { isMatch, hashPreview: user.password_hash.substring(0, 20) });
     if (!isMatch) {
+        console.log('❌ Contraseña incorrecta');
         return res.status(400).json({ msg: 'Credenciales inválidas.' });
     }
 

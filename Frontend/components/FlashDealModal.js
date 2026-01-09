@@ -1,161 +1,153 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, Image, TouchableOpacity, Animated, Dimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import StyledButton from './StyledButton';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { COLORS, SPACING } from '../src/constants/theme';
+import { formatPrice } from '../src/utils/format';
 
-const { height } = Dimensions.get('window');
+          const COUNTDOWN_START = 20 * 60; // 20 minutos en segundos
 
-/**
- * Un modal de oferta flash que aparece con una animación.
- * Muestra un producto destacado de forma llamativa.
- *
- * @param {object} props
- * @param {boolean} props.visible - Controla si el modal es visible.
- * @param {object | null} props.product - El producto a mostrar en la oferta.
- * @param {() => void} props.onClose - Función para cerrar el modal.
- * @param {(product: object) => void} props.onPurchase - Función para manejar la compra.
- */
-const FlashDealModal = ({ visible, product, onClose, onPurchase }) => {
-  // Usamos Animated para la animación de entrada del modal
-  const slideAnim = useRef(new Animated.Value(height)).current;
+export default function FlashDealModal({ products, navigation }) {
+  const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_START);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
-    if (visible) {
-      // Animación para que el modal suba desde la parte inferior
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        friction: 8,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      // Animación para que el modal baje y desaparezca
-      Animated.timing(slideAnim, {
-        toValue: height,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible]);
+    intervalRef.current = setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          // Cambia al siguiente producto y reinicia el contador
+          const nextIndex = (currentIndex + 1) % products.length;
+          setCurrentIndex(nextIndex);
+          return COUNTDOWN_START;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, [currentIndex, products]);
 
-  if (!product) {
-    return null;
-  }
+  if (!products || products.length === 0) return null;
+  const product = products[currentIndex];
+  const min = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+  const sec = String(secondsLeft % 60).padStart(2, '0');
 
-  const handlePurchase = () => {
-    onPurchase(product);
+  const handleBuy = () => {
+    navigation.navigate('OrderConfirmation', { product });
   };
 
   return (
-    <Modal
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-      animationType="none" // La animación la controlamos nosotros
-    >
-      <View style={styles.overlay}>
-        <Animated.View style={[styles.container, { transform: [{ translateY: slideAnim }] }]}>
-          {/* Botón para cerrar */}
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close-circle" size={32} color="#999" />
-          </TouchableOpacity>
-
-          {/* Contenido de la oferta */}
-          <Text style={styles.headerText}>¡Oferta Flash!</Text>
-          <Text style={styles.subHeaderText}>¡No te pierdas este pack increíble!</Text>
-
-          <Image source={{ uri: product.imagen_url }} style={styles.productImage} />
-
+    <View style={styles.container}>
+      <Text style={styles.flashTitle}>⚡ Flash Rescue</Text>
+      <Text style={styles.timer}>{`00:${min}:${sec}`}</Text>
+      <View style={styles.productBox}>
+        {product.imagen_url ? (
+          <Image source={{ uri: product.imagen_url }} style={styles.image} />
+        ) : (
+          <View style={styles.imagePlaceholder}><Text>Sin imagen</Text></View>
+        )}
+        <View style={styles.infoBox}>
           <Text style={styles.productName}>{product.nombre}</Text>
-          <Text style={styles.storeName}>{product.nombre_comercio}</Text>
-
-          <View style={styles.priceContainer}>
-            <Text style={styles.originalPrice}>${product.precio_original}</Text>
-            <Text style={styles.discountPrice}>¡Solo ${product.precio_descuento}!</Text>
-          </View>
-
-          <StyledButton
-            title="¡Lo quiero!"
-            onPress={handlePurchase}
-            variant="success"
-            style={{ marginTop: 20 }}
-          />
-        </Animated.View>
+          <Text style={styles.productDesc}>{product.descripcion}</Text>
+          <Text style={styles.price}>${formatPrice(product.precio_descuento)} <Text style={styles.priceOriginal}>${formatPrice(product.precio_original)}</Text></Text>
+          <Text style={styles.store}>{product.nombre_comercio}</Text>
+          <TouchableOpacity style={styles.buyButton} onPress={handleBuy}>
+            <Text style={styles.buyButtonText}>¡Lo quiero!</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </Modal>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   container: {
-    width: '90%',
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 25,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    padding: SPACING.md,
+    marginVertical: SPACING.md,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowColor: COLORS.border,
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 0,
+    elevation: 8,
   },
-  closeButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    zIndex: 1,
-  },
-  headerText: {
-    fontSize: 28,
+  flashTitle: {
+    color: COLORS.white,
     fontWeight: 'bold',
-    color: '#e67e22',
-    marginBottom: 5,
+    fontSize: 18,
+    marginBottom: 4,
+    letterSpacing: 1,
   },
-  subHeaderText: {
-    fontSize: 16,
-    color: '#7f8c8d',
-    marginBottom: 20,
+  timer: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+    fontSize: 24,
+    marginBottom: 8,
+    letterSpacing: 2,
   },
-  productImage: {
+  productBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     width: '100%',
-    height: 180,
-    borderRadius: 15,
-    marginBottom: 15,
+  },
+  image: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: SPACING.md,
+    backgroundColor: COLORS.white,
+  },
+  imagePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: SPACING.md,
+    backgroundColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoBox: {
+    flex: 1,
   },
   productName: {
-    fontSize: 22,
+    color: COLORS.white,
     fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  storeName: {
     fontSize: 16,
-    color: 'gray',
-    marginBottom: 15,
+    marginBottom: 2,
   },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
+  productDesc: {
+    color: COLORS.white,
+    fontSize: 12,
+    marginBottom: 2,
   },
-  originalPrice: {
-    fontSize: 18,
-    color: '#95a5a6',
-    textDecorationLine: 'line-through',
-    marginRight: 10,
-  },
-  discountPrice: {
-    fontSize: 26,
+  price: {
+    color: COLORS.white,
     fontWeight: 'bold',
-    color: '#27ae60',
+    fontSize: 16,
+  },
+  priceOriginal: {
+    color: COLORS.accent,
+    textDecorationLine: 'line-through',
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  store: {
+    color: COLORS.white,
+    fontSize: 12,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  buyButton: {
+    marginTop: 8,
+    backgroundColor: COLORS.accent,
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+  },
+  buyButtonText: {
+    color: COLORS.text,
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
-
-export default FlashDealModal;

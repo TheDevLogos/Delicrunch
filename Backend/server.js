@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const pool = require('./db/index.js'); // CORRECCIÓN: Usar la ruta correcta y consistente
 const errorHandler = require('./middleware/errorHandler');
 
@@ -41,13 +41,20 @@ app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 // Usamos las rutas de reseñas
 app.use('/api/reviews', require('./routes/reviewRoutes'));
+
+// Usamos las rutas de tiendas
+app.use('/api/stores', require('./routes/storeRoutes'));
 // Usamos las rutas de pagos
 app.use('/api/payments', require('./routes/paymentRoutes'));
+// Usamos las rutas de administración
+app.use('/api/admin', require('./routes/adminRoutes'));
+// Usamos las rutas de cupones y recompensas
+app.use('/api/coupons', require('./routes/couponRoutes'));
 
 // Middleware de manejo de errores (debe ir después de las rutas)
 app.use(errorHandler);
-// Iniciar el servidor
-app.listen(PORT, () => {
-    console.log(`Servidor escuchando en el puerto ${PORT}`);
+// Iniciar el servidor en todas las interfaces (0.0.0.0) para permitir acceso desde el túnel de Expo
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor escuchando en el puerto ${PORT} en todas las interfaces`);
     checkDbConnection();
 });

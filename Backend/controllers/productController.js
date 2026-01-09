@@ -47,7 +47,7 @@ exports.getStoreProducts = asyncHandler(async (req, res, next) => {
     // El middleware getStoreId nos proporciona req.storeId
     const storeId = req.storeId;
 
-    const products = await pool.query('SELECT * FROM products WHERE store_id = $1 ORDER BY fecha_creacion DESC', [storeId]);
+    const products = await pool.query('SELECT * FROM products WHERE store_id = $1 ORDER BY created_at DESC', [storeId]);
     res.json(products.rows);
 });
 
@@ -60,7 +60,7 @@ exports.getAllAvailableProducts = asyncHandler(async (req, res, next) => {
             FROM products p
             JOIN stores s ON p.store_id = s.id
             WHERE p.cantidad_disponible > 0
-            ORDER BY p.fecha_creacion DESC`
+            ORDER BY p.created_at DESC`
     );
     res.json(products.rows);
 });

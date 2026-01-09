@@ -1,0 +1,15 @@
+{
+  "vscode-pokemon.defaultPokemon": [
+    {
+      "type": "pikachu",
+      "name": "Sparky"
+    },
+    {
+      "type": "charizard",
+      "name": "Flame"
+    },
+    {
+      "type": "articuno"
+    }
+  ]
+}

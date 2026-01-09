@@ -1,0 +1,30 @@
+Servidor escuchando en el puerto 5001 en todas las interfaces
+Conexión con la base de datos establecida exitosamente.
+🔐 Intento de login: {
+  email: 'comprador@delicrunch.com',
+  passwordLength: 12,
+  body: { email: 'comprador@delicrunch.com', password: 'Comprador123' }
+}
+✅ Usuario encontrado: { id: 415, email: 'comprador@delicrunch.com', rol: 'comprador' }
+🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$a.fK9wkGtsJVT' }
+🔐 Intento de login: {
+  email: 'admindeli@delicrunch.com',
+  passwordLength: 9,
+  body: { email: 'admindeli@delicrunch.com', password: 'Admin1234' }
+}
+✅ Usuario encontrado: { id: 1, email: 'admindeli@delicrunch.com', rol: 'admin' }
+🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$iN4K/rSqnIKVB' }
+🔐 Intento de login: {
+  email: 'espiga@demo.com',
+  passwordLength: 9,
+  body: { email: 'espiga@demo.com', password: 'Admin1234' }
+}
+✅ Usuario encontrado: { id: 407, email: 'espiga@demo.com', rol: 'comercio' }
+🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$lqCRgN17Xxu9X' }
+🔐 Intento de login: {
+  email: 'comprador@delicrunch.com',
+  passwordLength: 12,
+  body: { email: 'comprador@delicrunch.com', password: 'Comprador123' }
+}
+✅ Usuario encontrado: { id: 415, email: 'comprador@delicrunch.com', rol: 'comprador' }
+🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$a.fK9wkGtsJVT' }
