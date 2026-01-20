@@ -15,30 +15,65 @@ const ensureApiSuffix = (url) => {
 };
 
 const getApiUrl = () => {
-  // 1) Variable de entorno prioritaria (ideal para dispositivos reales)
+  // 1) PRIORITARIO: extra.apiUrl inyectado por app.config.js (lee .env en build time)
+  const expoExtraApi = Constants.expoConfig?.extra?.apiUrl;
+  if (expoExtraApi) {
+    console.log('🔗 Usando extra.apiUrl:', expoExtraApi);
+    return ensureApiSuffix(expoExtraApi);
+  }
+
+  // 2) Variable de entorno en runtime (EXPO_PUBLIC_*)
   if (process.env.EXPO_PUBLIC_API_URL) {
+    console.log('🔗 Usando EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
     return ensureApiSuffix(process.env.EXPO_PUBLIC_API_URL);
   }
 
-  // 2) Desarrollo: derivar desde hostUri de Expo
+  // 3) Manifest legacy (Expo SDK < 46)
+  const manifestApi = Constants.manifest?.extra?.apiUrl;
+  if (manifestApi) {
+    console.log('🔗 Usando manifest.extra.apiUrl:', manifestApi);
+    return ensureApiSuffix(manifestApi);
+  }
+
+  // 3b) Si estamos en un entorno donde Expo expone debuggerHost (packager), usarlo
+  // Ej: "192.168.1.5:19000" -> extraer la IP y usar el puerto del backend
+  const debuggerHost = Constants.manifest?.debuggerHost;
+  if (debuggerHost && __DEV__) {
+    const hostFromDebugger = debuggerHost.split(':')[0];
+    console.log('🔗 Usando manifest.debuggerHost como host de dev:', hostFromDebugger);
+    return ensureApiSuffix(`http://${hostFromDebugger}:5001`);
+  }
+
+  // 4) Desarrollo: derivar desde hostUri de Expo
   if (__DEV__) {
-    const expoConfig = Constants.expoConfig;
-    if (expoConfig?.hostUri) {
-      const host = expoConfig.hostUri.split(':')[0];
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+      const host = hostUri.split(':')[0];
+      // Si es un túnel ngrok/localtunnel, usarlo directamente
+      if (host.includes('.') && !host.startsWith('192.') && !host.startsWith('10.') && !host.startsWith('172.')) {
+        console.log('🔗 Usando hostUri (túnel):', host);
+        return ensureApiSuffix(`https://${host}`);
+      }
+      console.log('🔗 Usando hostUri (local):', host);
       return ensureApiSuffix(`http://${host}:5001`);
     }
-    // Fallbacks
-    if (Platform.OS === 'android') return ensureApiSuffix('http://10.0.2.2:5001'); // emulador Android
+    
+    // Fallbacks por plataforma
+    if (Platform.OS === 'android') {
+      console.log('🔗 Fallback Android emulator');
+      return ensureApiSuffix('http://10.0.2.2:5001');
+    }
+    console.log('🔗 Fallback localhost');
     return ensureApiSuffix('http://localhost:5001');
   }
 
-  // 3) Producción
+  // 5) Producción
   return ensureApiSuffix('https://api.delicrunch.com');
 };
 
 const API_BASE_URL = getApiUrl();
 
-console.log('🌐 API Base URL:', API_BASE_URL);
+console.log('🌐 API Base URL final:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,

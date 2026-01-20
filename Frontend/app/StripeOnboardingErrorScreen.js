@@ -6,7 +6,7 @@ import StyledButton from '../components/StyledButton';
 
 const StripeOnboardingErrorScreen = ({ navigation }) => {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Ionicons name="close-circle" size={80} color="#ff3b30" />
       <Text style={styles.title}>Ocurrió un Error</Text>
       <Text style={styles.subtitle}>

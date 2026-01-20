@@ -2,23 +2,35 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 
 import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './contexts/AuthProvider';
 import { LocationProvider } from './contexts/LocationContext';
 import { GamificationProvider } from './contexts/GamificationContext';
 
+// Obtener Stripe publishable key desde variables de entorno
+const STRIPE_PUBLISHABLE_KEY = 
+  process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+  Constants.expoConfig?.extra?.stripePublishableKey ||
+  '';
+
+if (!STRIPE_PUBLISHABLE_KEY) {
+  console.warn('⚠️ STRIPE_PUBLISHABLE_KEY no está configurada');
+}
+
 export default function App() {
   return (
     <StripeProvider
-      publishableKey="pk_test_51SRRYk8hoiRFdhGtFHnTJRVAPniX7lh6esuxdNc13Xw7GK3njphOGYTQ8An7HJSdcTxjeVMi2tULPp6DqKugVbDT00PMJuLLkJ" // <-- REPLACE WITH REAL KEY
+      publishableKey={STRIPE_PUBLISHABLE_KEY}
+      merchantIdentifier="merchant.com.delicrunch.app"
     >
       <SafeAreaProvider>
         <AuthProvider>
           <LocationProvider>
             <GamificationProvider>
               <NavigationContainer>
-                <AppNavigator />
+                <AppNavigator /> 
               </NavigationContainer>
             </GamificationProvider>
           </LocationProvider>

@@ -24,5 +24,13 @@ router.put('/me', authMiddleware, upload.single('foto_perfil'), profileControlle
 // @acceso  Privado (requiere token y ser rol 'comercio')
 router.put('/store', authMiddleware, profileController.updateStoreProfile);
 
+// Gamification endpoints
+router.get('/gamification', authMiddleware, profileController.getGamification);
+router.post('/gamification', authMiddleware, profileController.postGamification);
+
+// First login endpoints
+router.get('/check-first-login', authMiddleware, profileController.checkFirstLogin);
+router.post('/first-login', authMiddleware, profileController.markFirstLoginShown);
+
 
 module.exports = router;

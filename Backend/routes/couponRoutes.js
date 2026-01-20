@@ -21,6 +21,9 @@ router.post('/use', couponController.useCoupon);
 // Otorgar cupón por nivel
 router.post('/grant-level', couponController.grantLevelCoupon);
 
+// Obtener definiciones / estado por nivel
+router.get('/definitions', couponController.getLevelCoupons);
+
 // XP y transacciones
 router.post('/xp', couponController.recordXpTransaction);
 router.get('/xp/history', couponController.getXpHistory);

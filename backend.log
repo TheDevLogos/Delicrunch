@@ -5,26 +5,97 @@ Conexión con la base de datos establecida exitosamente.
   passwordLength: 12,
   body: { email: 'comprador@delicrunch.com', password: 'Comprador123' }
 }
-✅ Usuario encontrado: { id: 415, email: 'comprador@delicrunch.com', rol: 'comprador' }
-🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$a.fK9wkGtsJVT' }
+✅ Usuario encontrado: { id: 10, email: 'comprador@delicrunch.com', rol: 'comprador' }
+🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$GnB5VNqtPoZ8p' }
 🔐 Intento de login: {
   email: 'admindeli@delicrunch.com',
   passwordLength: 9,
   body: { email: 'admindeli@delicrunch.com', password: 'Admin1234' }
 }
 ✅ Usuario encontrado: { id: 1, email: 'admindeli@delicrunch.com', rol: 'admin' }
-🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$iN4K/rSqnIKVB' }
+🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$GI7DofTCiENTQ' }
+error: invalid input syntax for type integer: "all"
+    at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async /workspaces/Delicrunch/Backend/controllers/orderController.js:181:25
+error: invalid input syntax for type integer: "all"
+    at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async /workspaces/Delicrunch/Backend/controllers/orderController.js:181:25
+error: invalid input syntax for type integer: "all"
+    at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async /workspaces/Delicrunch/Backend/controllers/orderController.js:181:25
 🔐 Intento de login: {
-  email: 'espiga@demo.com',
-  passwordLength: 9,
-  body: { email: 'espiga@demo.com', password: 'Admin1234' }
+  email: 'taqueria.lasdelicias@delicrunch.com',
+  passwordLength: 11,
+  body: {
+    email: 'taqueria.lasdelicias@delicrunch.com',
+    password: 'Comercio123'
+  }
 }
-✅ Usuario encontrado: { id: 407, email: 'espiga@demo.com', rol: 'comercio' }
-🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$lqCRgN17Xxu9X' }
+✅ Usuario encontrado: {
+  id: 4,
+  email: 'taqueria.lasdelicias@delicrunch.com',
+  rol: 'comercio'
+}
+🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$tyIq1BU.a4vA3' }
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🏪 getStoreOrders - storeId: 3 userId: 4 role: comercio
+📦 Found 7 orders for store 3
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🏪 getStoreOrders - storeId: 3 userId: 4 role: comercio
+📦 Found 7 orders for store 3
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🏪 getStoreOrders - storeId: 3 userId: 4 role: comercio
+📦 Found 7 orders for store 3
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🏪 getStoreOrders - storeId: 3 userId: 4 role: comercio
+📦 Found 7 orders for store 3
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🏪 getStoreOrders - storeId: 3 userId: 4 role: comercio
+📦 Found 7 orders for store 3
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🏪 getStoreOrders - storeId: 3 userId: 4 role: comercio
+📦 Found 7 orders for store 3
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
+🏪 getStoreOrders - storeId: 3 userId: 4 role: comercio
+📦 Found 7 orders for store 3
+🔍 getStoreId - userId: 4, role: comercio, stores found: 1
+✅ getStoreId - Assigned storeId: 3 to userId: 4
 🔐 Intento de login: {
   email: 'comprador@delicrunch.com',
   passwordLength: 12,
   body: { email: 'comprador@delicrunch.com', password: 'Comprador123' }
 }
-✅ Usuario encontrado: { id: 415, email: 'comprador@delicrunch.com', rol: 'comprador' }
-🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$a.fK9wkGtsJVT' }
+✅ Usuario encontrado: { id: 10, email: 'comprador@delicrunch.com', rol: 'comprador' }
+🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$GnB5VNqtPoZ8p' }

@@ -8,7 +8,11 @@
     "userInterfaceStyle": "light",
     "scheme": "delicrunch",
     "sdkVersion": "54.0.0",
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -48,7 +52,8 @@
           },
           "android": {
             "enableProguardInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ],
@@ -61,6 +66,14 @@
         }
       ],
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "apiUrl": "https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev",
+      "stripePublishableKey": "pk_test_51SRRYk8hoiRFdhGtFHnTJRVAPniX7lh6esuxdNc13Xw7GK3njphOGYTQ8An7HJSdcTxjeVMi2tULPp6DqKugVbDT00PMJuLLkJ",
+      "eas": {
+        "projectId": "266fa507-5eba-4cf8-b44f-0aa42d08a694"
+      }
+    },
+    "owner": "alonsovl88"
   }
 }

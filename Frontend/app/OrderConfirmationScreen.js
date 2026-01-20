@@ -7,19 +7,25 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
   ScrollView, 
   Image, 
   TouchableOpacity,
   Platform,
   Animated,
   Share,
+  Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
+import { calculateCO2Saved } from '../src/constants/co2Factors';
 import { useGamification } from '../contexts/GamificationContext';
 import BadgeNotification from '../components/BadgeNotification';
+import api from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OrderConfirmationScreen = ({ route, navigation }) => {
   const { order, product } = route.params;
@@ -55,7 +61,10 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
   const registerPurchaseXP = async () => {
     const qty = order?.cantidad || 1;
     const savedAmount = order?.ahorro || ((product?.precio_original - product?.precio_descuento) * qty);
-    const co2Amount = order?.co2_ahorrado || (2.5 * qty);
+    
+    // Calcular CO2 basado en categoría del producto
+    const productCategory = product?.categoria || order?.categoria || 'otros';
+    const co2Amount = order?.co2_ahorrado || calculateCO2Saved(productCategory, qty);
     
     const result = await recordPurchase(qty, savedAmount, co2Amount);
     const xp = result?.xpGained || 0;
@@ -100,7 +109,10 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
   const quantity = order?.cantidad || 1;
   const total = order?.total || (product?.precio_descuento * quantity);
   const savings = order?.ahorro || ((product?.precio_original - product?.precio_descuento) * quantity);
-  const co2Saved = order?.co2_ahorrado || (2.5 * quantity);
+  
+  // Calcular CO2 basado en categoría del producto
+  const productCategory = product?.categoria || order?.categoria || 'otros';
+  const co2Saved = order?.co2_ahorrado || calculateCO2Saved(productCategory, quantity);
 
   const pickupStart = order?.hora_recogida_inicio || product?.hora_recogida_inicio || '14:00';
   const pickupEnd = order?.hora_recogida_fin || product?.hora_recogida_fin || '18:00';
@@ -125,9 +137,16 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
   };
 
   const goHome = () => {
+    // Navegar al tab de inicio (Discover) reseteando el stack
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Main' }],
+      routes: [{ 
+        name: 'MainTabs',
+        state: {
+          routes: [{ name: 'Descubre' }],
+          index: 0,
+        }
+      }],
     });
   };
 
@@ -135,8 +154,100 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
     navigation.navigate('MyOrders');
   };
 
+  // Cupones aplicables post-pedido (posible aplicación retroactiva)
+  const [applyCouponModal, setApplyCouponModal] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
+
+  const openApplyCoupon = async () => {
+    setLoadingCoupons(true);
+    try {
+      const total = Number(order?.total || 0);
+      let merged = [];
+      try {
+        const res = await api.get('/coupons/available', { params: { total, category: product.categoria || 'ALL' } });
+        if (res.data && res.data.success) merged = res.data.coupons || [];
+      } catch (e) {
+        console.log('No API coupons on apply:', e.message);
+      }
+
+      // Merge local
+      try {
+        const local = await AsyncStorage.getItem('@delicrunch_coupons');
+        if (local) {
+          const parsed = JSON.parse(local);
+          const localActive = (parsed.active || []).map(c => ({
+            id: c.id,
+            name: c.name,
+            description: c.description,
+            type: c.type,
+            value: c.value,
+            category: c.category || 'ALL',
+            min_purchase: c.minPurchase || c.min_purchase || 0,
+            max_discount: c.maxDiscount || c.max_discount || 0,
+            icon: c.icon,
+            color: c.color,
+            _local: true,
+            expires_at: c.expires_at,
+            potential_discount: 0,
+          }));
+          localActive.forEach(lc => { if (!merged.some(m => m.id === lc.id)) merged.unshift(lc); });
+        }
+      } catch (e) { console.log('Error reading local coupons', e.message); }
+
+      setAvailableCoupons(merged);
+      setApplyCouponModal(true);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  };
+
+  const applyCouponToOrder = async (coupon) => {
+    // Validate then use coupon on order
+    try {
+      const total = Number(order?.total || 0);
+      // If local-only coupon, we can mark it used locally and associate with order by saving metadata
+      if (coupon._local) {
+        // Mark local coupon as used
+        const stored = await AsyncStorage.getItem('@delicrunch_coupons');
+        const existing = stored ? JSON.parse(stored) : { active: [], used: [], expired: [] };
+        const idx = (existing.active || []).findIndex(c => c.id === coupon.id);
+        if (idx >= 0) {
+          const used = existing.active.splice(idx, 1)[0];
+          used.status = 'used';
+          used.used_at = new Date().toISOString();
+          used.used_in_order_id = order.id;
+          existing.used = [used, ...(existing.used || [])];
+          await AsyncStorage.setItem('@delicrunch_coupons', JSON.stringify(existing));
+          Alert.alert('Cupón aplicado', 'Tu cupón local ha sido marcado como usado para este pedido.');
+          setApplyCouponModal(false);
+          return;
+        }
+      }
+
+      // Backend coupon flow: validate then use
+      const validate = await api.post('/coupons/validate', { couponId: coupon.id, total, category: product.categoria || 'ALL' });
+      if (!validate.data || !validate.data.valid) {
+        Alert.alert('No válido', validate.data?.error || 'El cupón no es válido para este pedido');
+        return;
+      }
+
+      // Use coupon
+      const useResp = await api.post('/coupons/use', { couponId: coupon.id, orderId: order.id });
+      if (useResp.data && useResp.data.success) {
+        Alert.alert('Cupón aplicado', useResp.data.message || 'Cupón usado en este pedido.');
+        setApplyCouponModal(false);
+      } else {
+        Alert.alert('Error', 'No se pudo aplicar el cupón.');
+      }
+    } catch (e) {
+      console.log('Error applying coupon to order', e.message);
+      Alert.alert('Error', 'No se pudo aplicar el cupón.');
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* XP Popup */}
       {showXpPopup && (
         <Animated.View 
@@ -169,6 +280,15 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Coupon apply CTA */}
+        {order?.id && (
+          <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
+            <TouchableOpacity style={styles.applyCouponBtn} onPress={openApplyCoupon}>
+              <Ionicons name="ticket" size={18} color="#fff" />
+              <Text style={styles.applyCouponText}>Aplicar cupón a este pedido</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         {/* Success Header */}
         <View style={styles.successHeader}>
           <View style={styles.checkCircle}>
@@ -272,6 +392,41 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
           </View>
         </Animated.View>
 
+        {/* Apply Coupon Modal */}
+        <Modal visible={applyCouponModal} animationType="slide" transparent onRequestClose={() => setApplyCouponModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContentWide}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Selecciona un cupón para este pedido</Text>
+                <TouchableOpacity onPress={() => setApplyCouponModal(false)}>
+                  <Ionicons name="close" size={22} color={COLORS.text} />
+                </TouchableOpacity>
+              </View>
+              {loadingCoupons ? (
+                <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 24 }} />
+              ) : availableCoupons.length === 0 ? (
+                <View style={{ padding: 20 }}>
+                  <Text style={{ color: COLORS.textSecondary }}>No hay cupones aplicables para este pedido.</Text>
+                </View>
+              ) : (
+                <ScrollView style={{ maxHeight: 320 }}>
+                  {availableCoupons.map(c => (
+                    <TouchableOpacity key={c.id} style={styles.couponOption} onPress={() => applyCouponToOrder(c)}>
+                      <View style={[styles.couponOptionLeft, { backgroundColor: c.color || '#34C759' }] }>
+                        <Text style={styles.couponOptionValue}>{c.type === 'percentage' ? `${c.value}%` : `$${formatPrice(c.value)}`}</Text>
+                      </View>
+                      <View style={styles.couponOptionInfo}>
+                        <Text style={styles.couponOptionName}>{c.name}</Text>
+                        <Text style={styles.couponOptionMeta}>{c.description}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
+
         {/* Order Summary */}
         <View style={styles.summaryCard}>
           <Text style={styles.cardTitle}>Resumen del pedido</Text>
@@ -315,6 +470,7 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
   );
 };
 
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   scrollContent: { paddingBottom: 120 },
@@ -350,6 +506,18 @@ const styles = StyleSheet.create({
   
   mapButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, backgroundColor: COLORS.primarySoft, borderRadius: BORDERS.radius.md, marginTop: SPACING.sm },
   mapButtonText: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.medium, marginLeft: SPACING.xs },
+  applyCouponBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  applyCouponText: { color: '#fff', fontWeight: '700', marginLeft: 8 },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
+  modalContentWide: { width: '90%', backgroundColor: COLORS.surface, borderRadius: 12, padding: 16, maxHeight: '80%' },
+  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   
   // Impact Card
   impactCard: { backgroundColor: COLORS.primarySoft, marginHorizontal: SPACING.md, marginTop: SPACING.md, borderRadius: BORDERS.radius.lg, padding: SPACING.lg },

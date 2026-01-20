@@ -5,7 +5,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -20,6 +19,7 @@ import {
   ScrollView,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { publicApi } from '../services/api';
@@ -671,7 +671,7 @@ const BrowseScreen = () => {
   ].filter(Boolean).length;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <FilterModal />
       

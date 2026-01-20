@@ -103,3 +103,156 @@ exports.updateStoreProfile = asyncHandler(async (req, res, next) => {
 
     res.json(updatedStore.rows[0]);
 });
+
+// @desc    Obtener datos de gamificación del usuario
+// @route   GET /api/profiles/gamification
+// @access  Privado
+exports.getGamification = asyncHandler(async (req, res, next) => {
+    const userId = req.user.id;
+
+    const result = await pool.query(
+        `SELECT 
+            COALESCE(p.total_xp, 0) AS total_xp,
+            COALESCE(p.total_pedidos, 0) AS total_packs_saved,
+            COALESCE(p.total_ahorrado, 0) AS total_savings,
+            COALESCE(p.co2_ahorrado, 0) AS total_co2_saved,
+            COALESCE(p.total_reviews, 0) AS total_reviews,
+            COALESCE(p.unlocked_badges, '[]'::jsonb) AS unlocked_badges
+         FROM profiles p
+         WHERE p.user_id = $1`,
+        [userId]
+    );
+
+    // Si no existe perfil, devolver defaults
+    if (result.rows.length === 0) {
+        return res.json({
+            total_xp: 0,
+            total_packs_saved: 0,
+            total_savings: 0,
+            total_co2_saved: 0,
+            total_reviews: 0,
+            unlocked_badges: [],
+        });
+    }
+
+    res.json(result.rows[0]);
+});
+
+// @desc    Registrar gamification events (XP ganada, packsSaved, badges nuevos)
+// @route   POST /api/profiles/gamification
+// @access  Privado
+exports.postGamification = asyncHandler(async (req, res, next) => {
+    const userId = req.user.id;
+    const { xp_gained = 0, packs_saved = 0, savings = 0, co2_saved = 0, new_badges = [] } = req.body;
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Upsert profile row if not exists
+        await client.query(
+            `INSERT INTO profiles (user_id, total_pedidos, total_ahorrado, co2_ahorrado, total_xp, total_packs_saved, total_reviews, unlocked_badges, created_at)
+             VALUES ($1, 0, 0, 0, 0, 0, 0, '[]'::jsonb, NOW())
+             ON CONFLICT (user_id) DO NOTHING`,
+            [userId]
+        );
+
+        // Actualizar valores acumulativos
+        const updateRes = await client.query(
+            `UPDATE profiles SET
+                total_xp = COALESCE(total_xp, 0) + $1,
+                total_pedidos = COALESCE(total_pedidos, 0) + $2,
+                total_ahorrado = COALESCE(total_ahorrado, 0) + $3,
+                co2_ahorrado = COALESCE(co2_ahorrado, 0) + $4,
+                total_packs_saved = COALESCE(total_packs_saved, 0) + $2,
+                updated_at = NOW()
+             WHERE user_id = $5
+             RETURNING total_xp, total_pedidos, total_ahorrado, co2_ahorrado, total_packs_saved, total_reviews, unlocked_badges`,
+            [xp_gained, packs_saved, savings, co2_saved, userId]
+        );
+
+        let profile = updateRes.rows[0];
+
+        // Guardar badges nuevos en unlocked_badges (JSONB array), evitando duplicados
+        if (new_badges && Array.isArray(new_badges) && new_badges.length > 0) {
+            // Obtener badges actuales
+            const existingBadgesRes = await client.query("SELECT COALESCE(unlocked_badges, '[]'::jsonb) AS unlocked_badges FROM profiles WHERE user_id = $1", [userId]);
+            const existing = existingBadgesRes.rows[0] ? existingBadgesRes.rows[0].unlocked_badges : [];
+
+            const toAdd = new_badges.filter(nb => !existing.some(e => (e.id ? e.id : e) === nb));
+            if (toAdd.length > 0) {
+                const newEntries = toAdd.map(id => ({ id, unlockedAt: new Date().toISOString() }));
+                const merged = existing.concat(newEntries);
+                await client.query('UPDATE profiles SET unlocked_badges = $1 WHERE user_id = $2', [JSON.stringify(merged), userId]);
+                profile.unlocked_badges = merged;
+            } else {
+                profile.unlocked_badges = existing;
+            }
+        }
+
+        await client.query('COMMIT');
+
+        res.json({
+            msg: 'Gamification updated',
+            total_xp: profile.total_xp,
+            total_packs_saved: profile.total_packs_saved || profile.total_pedidos,
+            total_savings: profile.total_ahorrado,
+            total_co2_saved: profile.co2_ahorrado,
+            total_reviews: profile.total_reviews,
+            unlocked_badges: profile.unlocked_badges || [],
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+});
+
+// @desc    Marcar que se ha mostrado el primer login modal
+// @route   POST /api/profiles/first-login
+// @access  Privado
+exports.markFirstLoginShown = asyncHandler(async (req, res, next) => {
+    const userId = req.user.id;
+
+    // Actualizar el perfil para marcar first_login_shown como true
+    const result = await pool.query(
+        `INSERT INTO profiles (user_id, first_login_shown, last_login_at, created_at, updated_at)
+         VALUES ($1, true, NOW(), NOW(), NOW())
+         ON CONFLICT (user_id)
+         DO UPDATE SET
+            first_login_shown = true,
+            last_login_at = NOW(),
+            updated_at = NOW()
+         RETURNING first_login_shown, last_login_at`,
+        [userId]
+    );
+
+    res.json({
+        msg: 'First login marked as shown',
+        first_login_shown: result.rows[0].first_login_shown,
+        last_login_at: result.rows[0].last_login_at
+    });
+});
+
+// @desc    Verificar si el usuario necesita ver el modal de primer login
+// @route   GET /api/profiles/check-first-login
+// @access  Privado
+exports.checkFirstLogin = asyncHandler(async (req, res, next) => {
+    const userId = req.user.id;
+
+    const result = await pool.query(
+        `SELECT COALESCE(first_login_shown, false) AS first_login_shown
+         FROM profiles
+         WHERE user_id = $1`,
+        [userId]
+    );
+
+    // Si no existe perfil, significa que nunca se ha mostrado
+    const shouldShow = result.rows.length === 0 || !result.rows[0].first_login_shown;
+
+    res.json({
+        should_show_modal: shouldShow,
+        first_login_shown: result.rows.length > 0 ? result.rows[0].first_login_shown : false
+    });
+});

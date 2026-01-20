@@ -5,7 +5,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -18,6 +17,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useGamification } from '../contexts/GamificationContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,12 +32,15 @@ import {
   getLevelFromXP,
   getNextLevel,
   getLevelProgress,
+  getRewardsUpToLevel,
+  LEVEL_REWARDS,
 } from '../src/constants/gamification';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
 import { formatNumber, formatPrice } from '../src/utils/format';
 import api from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getRewardForLevel } from '../src/constants/gamification';
+import CouponModal from '../components/CouponModal';
 
 const { width } = Dimensions.get('window');
 
@@ -66,6 +69,11 @@ const RewardsScreen = () => {
   const [coupons, setCoupons] = useState({ active: [], used: [], expired: [] });
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [couponFilter, setCouponFilter] = useState('active'); // 'active', 'used', 'expired'
+  const [couponModalVisible, setCouponModalVisible] = useState(false);
+  const [selectedLevelCoupon, setSelectedLevelCoupon] = useState(null);
+  const [selectedLevelRequired, setSelectedLevelRequired] = useState(null);
+  const [levelDefs, setLevelDefs] = useState(null);
+  const [levelDefsLoading, setLevelDefsLoading] = useState(false);
 
   // Animaciones
   const progressAnim = React.useRef(new Animated.Value(0)).current;
@@ -99,6 +107,21 @@ const RewardsScreen = () => {
     
     // Cargar cupones
     await loadCoupons();
+    await loadLevelDefinitions();
+  };
+
+  const loadLevelDefinitions = async () => {
+    try {
+      setLevelDefsLoading(true);
+      const resp = await api.get('/coupons/definitions');
+      if (resp.data && resp.data.success) {
+        setLevelDefs(resp.data);
+      }
+    } catch (e) {
+      console.log('Error loading level definitions', e.message);
+    } finally {
+      setLevelDefsLoading(false);
+    }
   };
 
   const loadCoupons = async () => {
@@ -137,6 +160,64 @@ const RewardsScreen = () => {
       // No mostrar error si la API aún no existe
     } finally {
       setCouponsLoading(false);
+    }
+  };
+
+  const openCouponModal = (coupon, levelRequired) => {
+    setSelectedLevelCoupon(coupon);
+    setSelectedLevelRequired(levelRequired);
+    setCouponModalVisible(true);
+  };
+
+  const closeCouponModal = () => {
+    setCouponModalVisible(false);
+    setSelectedLevelCoupon(null);
+    setSelectedLevelRequired(null);
+  };
+
+  const handleUseLevelCoupon = async (coupon) => {
+    try {
+      // Preferir otorgar el cupón en el backend para evitar duplicados
+      try {
+        const resp = await api.post('/coupons/grant-level', { level: selectedLevelRequired || coupon.levelRequired || selectedLevelRequired });
+        if (resp.data && resp.data.success && resp.data.coupon) {
+          const granted = resp.data.coupon;
+          // Merge into local UI and storage
+          const stored = await AsyncStorage.getItem('@delicrunch_coupons');
+          const existing = stored ? JSON.parse(stored) : { active: [], used: [], expired: [] };
+          existing.active = [granted, ...(existing.active || [])].filter((v,i,self)=> self.findIndex(x=>x.id===v.id)===i);
+          await AsyncStorage.setItem('@delicrunch_coupons', JSON.stringify(existing));
+          setCoupons(prev => ({ ...prev, active: [granted, ...(prev.active || [])].filter((v,i,self)=> self.findIndex(x=>x.id===v.id)===i) }));
+          closeCouponModal();
+          Alert.alert('Cupón añadido', resp.data.message || 'Cupón otorgado y añadido a tus cupones.');
+          return;
+        }
+      } catch (apiErr) {
+        // Si falla la API (sin autenticación por ejemplo), caer al fallback local
+        console.log('Grant level coupon API failed, falling back to local:', apiErr.message);
+      }
+
+      // Fallback: Add coupon to local storage active list
+      const stored = await AsyncStorage.getItem('@delicrunch_coupons');
+      const existing = stored ? JSON.parse(stored) : { active: [], used: [], expired: [] };
+      // Avoid duplicates by id
+      if (!existing.active.some(c => c.id === coupon.id)) {
+        const newCoupon = {
+          ...coupon,
+          id: `${coupon.id}_${Date.now()}`,
+          expires_at: new Date(Date.now() + ((coupon.validDays || 30) * 24 * 60 * 60 * 1000)).toISOString(),
+          status: 'active',
+        };
+        existing.active = [newCoupon, ...(existing.active || [])];
+        await AsyncStorage.setItem('@delicrunch_coupons', JSON.stringify(existing));
+        // update UI
+        setCoupons(prev => ({ ...prev, active: [newCoupon, ...(prev.active || [])] }));
+      }
+      closeCouponModal();
+      Alert.alert('Cupón añadido', 'El cupón se ha añadido a tus cupones activos.');
+    } catch (e) {
+      console.log('Error adding coupon locally', e);
+      Alert.alert('Error', 'No se pudo añadir el cupón localmente.');
     }
   };
 
@@ -249,11 +330,6 @@ const RewardsScreen = () => {
           <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
             {tab.label}
           </Text>
-          {tab.id === 'coupons' && coupons.active?.length > 0 && (
-            <View style={styles.couponBadge}>
-              <Text style={styles.couponBadgeText}>{coupons.active.length}</Text>
-            </View>
-          )}
         </TouchableOpacity>
       ))}
     </View>
@@ -264,9 +340,30 @@ const RewardsScreen = () => {
     const isUnlocked = badge.isUnlocked;
     const tierInfo = BADGE_TIERS[badge.tier];
     const categoryInfo = BADGE_CATEGORIES[badge.category];
+    const handlePress = () => {
+      let how = '';
+      if (!badge.requirement) how = 'Requisito especial. Revisar descripción.';
+      else {
+        switch (badge.category) {
+          case 'PACKS': how = `Rescata ${badge.requirement} pack(s) de comida.`; break;
+          case 'ENVIRONMENT': how = `Evita ${badge.requirement} kg de CO₂ (o equivalente).`; break;
+          case 'STREAK': how = `Mantén una racha de ${badge.requirement} días.`; break;
+          case 'LEVEL': how = `Alcanza el nivel ${badge.requirement}.`; break;
+          case 'SAVINGS': how = `Ahorra $${badge.requirement} MXN en total.`; break;
+          case 'SPECIAL': how = badge.id === 'social_butterfly' ? `Comparte tu impacto ${badge.requirement} veces.` : badge.id === 'reviewer' ? `Deja ${badge.requirement} reseñas.` : 'Requisito especial.'; break;
+          default: how = 'Requisito especial.';
+        }
+      }
+
+      const title = `${badge.name} ${isUnlocked ? '(Desbloqueada)' : ''}`;
+      const message = `${badge.description}\n\nCómo desbloquear:\n${how}` + (isUnlocked && badge.unlockedAt ? `\n\nDesbloqueada: ${new Date(badge.unlockedAt).toLocaleDateString()}` : '');
+
+      Alert.alert(title, message, [{ text: 'Cerrar' }], { cancelable: true });
+    };
     
     return (
-      <View style={[styles.badgeCard, !isUnlocked && styles.badgeCardLocked]}>
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
+        <View style={[styles.badgeCard, !isUnlocked && styles.badgeCardLocked]}>
         <View style={[
           styles.badgeIconContainer,
           { 
@@ -309,7 +406,8 @@ const RewardsScreen = () => {
             <Text style={styles.badgeProgressText}>{badge.progress}%</Text>
           </View>
         )}
-      </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -565,6 +663,71 @@ const RewardsScreen = () => {
           </View>
         )}
         
+        {/* Cupones desbloqueables por nivel */}
+        <View style={styles.levelCouponsSection}>
+          <Text style={styles.levelCouponsTitle}>Cupones por Nivel</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16 }}>
+            {levelDefsLoading && (
+              <View style={{ padding: 16 }}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            )}
+
+            {!levelDefsLoading && levelDefs && levelDefs.levels.length > 0 ? (
+              // Flatten definitions per level into mini cards
+              levelDefs.levels.map(lvl => (
+                lvl.definitions.map(defObj => {
+                  const def = defObj.definition;
+                  const isUnlocked = !!defObj.unlocked;
+                  const has = !!defObj.has;
+                  return (
+                    <TouchableOpacity
+                      key={`${def.id}_${lvl.level}`}
+                      activeOpacity={0.8}
+                      onPress={() => openCouponModal(def, lvl.level)}
+                      style={[
+                        styles.levelCouponMini,
+                        !isUnlocked && styles.levelCouponMiniLocked,
+                      ]}
+                    >
+                      <View style={[styles.miniIcon, { backgroundColor: def.color || '#34C759' }]}> 
+                        <Ionicons name={def.icon || 'gift'} size={20} color="#fff" />
+                      </View>
+                      <Text style={[styles.miniName, !isUnlocked && { color: '#999' }]} numberOfLines={1}>{def.name}</Text>
+                      <Text style={[styles.miniLevel, !isUnlocked && { color: '#bbb' }]}>
+                        {has ? 'Obtenido' : isUnlocked ? `Nivel ${lvl.level}` : `Bloqueado: Nivel ${lvl.level}`}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              ))
+            ) : (
+              // fallback to static list if endpoint not available
+              LEVEL_REWARDS.map((r) => {
+                const c = r.coupon;
+                const isUnlocked = currentLevel?.level >= r.level;
+                return (
+                  <TouchableOpacity
+                    key={c.id}
+                    activeOpacity={0.8}
+                    onPress={() => openCouponModal(c, r.level)}
+                    style={[
+                      styles.levelCouponMini,
+                      !isUnlocked && styles.levelCouponMiniLocked,
+                    ]}
+                  >
+                    <View style={[styles.miniIcon, { backgroundColor: c.color || '#34C759' }]}> 
+                      <Ionicons name={c.icon || 'gift'} size={20} color="#fff" />
+                    </View>
+                    <Text style={[styles.miniName, !isUnlocked && { color: '#999' }]} numberOfLines={1}>{c.name}</Text>
+                    <Text style={[styles.miniLevel, !isUnlocked && { color: '#bbb' }]}>Nivel {r.level}</Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+
         {/* Próximas recompensas */}
         {couponFilter === 'active' && nextLevel && (
           <View style={styles.nextRewardSection}>
@@ -811,7 +974,7 @@ const RewardsScreen = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['top', 'left', 'right']}>
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Cargando recompensas...</Text>
       </SafeAreaView>
@@ -819,7 +982,7 @@ const RewardsScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
       {/* Header */}
@@ -844,6 +1007,14 @@ const RewardsScreen = () => {
         {renderContent()}
         <View style={{ height: 30 }} />
       </ScrollView>
+      <CouponModal
+        coupon={selectedLevelCoupon}
+        visible={couponModalVisible}
+        onClose={closeCouponModal}
+        onUse={handleUseLevelCoupon}
+        locked={currentLevel?.level < selectedLevelRequired}
+        levelRequired={selectedLevelRequired}
+      />
     </SafeAreaView>
   );
 };
@@ -942,12 +1113,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 12,
-    gap: 4,
+    gap: 6,
+    minHeight: 44,
   },
   tabActive: { backgroundColor: COLORS.primarySoft },
-  tabText: { fontSize: 12, fontWeight: '600', color: COLORS.textTertiary },
+  tabText: { 
+    fontSize: 11, 
+    fontWeight: '600', 
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+  },
   tabTextActive: { color: COLORS.primary },
   
   // Section
@@ -1187,6 +1364,54 @@ const styles = StyleSheet.create({
   },
   quickCouponName: { fontSize: 11, color: COLORS.text, marginTop: 6, textAlign: 'center' },
   quickCouponValue: { fontSize: 13, fontWeight: '700', color: COLORS.primary, marginTop: 2 },
+
+  // Level coupons (mini)
+  levelCouponsSection: {
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  levelCouponsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginLeft: 16,
+    marginBottom: 8,
+  },
+  levelCouponMini: {
+    width: 120,
+    height: 100,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 10,
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  levelCouponMiniLocked: {
+    opacity: 0.6,
+    backgroundColor: '#fafafa',
+  },
+  miniIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  miniName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'center',
+  },
+  miniLevel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 6,
+  },
   
   // Contenedor principal
   couponsContainer: { paddingTop: SPACING.md },

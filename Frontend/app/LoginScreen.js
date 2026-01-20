@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Image, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Image, ScrollView, KeyboardAvoidingView, TextInput, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import StyledTextInput from '../components/StyledTextInput';
 import NeoButton from '../components/NeoButton';
 import api, { publicApi } from '../services/api';
 import logger from '../services/logger';
@@ -73,8 +72,8 @@ const LoginScreen = ({ navigation }) => {
   // Quick login helpers (solo visibles en desarrollo)
   const quickLogin = async (preset) => {
     const presets = {
-      comprador: { email: 'ana.delicias@test.com', password: 'Comprador123' },
-      comercio: { email: 'pizza.orsinis@delicrunch.com', password: 'Comercio123' },
+      comprador: { email: 'comprador@delicrunch.com', password: 'Comprador123' },
+      comercio: { email: 'taqueria.lasdelicias@delicrunch.com', password: 'Comercio123' },
       admin: { email: 'admindeli@delicrunch.com', password: 'Admin1234' },
     };
     const creds = presets[preset];
@@ -86,8 +85,13 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <ScrollView 
+          contentContainerStyle={styles.contentContainer} 
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Title Section */}
           <Header large />
           <PromoCard />
@@ -96,13 +100,13 @@ const LoginScreen = ({ navigation }) => {
           <View style={styles.formSection}>
             {/* Email Input */}
             <View style={styles.inputWrapper}>
-              <StyledTextInput
+              <TextInput
                 placeholder="📧 Correo electrónico"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor={COLORS.text}
+                placeholderTextColor="#999"
                 style={styles.input}
                 editable={!loading}
               />
@@ -110,12 +114,12 @@ const LoginScreen = ({ navigation }) => {
 
             {/* Password Input */}
             <View style={styles.inputWrapper}>
-              <StyledTextInput
+              <TextInput
                 placeholder="🔐 Contraseña"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
-                placeholderTextColor={COLORS.text}
+                placeholderTextColor="#999"
                 style={styles.input}
                 editable={!loading}
               />
@@ -124,9 +128,9 @@ const LoginScreen = ({ navigation }) => {
             {/* Login Button */}
             <View style={styles.buttonContainer}>
               <GradientButton
-                title={loading ? '⏳ Cargando...' : '🚀 RESCATAR COMIDA AHORA'}
+                title={loading ? '⏳ Cargando...' : '🚀 ESTOY DENTRO'}
                 onPress={handleLogin}
-                style={styles.loginButton}
+                style={styles.registerButton}
                 disabled={loading}
                 iconName="rocket"
               />
@@ -169,7 +173,7 @@ const LoginScreen = ({ navigation }) => {
             />
           </View>
           {/* spacer to ensure register button is visible above keyboard */}
-          <View style={{ height: SPACING.xl }} />
+          <View style={{ height: 0 }} />
         </ScrollView>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -183,6 +187,7 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   content: {
     flex: 1,
@@ -194,7 +199,8 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    paddingVertical: 8, // Reducido de SPACING.sm (12) a 8
+    paddingBottom: 8, // Reducido de SPACING.md (16) a 8
   },
 
   // TITLE SECTION
@@ -236,9 +242,9 @@ const styles = StyleSheet.create({
   promoCard: {
     backgroundColor: '#f6fffa',
     borderRadius: 14,
-    padding: SPACING.md,
+    padding: SPACING.sm,
     marginTop: -SPACING.lg, // más pegado a las letras
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     marginHorizontal: 2,
     borderWidth: 1,
     borderColor: '#e6f6ee',
@@ -283,8 +289,9 @@ const styles = StyleSheet.create({
   },
 
   quickLoginContainer: {
-    marginTop: SPACING.md,
-    padding: SPACING.sm,
+    marginTop: 0,
+    marginBottom: SPACING.xs,
+    padding: SPACING.xs,
     borderRadius: BORDERS.radius.small,
     backgroundColor: COLORS.surface,
   },
@@ -315,12 +322,12 @@ const styles = StyleSheet.create({
   formSection: {
     flexGrow: 1,
     justifyContent: 'flex-start',
-    paddingBottom: SPACING.lg,
+    paddingBottom: 4, // Reducido de SPACING.xs (8) a 4
   },
 
   // INPUT WRAPPER - Sin bordes coloreados, solo marco negro
   inputWrapper: {
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   input: {
     backgroundColor: COLORS.white,
@@ -328,10 +335,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.lg,
+    paddingVertical: SPACING.sm,
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.text,
+    color: '#000000', // Texto negro siempre visible
     ...Platform.select({
       ios: {
         shadowColor: COLORS.border,
@@ -347,19 +354,21 @@ const styles = StyleSheet.create({
 
   // BUTTON CONTAINER
   buttonContainer: {
-    marginVertical: SPACING.md,
+    marginTop: SPACING.xs,
+    marginBottom: 0,
   },
   loginButton: {
     width: '100%',
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 12,
     backgroundColor: COLORS.primary,
   },
 
   // FORGOT PASSWORD
   forgotPasswordContainer: {
     alignItems: 'center',
-    marginVertical: SPACING.md,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.xs,
   },
   forgotPasswordText: {
     color: COLORS.primary,
@@ -373,7 +382,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 12,
     paddingVertical: 12,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xs,
   },
 });
 

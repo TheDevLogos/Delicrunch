@@ -125,7 +125,10 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         // 9. Actualizar estadísticas del comprador
         const ahorro = (parseFloat(product.precio_original) - parseFloat(product.precio_descuento)) * cantidad;
-        const co2Ahorrado = 2.5 * cantidad; // ~2.5kg CO2 por comida salvada (estimación TGTG)
+        
+        // Calcular CO2 según categoría del producto
+        const { calculateCO2Saved } = require('../utils/co2Factors');
+        const co2Ahorrado = calculateCO2Saved(product.categoria || 'otros', cantidad);
         
         await client.query(
             `UPDATE profiles SET 
@@ -249,15 +252,22 @@ exports.getStoreOrders = asyncHandler(async (req, res, next) => {
     
     // Obtener todos los pedidos de esa tienda con información completa
     const orders = await pool.query(
-        `SELECT o.*, u.nombre AS nombre_comprador, u.email AS email_comprador,
-                oi.cantidad, oi.precio_unitario,
-                p.nombre AS nombre_producto, p.imagen_url
+        `SELECT 
+            o.*,
+            u.nombre AS nombre_comprador, 
+            u.email AS email_comprador,
+            oi.cantidad, 
+            oi.precio_unitario,
+            p.nombre AS nombre_producto, 
+            p.imagen_url,
+            p.hora_recogida_inicio,
+            p.hora_recogida_fin
          FROM orders o
          JOIN users u ON o.user_id = u.id
          JOIN order_items oi ON oi.order_id = o.id
          JOIN products p ON oi.product_id = p.id
          WHERE o.store_id = $1
-         ORDER BY o.fecha_pedido DESC`,
+         ORDER BY o.created_at DESC`,
         [storeId]
     );
     

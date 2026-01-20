@@ -17,6 +17,8 @@ import MyReviewsScreen from '../app/MyReviewsScreen';
 import LeaveReviewScreen from '../app/LeaveReviewScreen';
 import PaymentScreen from '../app/PaymentScreen';
 import PaymentMethodsScreen from '../app/PaymentMethodsScreen';
+import SaveCardScreen from '../app/SaveCardScreen';
+import ManageCardsScreen from '../app/ManageCardsScreen';
 import StoreProfileScreen from '../app/StoreProfileScreen';
 import StoreReviewsScreen from '../app/StoreReviewsScreen';
 
@@ -27,6 +29,7 @@ import EditProductScreen from '../app/EditProductScreen';
 import StoreOrdersScreen from '../app/StoreOrdersScreen';
 import MyProductsScreen from '../app/MyProductsScreen';
 import OrderDetailScreen from '../app/OrderDetailScreen';
+import MerchantPaymentSettingsScreen from '../app/MerchantPaymentSettingsScreen';
 
 // Pantallas de comprador
 import FavoritesScreen from '../app/FavoritesScreen';
@@ -67,9 +70,12 @@ const AuthStack = () => (
     <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
     <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: true }} />
     <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: true }} />
+    <Stack.Screen name="ManageCards" component={ManageCardsScreen} options={{ title: 'Gestionar Tarjetas', headerShown: true }} />
+    <Stack.Screen name="SaveCard" component={SaveCardScreen} options={{ title: 'Agregar Tarjeta', headerShown: true }} />
     {/* Pantallas exclusivas de comercio */}
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Historial de Pedidos', headerShown: false }} />
     <Stack.Screen name="MerchantRewards" component={MerchantRewardsScreen} options={{ title: 'Mis Premios', headerShown: false }} />
+    <Stack.Screen name="MerchantPaymentSettings" component={MerchantPaymentSettingsScreen} options={{ title: 'Configurar Pagos', headerShown: false }} />
   </Stack.Navigator>
 );
 
@@ -94,11 +100,13 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
     <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: true }} />
     <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: true }} />
+    <Stack.Screen name="SaveCard" component={SaveCardScreen} options={{ title: 'Agregar Tarjeta', headerShown: true }} />
     {/* Pantallas exclusivas de comercio */}
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Historial de Pedidos', headerShown: false }} />
     <Stack.Screen name="MerchantRewards" component={MerchantRewardsScreen} options={{ title: 'Mis Premios', headerShown: false }} />
     <Stack.Screen name="StoreOrders" component={StoreOrdersScreen} options={{ title: 'Pedidos de Mi Tienda', headerShown: true }} />
     <Stack.Screen name="MyProducts" component={MyProductsScreen} options={{ title: 'Mis Productos', headerShown: true }} />
+    <Stack.Screen name="MerchantPaymentSettings" component={MerchantPaymentSettingsScreen} options={{ title: 'Configurar Pagos', headerShown: false }} />
     {/* Pantallas de comprador accesibles para admin */}
     <Stack.Screen name="Favoritos" component={FavoritesScreen} options={{ title: 'Favoritos', headerShown: true }} />
     <Stack.Screen name="Recompensas" component={RewardsScreen} options={{ title: 'Recompensas', headerShown: true }} />

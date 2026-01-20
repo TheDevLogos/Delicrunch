@@ -18,8 +18,16 @@ const getStoreId = asyncHandler(async (req, res, next) => {
         return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios.' });
     }
 
-    // 2. Buscar la tienda asociada al ID del usuario
-    let storeResult = await pool.query('SELECT id FROM stores WHERE user_id = $1 ORDER BY id LIMIT 1', [userId]);
+    // 2. Buscar la tienda asociada al ID del usuario (priorizar la que tiene más actividad)
+    let storeResult = await pool.query(`
+        SELECT s.id, 
+               (SELECT COUNT(*) FROM products WHERE store_id = s.id) as productos,
+               (SELECT COUNT(*) FROM orders WHERE store_id = s.id) as pedidos
+        FROM stores s 
+        WHERE s.user_id = $1 
+        ORDER BY pedidos DESC, productos DESC, s.id DESC
+        LIMIT 1
+    `, [userId]);
 
     console.log(`🔍 getStoreId - userId: ${userId}, role: ${userRole}, stores found: ${storeResult.rows.length}`);
 

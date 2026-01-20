@@ -7,7 +7,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Image,
   ActivityIndicator,
@@ -17,6 +16,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import api, { publicApi } from '../services/api';
 import logger from '../services/logger';
@@ -136,7 +136,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const stockLeft = product.cantidad_disponible || 0;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar barStyle="light-content" />
       
       {/* Header Image con overlay */}

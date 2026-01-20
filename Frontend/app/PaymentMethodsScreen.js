@@ -5,12 +5,12 @@ import {
   StyleSheet, 
   FlatList, 
   Alert, 
-  SafeAreaView,
   TouchableOpacity,
   Platform,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import StyledTextInput from '../components/StyledTextInput';
@@ -157,7 +157,7 @@ const PaymentMethodsScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
       {/* Header */}

@@ -46,42 +46,76 @@ const AdminStoresScreen = () => {
 
   const stats = useMemo(() => {
     const total = stores.length;
-    const activos = stores.filter(s => s.activo && s.estado !== 'pendiente').length;
+    const activos = stores.filter(s => s.activo === true && s.estado !== 'pendiente').length;
     const pendientes = stores.filter(s => s.estado === 'pendiente').length;
-    const inactivos = stores.filter(s => !s.activo).length;
-    const totalPedidos = stores.reduce((sum, s) => sum + (s.total_orders || s.total_ventas || 0), 0);
-
-    // Ingresos totales: soportar campos en unidades o en cents
-    const totalRevenueRaw = stores.reduce((sum, s) => {
-      const rev = s.total_revenue || s.total_revenue_cents || 0;
-      return sum + (rev > 100000 ? rev / 100 : rev);
+    const inactivos = stores.filter(s => s.activo === false).length;
+    
+    // Total de pedidos SIN duplicados
+    const totalPedidos = stores.reduce((sum, s) => {
+      const orders = parseInt(s.total_orders) || 0;
+      return sum + orders;
     }, 0);
 
-    const avgOrdersPerStore = total > 0 ? Math.round(totalPedidos / total) : 0;
+    // Ingresos totales - normalizar valores
+    const totalRevenueRaw = stores.reduce((sum, s) => {
+      const rev = parseFloat(s.total_revenue) || 0;
+      return sum + rev;
+    }, 0);
+
+    // Promedio de pedidos por tienda (solo tiendas activas)
+    const activosCount = activos > 0 ? activos : 1;
+    const avgOrdersPerStore = Math.round(totalPedidos / activosCount);
+    
+    // Nuevas tiendas en los últimos 30 días
     const now = Date.now();
     const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
-    const newStores30Days = stores.filter(s => now - new Date(s.fecha_registro).getTime() <= THIRTY_DAYS).length;
+    const newStores30Days = stores.filter(s => {
+      const regDate = new Date(s.fecha_registro || s.created_at);
+      return now - regDate.getTime() <= THIRTY_DAYS;
+    }).length;
 
-    const ratedStores = stores.filter(s => s.calificacion_promedio || s.rating);
+    // Calificación promedio - solo de tiendas con rating
+    const ratedStores = stores.filter(s => {
+      const rating = parseFloat(s.rating) || parseFloat(s.calificacion_promedio) || 0;
+      return rating > 0;
+    });
     const avgRating = ratedStores.length > 0 
-      ? stores.reduce((sum, s) => sum + (parseFloat(s.calificacion_promedio) || parseFloat(s.rating) || 0), 0) / ratedStores.length
+      ? ratedStores.reduce((sum, s) => {
+          const rating = parseFloat(s.rating) || parseFloat(s.calificacion_promedio) || 0;
+          return sum + rating;
+        }, 0) / ratedStores.length
       : 0;
 
-    // Top comercios por ingresos
+    // Top 5 comercios por ingresos
     const topStoresByRevenue = [...stores]
-      .filter(s => s.total_revenue && s.total_revenue > 0)
-      .sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0))
+      .filter(s => parseFloat(s.total_revenue) > 0)
+      .sort((a, b) => parseFloat(b.total_revenue || 0) - parseFloat(a.total_revenue || 0))
       .slice(0, 5)
-      .map(s => ({ id: s.id, nombre: s.nombre, total_revenue: s.total_revenue }));
+      .map(s => ({ 
+        id: s.id, 
+        nombre: s.nombre || s.nombre_comercio, 
+        total_revenue: parseFloat(s.total_revenue) 
+      }));
 
-    // Comparación semana a semana (si los datos existen)
-    const weekThis = stores.reduce((sum, s) => sum + (s.revenue_this_week || 0), 0);
-    const weekPrev = stores.reduce((sum, s) => sum + (s.revenue_prev_week || 0), 0);
+    // Ingresos semanales
+    const weekThis = stores.reduce((sum, s) => sum + (parseFloat(s.revenue_this_week) || 0), 0);
+    const weekPrev = stores.reduce((sum, s) => sum + (parseFloat(s.revenue_prev_week) || 0), 0);
     const wowChangePercent = weekPrev > 0 ? ((weekThis - weekPrev) / weekPrev) * 100 : null;
 
     return { 
-      total, activos, pendientes, inactivos, totalPedidos, avgRating, totalRevenueRaw, avgOrdersPerStore, newStores30Days,
-      topStoresByRevenue, weekThis, weekPrev, wowChangePercent
+      total, 
+      activos, 
+      pendientes, 
+      inactivos, 
+      totalPedidos, 
+      avgRating, 
+      totalRevenueRaw, 
+      avgOrdersPerStore, 
+      newStores30Days,
+      topStoresByRevenue, 
+      weekThis, 
+      weekPrev, 
+      wowChangePercent
     };
   }, [stores]);
 
@@ -98,26 +132,24 @@ const AdminStoresScreen = () => {
       const storesData = response.data || [];
       
       const enrichedStores = storesData.map(store => {
-        const rawRev = store.total_revenue || store.total_revenue_cents || store.revenue || 0;
-        const total_revenue = rawRev > 100000 ? rawRev / 100 : rawRev;
-        const rawThisWeek = store.revenue_this_week || store.revenue_week_current || store.week_revenue_current || 0;
-        const rawPrevWeek = store.revenue_prev_week || store.revenue_week_previous || store.week_revenue_previous || 0;
-        const revenue_this_week = rawThisWeek > 100000 ? rawThisWeek / 100 : rawThisWeek;
-        const revenue_prev_week = rawPrevWeek > 100000 ? rawPrevWeek / 100 : rawPrevWeek;
-
         return {
           ...store,
-          nombre: store.nombre || store.nombre_comercio || 'Sin nombre',
+          id: store.id,
+          nombre: store.nombre_comercio || store.nombre || 'Sin nombre',
           estado: store.estado || 'activo',
           activo: store.activo !== false,
-          fecha_registro: store.created_at || new Date().toISOString(),
-          total_orders: store.total_orders || store.total_ventas || 0,
-          total_productos: store.total_products || store.total_productos || 0,
+          fecha_registro: store.created_at || store.fecha_registro || new Date().toISOString(),
+          total_orders: parseInt(store.total_orders) || 0,
+          total_productos: parseInt(store.total_products || store.total_productos) || 0,
           rating: parseFloat(store.calificacion_promedio) || parseFloat(store.rating) || 0,
-          total_reviews: store.total_reviews || 0,
-          total_revenue,
-          revenue_this_week,
-          revenue_prev_week,
+          total_reviews: parseInt(store.total_reviews) || 0,
+          total_revenue: parseFloat(store.total_revenue) || 0,
+          revenue_this_week: parseFloat(store.revenue_this_week) || 0,
+          revenue_prev_week: parseFloat(store.revenue_prev_week) || 0,
+          ciudad: store.ciudad || '',
+          direccion: store.direccion || '',
+          owner_name: store.owner_name || '',
+          owner_email: store.owner_email || '',
         };
       });
 
@@ -247,6 +279,11 @@ const AdminStoresScreen = () => {
     setModalVisible(true);
   };
 
+  const closeStoreModal = () => {
+    setModalVisible(false);
+    setSelectedStore(null);
+  };
+
   const toggleExpand = (storeId) => {
     setExpandedIds(prev => {
       const exists = prev.includes(storeId);
@@ -355,95 +392,128 @@ const AdminStoresScreen = () => {
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.summaryContainer}
     >
+      {/* Total Comercios */}
       <View style={[styles.summaryCard, { backgroundColor: '#E3F2FD' }]}>
         <View style={[styles.summaryIconContainer, { backgroundColor: '#2196F3' }]}>
-          <Ionicons name="storefront" size={16} color="#fff" />
+          <Ionicons name="storefront" size={18} color="#fff" />
         </View>
         <Text style={styles.summaryValue}>{stats.total}</Text>
-        <Text style={styles.summaryLabel}>Total</Text>
+        <Text style={styles.summaryLabel}>Total Comercios</Text>
       </View>
       
+      {/* Activos */}
       <View style={[styles.summaryCard, { backgroundColor: '#E8F5E9' }]}>
         <View style={[styles.summaryIconContainer, { backgroundColor: '#4CAF50' }]}>
-          <Ionicons name="checkmark-circle" size={16} color="#fff" />
+          <Ionicons name="checkmark-circle" size={18} color="#fff" />
         </View>
         <Text style={styles.summaryValue}>{stats.activos}</Text>
         <Text style={styles.summaryLabel}>Activos</Text>
+        <Text style={styles.summaryPercentage}>
+          {stats.total > 0 ? Math.round((stats.activos / stats.total) * 100) : 0}%
+        </Text>
       </View>
       
+      {/* Pendientes */}
       <View style={[styles.summaryCard, { backgroundColor: '#FFF3E0' }]}>
         <View style={[styles.summaryIconContainer, { backgroundColor: '#FF9800' }]}>
-          <Ionicons name="time" size={16} color="#fff" />
+          <Ionicons name="time" size={18} color="#fff" />
         </View>
         <Text style={styles.summaryValue}>{stats.pendientes}</Text>
         <Text style={styles.summaryLabel}>Pendientes</Text>
+        {stats.pendientes > 0 && (
+          <View style={styles.summaryBadge}>
+            <Text style={styles.summaryBadgeText}>Requiere atención</Text>
+          </View>
+        )}
       </View>
       
+      {/* Total Pedidos */}
       <View style={[styles.summaryCard, { backgroundColor: '#FFF8E1' }]}>
         <View style={[styles.summaryIconContainer, { backgroundColor: '#FFC107' }]}>
-          <Ionicons name="receipt" size={16} color="#fff" />
+          <Ionicons name="receipt" size={18} color="#fff" />
         </View>
-        <Text style={styles.summaryValue}>{stats.totalPedidos}</Text>
-        <Text style={styles.summaryLabel}>Pedidos</Text>
+        <Text style={styles.summaryValue}>{stats.totalPedidos.toLocaleString()}</Text>
+        <Text style={styles.summaryLabel}>Total Pedidos</Text>
       </View>
       
-      <View style={[styles.summaryCard, { backgroundColor: '#FFF8E1' }]}>
-        <View style={[styles.summaryIconContainer, { backgroundColor: '#FF7043' }]}>
-          <Ionicons name="cash" size={16} color="#fff" />
+      {/* Ingresos Totales */}
+      <View style={[styles.summaryCard, { backgroundColor: '#E8F5E9' }]}>
+        <View style={[styles.summaryIconContainer, { backgroundColor: '#4CAF50' }]}>
+          <Ionicons name="cash" size={18} color="#fff" />
         </View>
-        <Text style={styles.summaryValue}>${stats.totalRevenueRaw ? (stats.totalRevenueRaw / 1000).toFixed(1) + 'k' : '0'}</Text>
-        <Text style={styles.summaryLabel}>Ingresos</Text>
+        <Text style={styles.summaryValue}>
+          ${(stats.totalRevenueRaw / 1000).toFixed(1)}k
+        </Text>
+        <Text style={styles.summaryLabel}>Ingresos Totales</Text>
       </View>
 
-      <View style={[styles.summaryCard, { backgroundColor: '#F0F4FF' }]}>
-        <View style={[styles.summaryIconContainer, { backgroundColor: '#3F51B5' }]}>
-          <Ionicons name="stats-chart" size={16} color="#fff" />
+      {/* Promedio Pedidos/Tienda */}
+      <View style={[styles.summaryCard, { backgroundColor: '#F3E5F5' }]}>
+        <View style={[styles.summaryIconContainer, { backgroundColor: '#9C27B0' }]}>
+          <Ionicons name="stats-chart" size={18} color="#fff" />
         </View>
         <Text style={styles.summaryValue}>{stats.avgOrdersPerStore}</Text>
-        <Text style={styles.summaryLabel}>Pedidos/tienda</Text>
+        <Text style={styles.summaryLabel}>Pedidos/Tienda</Text>
       </View>
 
+      {/* Nuevos (30 días) */}
       <View style={[styles.summaryCard, { backgroundColor: '#FCE4EC' }]}>
         <View style={[styles.summaryIconContainer, { backgroundColor: '#E91E63' }]}>
-          <Ionicons name="rocket" size={16} color="#fff" />
+          <Ionicons name="rocket" size={18} color="#fff" />
         </View>
         <Text style={styles.summaryValue}>{stats.newStores30Days}</Text>
         <Text style={styles.summaryLabel}>Nuevos (30d)</Text>
       </View>
 
-      <View style={[styles.summaryCard, { backgroundColor: '#FCE4EC' }]}>
-        <View style={[styles.summaryIconContainer, { backgroundColor: '#E91E63' }]}>
-          <Ionicons name="star" size={16} color="#fff" />
+      {/* Rating Promedio */}
+      <View style={[styles.summaryCard, { backgroundColor: '#FFF9C4' }]}>
+        <View style={[styles.summaryIconContainer, { backgroundColor: '#FFC107' }]}>
+          <Ionicons name="star" size={18} color="#fff" />
         </View>
-        <Text style={styles.summaryValue}>{stats.avgRating ? stats.avgRating.toFixed(1) : '---'}</Text>
-        <Text style={styles.summaryLabel}>Rating Prom.</Text>
+        <Text style={styles.summaryValue}>
+          {stats.avgRating > 0 ? stats.avgRating.toFixed(1) : 'N/A'}
+        </Text>
+        <Text style={styles.summaryLabel}>Rating Promedio</Text>
       </View>
     </ScrollView>
 
+    {/* Sección de ingresos semanales y top comercios */}
     <View style={styles.revenueSection}>
       <View style={styles.wowBox}>
-        <Text style={styles.wowLabel}>Ingresos (esta semana)</Text>
-        <Text style={styles.wowValue}>{stats.weekThis ? '$' + (stats.weekThis / 1000).toFixed(1) + 'k' : 'N/A'}</Text>
-        {stats.wowChangePercent !== null ? (
-          <Text style={[styles.wowChange, stats.wowChangePercent >= 0 ? styles.wowPositive : styles.wowNegative]}>
-            {stats.wowChangePercent >= 0 ? '▲' : '▼'} {Math.abs(stats.wowChangePercent).toFixed(1)}%
-          </Text>
+        <Text style={styles.wowLabel}>Ingresos esta semana</Text>
+        <Text style={styles.wowValue}>
+          ${stats.weekThis > 0 ? (stats.weekThis / 1000).toFixed(1) + 'k' : '0'}
+        </Text>
+        {stats.wowChangePercent !== null && stats.weekPrev > 0 ? (
+          <View style={[styles.wowChangeBadge, stats.wowChangePercent >= 0 ? styles.wowPositive : styles.wowNegative]}>
+            <Ionicons 
+              name={stats.wowChangePercent >= 0 ? 'trending-up' : 'trending-down'} 
+              size={14} 
+              color={stats.wowChangePercent >= 0 ? '#4CAF50' : '#F44336'} 
+            />
+            <Text style={[styles.wowChange, stats.wowChangePercent >= 0 ? styles.wowPositive : styles.wowNegative]}>
+              {Math.abs(stats.wowChangePercent).toFixed(1)}% vs semana anterior
+            </Text>
+          </View>
         ) : (
           <Text style={styles.wowNA}>Sin datos históricos</Text>
         )}
       </View>
 
-      <View style={styles.topStoresList}>
-        <Text style={styles.topStoresTitle}>Top comercios por ingresos</Text>
+      <View style={styles.topStoresBox}>
+        <Text style={styles.topStoresTitle}>🏆 Top 5 Comercios por Ingresos</Text>
         {stats.topStoresByRevenue && stats.topStoresByRevenue.length > 0 ? (
           stats.topStoresByRevenue.map((s, idx) => (
             <View key={s.id || idx} style={styles.topStoreRow}>
-              <Text style={styles.topStoreName}>{idx + 1}. {s.nombre}</Text>
+              <View style={styles.topStoreRank}>
+                <Text style={styles.topStoreRankText}>{idx + 1}</Text>
+              </View>
+              <Text style={styles.topStoreName} numberOfLines={1}>{s.nombre}</Text>
               <Text style={styles.topStoreRevenue}>${(s.total_revenue / 1000).toFixed(1)}k</Text>
             </View>
           ))
         ) : (
-          <Text style={styles.topStoresEmpty}>No hay datos de ingresos por tienda</Text>
+          <Text style={styles.topStoresEmpty}>No hay datos de ingresos disponibles</Text>
         )}
       </View>
     </View>
@@ -772,204 +842,211 @@ const AdminStoresScreen = () => {
     </Modal>
   );
 
-  const renderStoreModal = () => (
+  const renderStoreModal = () => {
+    if (!selectedStore) return null;
+    
+    return (
     <Modal
       visible={modalVisible}
       animationType="slide"
       transparent={true}
-      onRequestClose={() => setModalVisible(false)}
+      onRequestClose={closeStoreModal}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          {selectedStore && (
-            <>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Detalles del Comercio</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Ionicons name="close" size={24} color="#666" />
-                </TouchableOpacity>
-              </View>
+          <>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Detalles del Comercio</Text>
+              <TouchableOpacity onPress={closeStoreModal}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
 
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                <View style={styles.modalStoreHeader}>
-                  <View style={styles.modalLogoContainer}>
-                    {selectedStore.logo_url ? (
-                      <Image source={{ uri: selectedStore.logo_url }} style={styles.modalLogo} />
-                    ) : (
-                      <View style={styles.modalLogoPlaceholder}>
-                        <Ionicons name="storefront" size={40} color="#999" />
-                      </View>
-                    )}
-                  </View>
-                  <View style={styles.modalStoreInfo}>
-                    <Text style={styles.modalStoreName}>{selectedStore.nombre || selectedStore.nombre_comercio}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusBadge(selectedStore).bg }]}>
-                      <Ionicons name={getStatusBadge(selectedStore).icon} size={12} color={getStatusBadge(selectedStore).color} />
-                      <Text style={[styles.statusText, { color: getStatusBadge(selectedStore).color }]}>
-                        {getStatusBadge(selectedStore).label}
-                      </Text>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalStoreHeader}>
+                <View style={styles.modalLogoContainer}>
+                  {selectedStore.logo_url ? (
+                    <Image source={{ uri: selectedStore.logo_url }} style={styles.modalLogo} />
+                  ) : (
+                    <View style={styles.modalLogoPlaceholder}>
+                      <Ionicons name="storefront" size={40} color="#999" />
                     </View>
-                  </View>
+                  )}
                 </View>
-
-                <View style={styles.modalRatingSection}>
-                  <Text style={styles.modalRatingValue}>
-                    {(selectedStore.rating || selectedStore.calificacion_promedio || 0).toFixed(1)}
-                  </Text>
-                  {renderStars(selectedStore.rating || selectedStore.calificacion_promedio || 0, 20)}
-                  <Text style={styles.modalReviewsCount}>
-                    {selectedStore.total_reviews || 0} reseñas
-                  </Text>
-                </View>
-
-                <View style={styles.modalStats}>
-                  <View style={styles.modalStatItem}>
-                    <View style={[styles.modalStatIcon, { backgroundColor: '#E3F2FD' }]}>
-                      <Ionicons name="cube" size={20} color="#2196F3" />
-                    </View>
-                    <Text style={styles.modalStatValue}>{selectedStore.total_productos || 0}</Text>
-                    <Text style={styles.modalStatLabel}>Productos</Text>
-                  </View>
-                  <View style={styles.modalStatItem}>
-                    <View style={[styles.modalStatIcon, { backgroundColor: '#FFF3E0' }]}>
-                      <Ionicons name="receipt" size={20} color="#FF9800" />
-                    </View>
-                    <Text style={styles.modalStatValue}>{selectedStore.total_orders || selectedStore.total_ventas || 0}</Text>
-                    <Text style={styles.modalStatLabel}>Pedidos</Text>
-                  </View>
-                  <View style={styles.modalStatItem}>
-                    <View style={[styles.modalStatIcon, { backgroundColor: '#E8F5E9' }]}>
-                      <Ionicons name="cash" size={20} color="#4CAF50" />
-                    </View>
-                    <Text style={styles.modalStatValue}>
-                      {'$' + ((selectedStore.total_revenue || 0) / 1000).toFixed(1) + 'k'}
+                <View style={styles.modalStoreInfo}>
+                  <Text style={styles.modalStoreName}>{selectedStore.nombre || selectedStore.nombre_comercio}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: getStatusBadge(selectedStore).bg }]}>
+                    <Ionicons name={getStatusBadge(selectedStore).icon} size={12} color={getStatusBadge(selectedStore).color} />
+                    <Text style={[styles.statusText, { color: getStatusBadge(selectedStore).color }]}>
+                      {getStatusBadge(selectedStore).label}
                     </Text>
-                    <Text style={styles.modalStatLabel}>Ingresos</Text>
                   </View>
                 </View>
-
-                <View style={styles.detailsSection}>
-                  <Text style={styles.sectionTitle}>Información de Contacto</Text>
-                  
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailIcon}>
-                      <Ionicons name="location" size={18} color={COLORS.primary} />
-                    </View>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Dirección</Text>
-                      <Text style={styles.detailValue}>
-                        {(selectedStore.direccion || 'No especificada') + (selectedStore.ciudad ? ', ' + selectedStore.ciudad : '')}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailIcon}>
-                      <Ionicons name="call" size={18} color={COLORS.primary} />
-                    </View>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Teléfono</Text>
-                      <Text style={styles.detailValue}>{selectedStore.telefono || 'No especificado'}</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailIcon}>
-                      <Ionicons name="mail" size={18} color={COLORS.primary} />
-                    </View>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Email</Text>
-                      <Text style={styles.detailValue}>{selectedStore.owner_email || selectedStore.email || 'No especificado'}</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailIcon}>
-                      <Ionicons name="person" size={18} color={COLORS.primary} />
-                    </View>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Propietario</Text>
-                      <Text style={styles.detailValue}>{selectedStore.owner_name || 'No especificado'}</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailIcon}>
-                      <Ionicons name="calendar" size={18} color={COLORS.primary} />
-                    </View>
-                    <View style={styles.detailContent}>
-                      <Text style={styles.detailLabel}>Registrado</Text>
-                      <Text style={styles.detailValue}>
-                        {new Date(selectedStore.fecha_registro).toLocaleDateString('es-MX', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {selectedStore.descripcion && (
-                  <View style={styles.descriptionSection}>
-                    <Text style={styles.sectionTitle}>Descripción</Text>
-                    <Text style={styles.descriptionText}>{selectedStore.descripcion}</Text>
-                  </View>
-                )}
-              </ScrollView>
-
-              <View style={styles.modalActions}>
-                {selectedStore.estado === 'pendiente' ? (
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.approveButton]}
-                    onPress={() => handleApproveStore(selectedStore.id)}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                        <Text style={styles.actionButtonText}>Aprobar Comercio</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      selectedStore.activo ? styles.deactivateButton : styles.activateButton
-                    ]}
-                    onPress={() => handleToggleStore(selectedStore.id, selectedStore.activo)}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons 
-                          name={selectedStore.activo ? 'close-circle' : 'checkmark-circle'} 
-                          size={20} 
-                          color="#fff" 
-                        />
-                        <Text style={styles.actionButtonText}>
-                          {selectedStore.activo ? 'Desactivar' : 'Activar'} Comercio
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )}
               </View>
-            </>
-          )}
+
+              <View style={styles.modalRatingSection}>
+                <Text style={styles.modalRatingValue}>
+                  {(Number(selectedStore.rating) || Number(selectedStore.calificacion_promedio) || 0).toFixed(1)}
+                </Text>
+                {renderStars(Number(selectedStore.rating) || Number(selectedStore.calificacion_promedio) || 0, 20)}
+                <Text style={styles.modalReviewsCount}>
+                  {selectedStore.total_reviews || 0} reseñas
+                </Text>
+              </View>
+
+              <View style={styles.modalStats}>
+                <View style={styles.modalStatItem}>
+                  <View style={[styles.modalStatIcon, { backgroundColor: '#E3F2FD' }]}>
+                    <Ionicons name="cube" size={20} color="#2196F3" />
+                  </View>
+                  <Text style={styles.modalStatValue}>{selectedStore.total_productos || 0}</Text>
+                  <Text style={styles.modalStatLabel}>Productos</Text>
+                </View>
+                <View style={styles.modalStatItem}>
+                  <View style={[styles.modalStatIcon, { backgroundColor: '#FFF3E0' }]}>
+                    <Ionicons name="receipt" size={20} color="#FF9800" />
+                  </View>
+                  <Text style={styles.modalStatValue}>{selectedStore.total_orders || 0}</Text>
+                  <Text style={styles.modalStatLabel}>Pedidos</Text>
+                </View>
+                <View style={styles.modalStatItem}>
+                  <View style={[styles.modalStatIcon, { backgroundColor: '#E8F5E9' }]}>
+                    <Ionicons name="cash" size={20} color="#4CAF50" />
+                  </View>
+                  <Text style={styles.modalStatValue}>
+                    {'$' + ((selectedStore.total_revenue || 0) / 1000).toFixed(1) + 'k'}
+                  </Text>
+                  <Text style={styles.modalStatLabel}>Ingresos</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailsSection}>
+                <Text style={styles.sectionTitle}>Información de Contacto</Text>
+                
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIcon}>
+                    <Ionicons name="location" size={18} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Dirección</Text>
+                    <Text style={styles.detailValue}>
+                      {(selectedStore.direccion || 'No especificada') + (selectedStore.ciudad ? ', ' + selectedStore.ciudad : '')}
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIcon}>
+                    <Ionicons name="call" size={18} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Teléfono</Text>
+                    <Text style={styles.detailValue}>{selectedStore.telefono || 'No especificado'}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIcon}>
+                    <Ionicons name="mail" size={18} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Email</Text>
+                    <Text style={styles.detailValue}>{selectedStore.owner_email || selectedStore.email || 'No especificado'}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIcon}>
+                    <Ionicons name="person" size={18} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Propietario</Text>
+                    <Text style={styles.detailValue}>{selectedStore.owner_name || 'No especificado'}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.detailRow}>
+                  <View style={styles.detailIcon}>
+                    <Ionicons name="calendar" size={18} color={COLORS.primary} />
+                  </View>
+                  <View style={styles.detailContent}>
+                    <Text style={styles.detailLabel}>Registrado</Text>
+                    <Text style={styles.detailValue}>
+                      {new Date(selectedStore.fecha_registro).toLocaleDateString('es-MX', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {selectedStore.descripcion && (
+                <View style={styles.descriptionSection}>
+                  <Text style={styles.sectionTitle}>Descripción</Text>
+                  <Text style={styles.descriptionText}>{selectedStore.descripcion}</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              {selectedStore.estado === 'pendiente' ? (
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.approveButton]}
+                  onPress={() => {
+                    handleApproveStore(selectedStore.id);
+                    closeStoreModal();
+                  }}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>Aprobar Comercio</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.actionButton,
+                    selectedStore.activo ? styles.deactivateButton : styles.activateButton
+                  ]}
+                  onPress={() => {
+                    handleToggleStore(selectedStore.id, selectedStore.activo);
+                  }}
+                  disabled={actionLoading}
+                >
+                  {actionLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons 
+                        name={selectedStore.activo ? 'close-circle' : 'checkmark-circle'} 
+                        size={20} 
+                        color="#fff" 
+                      />
+                      <Text style={styles.actionButtonText}>
+                        {selectedStore.activo ? 'Desactivar' : 'Activar'} Comercio
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
         </View>
       </View>
     </Modal>
-  );
+    );
+  };
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Cargando comercios...</Text>
@@ -981,7 +1058,7 @@ const AdminStoresScreen = () => {
   const hasActiveFilters = advancedFilters.ciudad || advancedFilters.minRating > 0 || advancedFilters.minOrders > 0;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       
       <View style={styles.header}>
@@ -991,41 +1068,130 @@ const AdminStoresScreen = () => {
         </View>
       </View>
 
-      {/* Header is rendered inside FlatList via ListHeaderComponent */}
-
-      <FlatList
-        data={filteredStores}
-        keyExtractor={(item) => String(item.id || item.nombre || Math.random())}
-        renderItem={({ item }) => renderStoreCard(item)}
-        ListHeaderComponent={renderListHeader}
-        ListHeaderComponentStyle={{ paddingBottom: 8 }}
-        stickyHeaderIndices={[0]}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 180 }}
-        showsVerticalScrollIndicator={true}
-        refreshing={refreshing}
-        onRefresh={onRefresh}
-        keyboardShouldPersistTaps="handled"
-        numColumns={IS_NARROW ? 1 : 2}
-        columnWrapperStyle={!IS_NARROW ? { justifyContent: 'space-between' } : null}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIcon}>
-              <Ionicons name="storefront-outline" size={48} color="#ccc" />
+      {/* Layout dividido en dos filas horizontales */}
+      <View style={styles.splitLayout}>
+        {/* Fila superior: Tarjetas, estadísticas y filtros */}
+        <View style={styles.topSection}>
+          <ScrollView
+            showsVerticalScrollIndicator={true}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[COLORS.primary]}
+              />
+            }
+          >
+            {renderSummaryCards()}
+            
+            <View style={styles.searchContainer}>
+              <View style={styles.searchBox}>
+                <Ionicons name="search" size={20} color="#999" />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Buscar por nombre, ciudad, email..."
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                  placeholderTextColor="#999"
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => handleSearch('')}>
+                    <Ionicons name="close-circle" size={20} color="#999" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <TouchableOpacity 
+                style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
+                onPress={() => setFilterModalVisible(true)}
+              >
+                <Ionicons name="options" size={22} color={hasActiveFilters ? '#fff' : COLORS.primary} />
+                {hasActiveFilters && <View style={styles.filterBadgeDot} />}
+              </TouchableOpacity>
             </View>
-            <Text style={styles.emptyText}>No se encontraron comercios</Text>
-            <Text style={styles.emptySubtext}>
-              {searchQuery || hasActiveFilters 
-                ? 'Intenta con otros filtros o búsqueda' 
-                : 'No hay comercios en esta categoría'}
+
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterTabsContainer}
+              contentContainerStyle={styles.filterTabsContent}
+            >
+              {filterTabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[
+                    styles.filterTab,
+                    activeFilter === tab.id && styles.filterTabActive
+                  ]}
+                  onPress={() => handleFilterChange(tab.id)}
+                >
+                  <Ionicons 
+                    name={tab.icon} 
+                    size={16} 
+                    color={activeFilter === tab.id ? '#fff' : '#666'} 
+                  />
+                  <Text style={[
+                    styles.filterTabText,
+                    activeFilter === tab.id && styles.filterTabTextActive
+                  ]}>
+                    {tab.label}
+                  </Text>
+                  <View style={[
+                    styles.filterTabBadge,
+                    activeFilter === tab.id && styles.filterTabBadgeActive
+                  ]}>
+                    <Text style={[
+                      styles.filterTabBadgeText,
+                      activeFilter === tab.id && styles.filterTabBadgeTextActive
+                    ]}>
+                      {tab.count}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </ScrollView>
+        </View>
+
+        {/* Fila inferior: Lista de comercios */}
+        <View style={styles.bottomSection}>
+          <View style={styles.listHeader}>
+            <Text style={styles.listHeaderTitle}>
+              Comercios ({filteredStores.length})
             </Text>
             {hasActiveFilters && (
-              <TouchableOpacity style={styles.clearFiltersButton} onPress={resetAdvancedFilters}>
-                <Text style={styles.clearFiltersText}>Limpiar filtros</Text>
+              <TouchableOpacity onPress={resetAdvancedFilters} style={styles.clearFiltersSmallButton}>
+                <Text style={styles.clearFiltersSmallText}>Limpiar</Text>
               </TouchableOpacity>
             )}
           </View>
-        )}
-      />
+          
+          <FlatList
+            data={filteredStores}
+            keyExtractor={(item) => `store-${item.id}`}
+            renderItem={({ item }) => renderStoreCard(item)}
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            ListEmptyComponent={() => (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIcon}>
+                  <Ionicons name="storefront-outline" size={48} color="#ccc" />
+                </View>
+                <Text style={styles.emptyText}>No se encontraron comercios</Text>
+                <Text style={styles.emptySubtext}>
+                  {searchQuery || hasActiveFilters 
+                    ? 'Intenta con otros filtros o búsqueda' 
+                    : 'No hay comercios registrados'}
+                </Text>
+                {hasActiveFilters && (
+                  <TouchableOpacity style={styles.clearFiltersButton} onPress={resetAdvancedFilters}>
+                    <Text style={styles.clearFiltersText}>Limpiar filtros</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          />
+        </View>
+      </View>
 
       {renderFilterModal()}
       {renderStoreModal()}
@@ -1037,6 +1203,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f6fa',
+  },
+  splitLayout: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  topSection: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderBottomWidth: 2,
+    borderBottomColor: '#e0e0e0',
+  },
+  bottomSection: {
+    flex: 1,
+    backgroundColor: '#f5f6fa',
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  listHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+  clearFiltersSmallButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FF3B30',
+  },
+  clearFiltersSmallText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
   },
   loadingContainer: {
     flex: 1,
@@ -1068,98 +1274,159 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 12,
     backgroundColor: '#fff',
+    gap: 8,
   },
   summaryCard: {
-    width: 88,
-    padding: 10,
+    width: 110,
+    padding: 12,
     borderRadius: 16,
     marginRight: 10,
     alignItems: 'center',
+    ...SHADOWS.sm,
   },
   summaryIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   summaryValue: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#1a1a1a',
+    marginBottom: 2,
   },
   summaryLabel: {
     fontSize: 10,
     color: '#666',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  summaryPercentage: {
+    fontSize: 10,
+    color: '#4CAF50',
+    fontWeight: '700',
     marginTop: 2,
   },
+  summaryBadge: {
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: '#FF9800',
+  },
+  summaryBadgeText: {
+    fontSize: 8,
+    color: '#fff',
+    fontWeight: '700',
+  },
   revenueSection: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#fff',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   },
   wowBox: {
-    width: '45%',
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: '#f7f9ff',
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#F0F4FF',
+    ...SHADOWS.sm,
+  },
+  topStoresBox: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFF8E1',
+    ...SHADOWS.sm,
   },
   wowLabel: {
     fontSize: 11,
     color: '#666',
+    fontWeight: '600',
+    marginBottom: 4,
   },
   wowValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 6,
+    fontSize: 22,
+    fontWeight: '800',
     color: '#1a1a1a',
+    marginBottom: 6,
+  },
+  wowChangeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
   wowChange: {
-    marginTop: 6,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
   },
-  wowPositive: { color: '#2e7d32' },
-  wowNegative: { color: '#c62828' },
-  wowNA: { marginTop: 6, color: '#999' },
-  topStoresList: {
-    width: '50%',
-    paddingLeft: 12,
+  wowPositive: {
+    color: '#4CAF50',
+    backgroundColor: '#E8F5E9',
+  },
+  wowNegative: {
+    color: '#F44336',
+    backgroundColor: '#FFEBEE',
+  },
+  wowNA: {
+    fontSize: 10,
+    color: '#999',
+    fontStyle: 'italic',
   },
   topStoresTitle: {
     fontSize: 12,
     fontWeight: '700',
     color: '#1a1a1a',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   topStoreRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 6,
+    gap: 8,
+  },
+  topStoreRank: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFC107',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topStoreRankText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
   },
   topStoreName: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#333',
     flex: 1,
+    fontWeight: '500',
   },
   topStoreRevenue: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#1a1a1a',
-    marginLeft: 8,
   },
   topStoresEmpty: {
     color: '#999',
-    fontSize: 12,
+    fontSize: 11,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
   searchContainer: {
     flexDirection: 'row',

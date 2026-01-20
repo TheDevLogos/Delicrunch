@@ -10,9 +10,14 @@ import {
   Platform,
   StatusBar,
   Image,
+  Switch,
+  Alert,
+  Linking,
+  Modal,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ReadOnlyStarRating from '../components/ReadOnlyStarRating';
@@ -33,6 +38,14 @@ const ProfileScreen = () => {
   const { signOut } = useAuth();
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Estados para configuración y ayuda
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [locationEnabled, setLocationEnabled] = useState(true);
+  const [expandedFAQ, setExpandedFAQ] = useState(null);
 
   const fetchProfile = async () => {
     try {
@@ -51,6 +64,60 @@ const ProfileScreen = () => {
       fetchProfile();
     }, [])
   );
+  
+  // Función para seleccionar logo del comercio
+  const pickLogo = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.status !== 'granted') {
+        Alert.alert('Permiso Requerido', 'Necesitamos permiso para acceder a tus fotos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Logo cuadrado
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        await uploadLogo(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking logo:', error);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen');
+    }
+  };
+
+  // Función para subir logo al backend
+  const uploadLogo = async (imageUri) => {
+    try {
+      const formData = new FormData();
+      
+      const uriParts = imageUri.split('.');
+      const fileType = uriParts[uriParts.length - 1];
+      
+      formData.append('foto_perfil', {
+        uri: imageUri,
+        name: `logo_${Date.now()}.${fileType}`,
+        type: `image/${fileType}`,
+      });
+
+      await api.put('/profiles/me', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      Alert.alert('¡Éxito!', 'Logo actualizado correctamente');
+      fetchProfile(); // Recargar perfil
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      Alert.alert('Error', 'No se pudo subir el logo');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -73,7 +140,7 @@ const ProfileScreen = () => {
     const options = [];
     
     // Opciones para COMPRADORES
-    if (isComprador || isAdmin) {
+    if (isComprador) {
       options.push({
         icon: 'bag-handle-outline',
         label: 'Mis Pedidos',
@@ -92,7 +159,7 @@ const ProfileScreen = () => {
         icon: 'card-outline',
         label: 'Métodos de Pago',
         subtitle: 'Gestiona tus tarjetas',
-        onPress: () => navigation.navigate('PaymentMethods'),
+        onPress: () => navigation.navigate('ManageCards'),
         color: COLORS.primary,
       });
     }
@@ -121,6 +188,13 @@ const ProfileScreen = () => {
         color: COLORS.primary,
       });
       options.push({
+        icon: 'wallet-outline',
+        label: 'Cuentas para Cobrar',
+        subtitle: 'Configura Stripe Connect',
+        onPress: () => navigation.navigate('MerchantPaymentSettings'),
+        color: COLORS.primary,
+      });
+      options.push({
         icon: 'analytics-outline',
         label: 'Estadísticas',
         subtitle: 'Rendimiento de tu tienda',
@@ -129,20 +203,52 @@ const ProfileScreen = () => {
       });
     }
     
+    // Opciones para ADMIN
+    if (isAdmin) {
+      options.push({
+        icon: 'bag-handle-outline',
+        label: 'Mis Pedidos',
+        subtitle: 'Historial de compras',
+        onPress: () => navigation.navigate('MyOrders'),
+        color: COLORS.primary,
+      });
+      options.push({
+        icon: 'star-outline',
+        label: 'Mis Reseñas',
+        subtitle: 'Opiniones que has dejado',
+        onPress: () => navigation.navigate('MyReviews'),
+        color: COLORS.primary,
+      });
+      options.push({
+        icon: 'card-outline',
+        label: 'Métodos de Pago',
+        subtitle: 'Gestiona tus tarjetas',
+        onPress: () => navigation.navigate('ManageCards'),
+        color: COLORS.primary,
+      });
+      options.push({
+        icon: 'wallet-outline',
+        label: 'Cuentas para Cobrar',
+        subtitle: 'Configura Stripe Connect',
+        onPress: () => navigation.navigate('MerchantPaymentSettings'),
+        color: COLORS.primary,
+      });
+    }
+    
     // Opciones comunes
     options.push({
       icon: 'settings-outline',
       label: 'Configuración',
       subtitle: 'Preferencias de la app',
-      onPress: () => {},
-      color: COLORS.textLight,
+      onPress: () => setShowSettings(true),
+      color: COLORS.primary, // Cambiado a verde activo
     });
     options.push({
       icon: 'help-circle-outline',
       label: 'Ayuda y Soporte',
       subtitle: 'FAQ y contacto',
-      onPress: () => {},
-      color: COLORS.textLight,
+      onPress: () => setShowHelp(true),
+      color: COLORS.primary, // Cambiado a verde activo
     });
     
     return options;
@@ -151,7 +257,7 @@ const ProfileScreen = () => {
   const menuOptions = getMenuOptions();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header con avatar - estilo TGTG */}
@@ -219,6 +325,37 @@ const ProfileScreen = () => {
               </Text>
             </View>
           )}
+          
+          {/* Logo del comercio (solo para comercios) */}
+          {isComercio && (
+            <View style={styles.logoSection}>
+              <Text style={styles.logoSectionTitle}>Logo del Comercio</Text>
+              <TouchableOpacity 
+                style={styles.logoContainer}
+                onPress={pickLogo}
+                activeOpacity={0.7}
+              >
+                {profile.foto_perfil ? (
+                  <Image 
+                    source={{ 
+                      uri: profile.foto_perfil.startsWith('http') 
+                        ? profile.foto_perfil 
+                        : (backendBase + profile.foto_perfil) 
+                    }} 
+                    style={styles.logoImage} 
+                  />
+                ) : (
+                  <View style={styles.logoPlaceholder}>
+                    <Ionicons name="storefront-outline" size={40} color={COLORS.textLight} />
+                    <Text style={styles.logoPlaceholderText}>Subir Logo</Text>
+                  </View>
+                )}
+                <View style={styles.logoEditBadge}>
+                  <Ionicons name="camera" size={16} color={COLORS.white} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Botón editar perfil */}
@@ -283,8 +420,306 @@ const ProfileScreen = () => {
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 20 }} />
       </ScrollView>
+      
+      {/* Modal de Configuración */}
+      <Modal 
+        visible={showSettings} 
+        animationType="slide" 
+        presentationStyle="formSheet"
+        transparent={false}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          {/* Indicador de modal */}
+          <View style={styles.modalIndicator} />
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowSettings(false)}>
+              <Ionicons name="close" size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Configuración</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {/* Sección Apariencia */}
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>Apariencia</Text>
+              
+              <View style={styles.settingItem}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="moon-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Tema oscuro</Text>
+                </View>
+                <Switch
+                  value={isDarkMode}
+                  onValueChange={setIsDarkMode}
+                  trackColor={{ false: '#E5E5EA', true: COLORS.primary }}
+                  thumbColor={isDarkMode ? '#FFFFFF' : '#FFFFFF'}
+                />
+              </View>
+            </View>
+            
+            {/* Sección Notificaciones */}
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>Notificaciones</Text>
+              
+              <View style={styles.settingItem}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="notifications-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Notificaciones push</Text>
+                </View>
+                <Switch
+                  value={notificationsEnabled}
+                  onValueChange={setNotificationsEnabled}
+                  trackColor={{ false: '#E5E5EA', true: COLORS.primary }}
+                  thumbColor={notificationsEnabled ? '#FFFFFF' : '#FFFFFF'}
+                />
+              </View>
+              
+              <TouchableOpacity style={styles.settingItem} onPress={() => {
+                Alert.alert(
+                  'Horarios de Notificación',
+                  'Configura cuándo quieres recibir notificaciones:\n\n• Ofertas especiales: 9:00 - 21:00\n• Recordatorios de recogida: Siempre activo\n• Nuevos comercios: 10:00 - 20:00',
+                  [{ text: 'Cerrar', style: 'default' }]
+                );
+              }}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="time-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Horarios de notificación</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Sección Privacidad */}
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>Privacidad y Permisos</Text>
+              
+              <View style={styles.settingItem}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="location-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Ubicación</Text>
+                </View>
+                <Switch
+                  value={locationEnabled}
+                  onValueChange={setLocationEnabled}
+                  trackColor={{ false: '#E5E5EA', true: COLORS.primary }}
+                  thumbColor={locationEnabled ? '#FFFFFF' : '#FFFFFF'}
+                />
+              </View>
+              
+              <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Permisos', 'Gestiona los permisos de la app desde la configuración de tu dispositivo.')}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="shield-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Permisos de la app</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.settingItem} onPress={() => {
+                Alert.alert(
+                  'Política de Privacidad',
+                  'Delicrunch respeta tu privacidad y protege tus datos personales según la normativa vigente.\n\nPuedes consultar nuestra política completa en:\nwww.delicrunch.com/privacy',
+                  [
+                    { text: 'Cerrar', style: 'cancel' },
+                    { text: 'Abrir enlace', onPress: () => Linking.openURL('https://www.delicrunch.com/privacy') }
+                  ]
+                );
+              }}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="eye-off-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Política de privacidad</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Sección General */}
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsSectionTitle}>General</Text>
+              
+              <TouchableOpacity style={styles.settingItem} onPress={() => {
+                Alert.alert(
+                  'Seleccionar Idioma',
+                  'Elige tu idioma preferido:',
+                  [
+                    { text: 'Español', onPress: () => Alert.alert('Idioma', 'Español ya está seleccionado') },
+                    { text: 'English', onPress: () => Alert.alert('Language', 'English will be available soon') },
+                    { text: 'Cancelar', style: 'cancel' }
+                  ]
+                );
+              }}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="language-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Idioma</Text>
+                </View>
+                <View style={styles.settingRight}>
+                  <Text style={styles.settingValue}>Español</Text>
+                  <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.settingItem} onPress={() => {
+                Alert.alert(
+                  'Limpiar Caché',
+                  '¿Estás seguro de que quieres limpiar la caché? Esto eliminará archivos temporales y puede mejorar el rendimiento.',
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { 
+                      text: 'Limpiar', 
+                      style: 'destructive',
+                      onPress: () => {
+                        // Aquí se implementaría la limpieza de caché
+                        Alert.alert('Éxito', 'Caché limpiada correctamente');
+                      }
+                    }
+                  ]
+                );
+              }}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="refresh-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Limpiar caché</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.settingItem} onPress={() => {
+                Alert.alert(
+                  'Acerca de Delicrunch',
+                  'Versión: 2.1.0\nBuild: 2026.01.19\n\nDelicrunch - Rescata comida, salva el planeta\n\nDesarrollado con ❤️ para reducir el desperdicio alimentario.',
+                  [{ text: 'Cerrar' }]
+                );
+              }}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="information-circle-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Acerca de la app</Text>
+                </View>
+                <View style={styles.settingRight}>
+                  <Text style={styles.settingValue}>v2.1.0</Text>
+                  <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+      
+      {/* Modal de Ayuda y Soporte */}
+      <Modal 
+        visible={showHelp} 
+        animationType="slide" 
+        presentationStyle="formSheet"
+        transparent={false}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          {/* Indicador de modal */}
+          <View style={styles.modalIndicator} />
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowHelp(false)}>
+              <Ionicons name="close" size={24} color={COLORS.text} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Ayuda y Soporte</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {/* FAQ */}
+            <View style={styles.faqSection}>
+              <Text style={styles.faqSectionTitle}>Preguntas Frecuentes</Text>
+              
+              {[
+                {
+                  question: '¿Cómo funciona Delicrunch?',
+                  answer: 'Delicrunch te permite rescatar comida de restaurantes y comercios que de otra manera se desperdiciaría. Simplemente busca packs sorpresa cerca de ti, realiza tu compra y recógela en el horario indicado.'
+                },
+                {
+                  question: '¿Qué es un pack sorpresa?',
+                  answer: 'Un pack sorpresa es una selección de alimentos frescos que el comercio tiene disponible al final del día. El contenido varía según lo que tengan disponible, pero siempre es comida de calidad a precio reducido.'
+                },
+                {
+                  question: '¿Cómo puedo pagar mi pedido?',
+                  answer: 'Puedes pagar con tarjeta de crédito o débito directamente en la app. Todos los pagos son procesados de forma segura a través de Stripe.'
+                },
+                {
+                  question: '¿Puedo cancelar mi pedido?',
+                  answer: 'Puedes cancelar tu pedido hasta 2 horas antes del horario de recogida sin penalización. Después de ese tiempo, se aplicará una política de cancelación.'
+                },
+                {
+                  question: '¿Qué hago si no puedo recoger mi pedido?',
+                  answer: 'Si no puedes recoger tu pedido, contáctanos lo antes posible. En casos excepcionales, podemos ayudarte a reprogramar o reembolsar tu compra.'
+                },
+                {
+                  question: '¿Cómo funcionan los puntos y recompensas?',
+                  answer: 'Ganas XP por cada compra que realizas. Al subir de nivel, desbloqueas cupones y recompensas especiales. Mantén tu racha diaria para ganar puntos extra.'
+                },
+                {
+                  question: '¿Puedo registrar mi negocio en Delicrunch?',
+                  answer: 'Sí, los comercios pueden registrarse para vender sus excedentes de comida. Necesitas completar el proceso de verificación y configurar tu cuenta de pagos.'
+                },
+                {
+                  question: '¿Es seguro comer la comida de los packs?',
+                  answer: 'Absolutamente. Todos los comercios deben cumplir con estándares de seguridad alimentaria. La comida está fresca y es segura para el consumo, solo que no se vendió durante el día regular.'
+                },
+                {
+                  question: '¿Cómo puedo dejar una reseña?',
+                  answer: 'Después de recoger tu pedido, puedes calificar tu experiencia y dejar comentarios en la sección "Mis Pedidos". Esto ayuda a otros usuarios y a los comercios a mejorar.'
+                },
+                {
+                  question: '¿Qué pasa si hay un problema con mi pedido?',
+                  answer: 'Si tienes algún problema con tu pedido, contáctanos inmediatamente a través del chat en la app o por email. Nuestro equipo te ayudará a resolver cualquier inconveniente.'
+                }
+              ].map((faq, index) => (
+                <View key={index} style={styles.faqItem}>
+                  <TouchableOpacity
+                    style={styles.faqQuestion}
+                    onPress={() => setExpandedFAQ(expandedFAQ === index ? null : index)}
+                  >
+                    <Text style={styles.faqQuestionText}>{faq.question}</Text>
+                    <Ionicons
+                      name={expandedFAQ === index ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={COLORS.text}
+                    />
+                  </TouchableOpacity>
+                  {expandedFAQ === index && (
+                    <View style={styles.faqAnswer}>
+                      <Text style={styles.faqAnswerText}>{faq.answer}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+            
+            {/* Contacto */}
+            <View style={styles.contactSection}>
+              <Text style={styles.contactTitle}>Contáctanos</Text>
+              <Text style={styles.contactSubtitle}>
+                ¿No encontraste la respuesta que buscabas? Nuestro equipo está aquí para ayudarte.
+              </Text>
+              
+              <TouchableOpacity
+                style={styles.contactButton}
+                onPress={() => {
+                  Linking.openURL('mailto:admin@delicrunch.com?subject=Soporte%20Delicrunch&body=Hola%2C%20necesito%20ayuda%20con...');
+                }}
+              >
+                <Ionicons name="mail" size={24} color={COLORS.white} />
+                <Text style={styles.contactButtonText}>admin@delicrunch.com</Text>
+              </TouchableOpacity>
+              
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactInfoText}>
+                  Tiempo de respuesta: 24-48 horas
+                </Text>
+                <Text style={styles.contactInfoText}>
+                  Horario de atención: Lunes a Viernes 9:00 - 18:00
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -296,6 +731,7 @@ const styles = StyleSheet.create({
   },
   container: { 
     flex: 1,
+    paddingBottom: Platform.OS === 'android' ? 12 : 8, // Aumentado margin para Android
   },
   loadingContainer: {
     flex: 1,
@@ -304,16 +740,199 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    maxHeight: '85%', // Limitar altura máxima
+    marginTop: '15%', // Empujar hacia abajo
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+  },
+  modalIndicator: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md, // Aumentado para mejor área de toque
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.white,
+    minHeight: 60, // Altura mínima para mejor accesibilidad
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  modalContent: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+  },
+  
+  // Settings styles
+  settingsSection: {
+    backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...SHADOWS.sm,
+  },
+  settingsSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    minHeight: 56,
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingLabel: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginLeft: SPACING.sm,
+    flex: 1,
+  },
+  settingValue: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginRight: SPACING.xs,
+  },
+  
+  // FAQ styles
+  faqSection: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  faqSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.md,
+  },
+  faqItem: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    marginBottom: SPACING.sm,
+    overflow: 'hidden',
+    ...SHADOWS.sm,
+  },
+  faqQuestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.white,
+  },
+  faqQuestionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  faqAnswer: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    backgroundColor: COLORS.surface,
+  },
+  faqAnswerText: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+  },
+  
+  // Contact styles
+  contactSection: {
+    backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg,
+    borderRadius: 16,
+    alignItems: 'center',
+    ...SHADOWS.md,
+  },
+  contactTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
+  },
+  contactSubtitle: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: SPACING.lg,
+  },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: 12,
+    marginBottom: SPACING.md,
+    ...SHADOWS.sm,
+  },
+  contactButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginLeft: SPACING.sm,
+  },
+  contactInfo: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  contactInfoText: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+  },
+  
   // Header estilo TGTG
   header: { 
     alignItems: 'center',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 16 : 16,
-    paddingBottom: 24,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 12 : 12, // Reducido padding top
+    paddingBottom: 20, // Reducido padding bottom
     paddingHorizontal: SPACING.md,
     backgroundColor: COLORS.white,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm, // Reducido margen inferior
     ...SHADOWS.md,
   },
   avatarContainer: {
@@ -506,6 +1125,64 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textLight,
     marginTop: 2,
+  },
+  
+  // Logo del comercio
+  logoSection: {
+    marginTop: SPACING.md,
+    alignItems: 'center',
+  },
+  logoSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textLight,
+    marginBottom: SPACING.sm,
+  },
+  logoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.md,
+    position: 'relative',
+  },
+  logoImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  logoPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.backgroundLight || '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.border || '#E0E0E0',
+    borderStyle: 'dashed',
+  },
+  logoPlaceholderText: {
+    marginTop: SPACING.xs,
+    fontSize: 12,
+    color: COLORS.textLight,
+    fontWeight: '500',
+  },
+  logoEditBadge: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: COLORS.white,
+    ...SHADOWS.sm,
   },
 
   // Logout

@@ -1,0 +1,18 @@
+[0;34m╔════════════════════════════════════════════════╗[0m
+[0;34m║     Delicrunch Development Environment         ║[0m
+[0;34m╚════════════════════════════════════════════════╝[0m
+
+[1;33m[1/6][0m Limpiando contenedores y volúmenes previos...
+[0;32m✓ Limpieza completada[0m
+
+[1;33m[2/6][0m Levantando PostgreSQL...
+ Network delicrunch_default  Creating
+ Network delicrunch_default  Created
+ Volume delicrunch_postgres_data  Creating
+ Volume delicrunch_postgres_data  Created
+ Container delicrunch-postgres  Creating
+ Container delicrunch-postgres  Created
+ Container delicrunch-postgres  Starting
+ Container delicrunch-postgres  Started
+[1;33m[3/6][0m Esperando a que PostgreSQL esté listo...
+.

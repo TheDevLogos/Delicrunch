@@ -444,6 +444,54 @@ const getGamificationStats = async (req, res) => {
   }
 };
 
+/**
+ * Obtener definiciones de cupones agrupadas por nivel indicando si el usuario las tiene
+ * @route GET /api/coupons/definitions
+ */
+const getLevelCoupons = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Obtener nivel actual del perfil
+    const profileRes = await pool.query('SELECT current_level, total_pedidos FROM profiles WHERE user_id = $1', [userId]);
+    const currentLevel = (profileRes.rows[0] && profileRes.rows[0].current_level) || 1;
+
+    // Obtener todas las definiciones activas
+    const defsRes = await pool.query('SELECT * FROM coupon_definitions WHERE is_active = true ORDER BY level_required ASC');
+    const defs = defsRes.rows;
+
+    // Obtener cupones del usuario para saber qué ya tiene
+    const userCouponsRes = await pool.query('SELECT coupon_definition_id, id, status FROM user_coupons WHERE user_id = $1', [userId]);
+    const owned = new Map();
+    userCouponsRes.rows.forEach(r => {
+      if (!owned.has(r.coupon_definition_id)) owned.set(r.coupon_definition_id, []);
+      owned.get(r.coupon_definition_id).push({ id: r.id, status: r.status });
+    });
+
+    // Agrupar por nivel
+    const byLevel = {};
+    defs.forEach(def => {
+      const lvl = def.level_required || 1;
+      if (!byLevel[lvl]) byLevel[lvl] = { level: lvl, definitions: [] };
+
+      const has = owned.has(def.id) ? true : false;
+      const unlocked = lvl <= currentLevel;
+
+      byLevel[lvl].definitions.push({
+        definition: def,
+        unlocked,
+        has,
+        ownedInstances: owned.get(def.id) || []
+      });
+    });
+
+    res.json({ success: true, currentLevel, levels: Object.values(byLevel) });
+  } catch (error) {
+    console.error('Error getting level coupons:', error);
+    res.status(500).json({ success: false, error: 'Error al obtener definiciones de cupones' });
+  }
+};
+
 module.exports = {
   getMyCoupons,
   getAvailableCoupons,
@@ -453,4 +501,5 @@ module.exports = {
   recordXpTransaction,
   getXpHistory,
   getGamificationStats
+  ,getLevelCoupons
 };

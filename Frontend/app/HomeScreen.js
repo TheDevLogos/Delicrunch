@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
-  SafeAreaView,
   FlatList,
   ActivityIndicator,
   Text,
@@ -11,10 +10,14 @@ import {
   Image,
   ScrollView,
   RefreshControl,
+  Platform,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../contexts/AuthContext';
 import * as Location from 'expo-location';
 import api, { publicApi } from '../services/api';
 import ProductCard from '../components/ProductCard';
@@ -23,8 +26,9 @@ import MapSection from '../components/MapSection';
 import SpecialNotificationModal from '../components/SpecialNotificationModal';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
 
-const HomeScreen = () => {
+  const HomeScreen = () => {
 const navigation = useNavigation(); 
+  const { user } = useAuth();
 
   // --- ESTADOS DEL COMPONENTE ---
   const [products, setProducts] = useState([]); // Para almacenar la lista de productos
@@ -302,7 +306,8 @@ const navigation = useNavigation();
 
   // --- RENDERIZADO PRINCIPAL ---
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       {/* Modal de Notificación Especial */}
       <SpecialNotificationModal
         visible={showNotification}
@@ -369,7 +374,16 @@ const navigation = useNavigation();
         ListHeaderComponent={() => (
           <View>
             {/* Flash Deals */}
-            <FlashDealModal products={products} navigation={navigation} />
+            <FlashDealModal
+              products={
+                products && products.length > 0
+                  ? products
+                  : (user?.rol === 'comprador'
+                      ? [{ id: -9999, nombre: 'Prueba Flash', descripcion: 'Oferta de prueba para comprador', precio_descuento: 1, precio_original: 5, nombre_comercio: 'Demo', imagen_url: '' }]
+                      : [])
+              }
+              navigation={navigation}
+            />
             
             {/* Map Section */}
             <View style={styles.mapCard}>
@@ -405,6 +419,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   // Header
   header: {

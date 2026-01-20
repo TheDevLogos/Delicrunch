@@ -6,7 +6,7 @@ import StyledButton from '../components/StyledButton';
 
 const StripeOnboardingSuccessScreen = ({ navigation }) => {
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Ionicons name="checkmark-circle" size={80} color="#30D158" />
       <Text style={styles.title}>¡Configuración Guardada!</Text>
       <Text style={styles.subtitle}>

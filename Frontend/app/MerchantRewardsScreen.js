@@ -10,6 +10,10 @@ import {
   RefreshControl,
   ActivityIndicator,
   Dimensions,
+  Modal,
+  Platform,
+  StatusBar,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -43,6 +47,11 @@ const MerchantRewardsScreen = ({ navigation }) => {
   const [progress, setProgress] = useState(0);
   const [claimedRewards, setClaimedRewards] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  
+  // Modal para información de recompensas
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [selectedReward, setSelectedReward] = useState(null);
+  const [selectedRewardLevel, setSelectedRewardLevel] = useState(null);
   
   // Animations
   const progressAnim = useState(new Animated.Value(0))[0];
@@ -163,7 +172,190 @@ const MerchantRewardsScreen = ({ navigation }) => {
     await AsyncStorage.setItem('merchant_claimed_rewards', JSON.stringify(newClaimed));
     
     // Show success feedback
-    alert('¡Recompensa reclamada! Nos pondremos en contacto contigo para coordinar tu premio.');
+    Alert.alert('¡Recompensa reclamada!', 'Nos pondremos en contacto contigo para coordinar tu premio.');
+  };
+
+  // Función para mostrar información de la recompensa
+  const showRewardInfo = (reward, levelRequired) => {
+    setSelectedReward(reward);
+    setSelectedRewardLevel(levelRequired);
+    setInfoModalVisible(true);
+  };
+
+  // Obtener descripción detallada de la recompensa
+  const getRewardDetailDescription = (reward, levelRequired) => {
+    const category = REWARD_CATEGORIES[reward.type];
+    const levelInfo = MERCHANT_LEVELS.find(l => l.level === levelRequired);
+    const xpRequired = levelInfo?.xpRequired || 0;
+    const isUnlocked = currentLevel.level >= levelRequired;
+    const isClaimed = claimedRewards.includes(reward.id);
+    
+    let howToUnlock = '';
+    let benefit = '';
+    
+    switch(reward.type) {
+      case 'badge':
+        howToUnlock = `Alcanza el nivel ${levelRequired} (${xpRequired.toLocaleString()} XP)`;
+        benefit = 'Esta insignia se muestra en tu perfil de comercio, aumentando la confianza de tus clientes.';
+        break;
+      case 'social':
+        howToUnlock = `Alcanza el nivel ${levelRequired} (${xpRequired.toLocaleString()} XP)`;
+        benefit = 'Aumenta la visibilidad de tu negocio en redes sociales, atrayendo nuevos clientes potenciales.';
+        break;
+      case 'media':
+        howToUnlock = `Alcanza el nivel ${levelRequired} (${xpRequired.toLocaleString()} XP)`;
+        benefit = 'Exposición en medios tradicionales para llegar a una audiencia más amplia en tu ciudad.';
+        break;
+      case 'feature':
+        howToUnlock = `Alcanza el nivel ${levelRequired} (${xpRequired.toLocaleString()} XP)`;
+        benefit = 'Tu tienda aparecerá destacada en la app, recibiendo más visitas y ventas potenciales.';
+        break;
+      case 'outdoor':
+        howToUnlock = `Alcanza el nivel ${levelRequired} (${xpRequired.toLocaleString()} XP)`;
+        benefit = 'Publicidad física en ubicaciones estratégicas para atraer clientes locales.';
+        break;
+      default:
+        howToUnlock = `Alcanza el nivel ${levelRequired}`;
+        benefit = 'Recompensa especial para comercios destacados.';
+    }
+
+    return {
+      howToUnlock,
+      benefit,
+      xpRequired,
+      isUnlocked,
+      isClaimed,
+      categoryName: category?.name || 'Premio',
+      categoryColor: category?.color || '#007AFF',
+    };
+  };
+
+  // Renderizar modal de información
+  const renderInfoModal = () => {
+    if (!selectedReward) return null;
+    
+    const details = getRewardDetailDescription(selectedReward, selectedRewardLevel);
+    const tierInfo = getTierInfo(currentLevel.tier);
+    
+    return (
+      <Modal
+        visible={infoModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setInfoModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Header del modal */}
+            <View style={[styles.modalHeader, { backgroundColor: details.categoryColor + '20' }]}>
+              <View style={[styles.modalIconContainer, { backgroundColor: details.categoryColor }]}>
+                <Ionicons 
+                  name={selectedReward.icon} 
+                  size={24} 
+                  color="#fff" 
+                />
+              </View>
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => setInfoModalVisible(false)}
+              >
+                <Ionicons name="close" size={18} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Contenido */}
+            <View style={styles.modalBody}>
+              <Text style={styles.modalTitle}>{selectedReward.name}</Text>
+              
+              <View style={[styles.modalCategoryBadge, { backgroundColor: details.categoryColor + '20' }]}>
+                <Ionicons name={REWARD_CATEGORIES[selectedReward.type]?.icon || 'star'} size={10} color={details.categoryColor} />
+                <Text style={[styles.modalCategoryText, { color: details.categoryColor }]}>
+                  {details.categoryName}
+                </Text>
+              </View>
+              
+              {selectedReward.description && (
+                <Text style={styles.modalDescription}>
+                  {selectedReward.description}
+                </Text>
+              )}
+              
+              {/* Estado */}
+              <View style={styles.modalStatusContainer}>
+                {details.isClaimed ? (
+                  <View style={[styles.modalStatusBadge, { backgroundColor: '#34C75920' }]}>
+                    <Ionicons name="checkmark-circle" size={14} color="#34C759" />
+                    <Text style={[styles.modalStatusText, { color: '#34C759' }]}>Reclamado</Text>
+                  </View>
+                ) : details.isUnlocked ? (
+                  <View style={[styles.modalStatusBadge, { backgroundColor: '#007AFF20' }]}>
+                    <Ionicons name="lock-open" size={14} color="#007AFF" />
+                    <Text style={[styles.modalStatusText, { color: '#007AFF' }]}>Desbloqueado</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.modalStatusBadge, { backgroundColor: '#FF950020' }]}>
+                    <Ionicons name="lock-closed" size={14} color="#FF9500" />
+                    <Text style={[styles.modalStatusText, { color: '#FF9500' }]}>Bloqueado</Text>
+                  </View>
+                )}
+              </View>
+              
+              {/* Información de desbloqueo */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>
+                  <Ionicons name="key-outline" size={12} color="#666" /> Cómo Desbloquear
+                </Text>
+                <Text style={styles.modalSectionText}>{details.howToUnlock}</Text>
+                
+                {!details.isUnlocked && (
+                  <View style={styles.modalProgressInfo}>
+                    <Text style={styles.modalProgressText}>
+                      Tu progreso: {merchantXP.toLocaleString()} / {details.xpRequired.toLocaleString()} XP
+                    </Text>
+                    <View style={styles.modalProgressBar}>
+                      <View 
+                        style={[
+                          styles.modalProgressFill, 
+                          { 
+                            width: `${Math.min(100, (merchantXP / details.xpRequired) * 100)}%`,
+                            backgroundColor: details.categoryColor 
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={styles.modalProgressPercent}>
+                      {Math.min(100, Math.floor((merchantXP / details.xpRequired) * 100))}% completado
+                    </Text>
+                  </View>
+                )}
+              </View>
+              
+              {/* Beneficio */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>
+                  <Ionicons name="gift-outline" size={12} color="#666" /> Beneficio
+                </Text>
+                <Text style={styles.modalSectionText}>{details.benefit}</Text>
+              </View>
+              
+              {/* Botón de acción */}
+              {details.isUnlocked && !details.isClaimed && selectedReward.type !== 'badge' && (
+                <TouchableOpacity 
+                  style={[styles.modalClaimButton, { backgroundColor: details.categoryColor }]}
+                  onPress={() => {
+                    setInfoModalVisible(false);
+                    handleClaimReward(selectedReward.id);
+                  }}
+                >
+                  <Ionicons name="gift" size={16} color="#fff" />
+                  <Text style={styles.modalClaimButtonText}>Reclamar Recompensa</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   const getTierInfo = (tierKey) => MERCHANT_LEVEL_TIERS[tierKey] || MERCHANT_LEVEL_TIERS.STARTER;
@@ -275,8 +467,10 @@ const MerchantRewardsScreen = ({ navigation }) => {
     const category = REWARD_CATEGORIES[reward.type];
 
     return (
-      <View 
+      <TouchableOpacity 
         key={reward.id} 
+        activeOpacity={0.8}
+        onPress={() => showRewardInfo(reward, levelRequired)}
         style={[
           styles.rewardItem,
           !isUnlocked && styles.rewardItemLocked,
@@ -312,7 +506,7 @@ const MerchantRewardsScreen = ({ navigation }) => {
           </View>
           
           {reward.description && (
-            <Text style={[styles.rewardDescription, !isUnlocked && styles.rewardDescLocked]}>
+            <Text style={[styles.rewardDescription, !isUnlocked && styles.rewardDescLocked]} numberOfLines={2}>
               {reward.description}
             </Text>
           )}
@@ -327,18 +521,26 @@ const MerchantRewardsScreen = ({ navigation }) => {
             {!isUnlocked && (
               <Text style={styles.levelRequired}>Nivel {levelRequired}</Text>
             )}
+            
+            {/* Indicador de info */}
+            <View style={styles.infoIndicator}>
+              <Ionicons name="information-circle-outline" size={18} color="#999" />
+            </View>
           </View>
         </View>
         
         {isUnlocked && !isClaimed && reward.type !== 'badge' && (
           <TouchableOpacity 
             style={styles.claimButton}
-            onPress={() => handleClaimReward(reward.id)}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleClaimReward(reward.id);
+            }}
           >
             <Text style={styles.claimButtonText}>Reclamar</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -469,6 +671,9 @@ const MerchantRewardsScreen = ({ navigation }) => {
           </View>
         </Animated.View>
       </ScrollView>
+      
+      {/* Modal de información */}
+      {renderInfoModal()}
     </SafeAreaView>
   );
 };
@@ -484,6 +689,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 12 : 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
@@ -821,6 +1027,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#999',
   },
+  infoIndicator: {
+    marginLeft: 'auto',
+    padding: 4,
+  },
   claimedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -842,6 +1052,148 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
+  },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '60%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    padding: 16,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  modalIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBody: {
+    padding: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modalCategoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  modalCategoryText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  modalDescription: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  modalStatusContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  modalStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  modalSection: {
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  modalSectionTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 4,
+  },
+  modalSectionText: {
+    fontSize: 12,
+    color: '#333',
+    lineHeight: 16,
+  },
+  modalProgressInfo: {
+    marginTop: 8,
+  },
+  modalProgressText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  modalProgressBar: {
+    height: 6,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  modalProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  modalProgressPercent: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
+    textAlign: 'right',
+  },
+  modalClaimButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  modalClaimButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 8,
   },
 });
 

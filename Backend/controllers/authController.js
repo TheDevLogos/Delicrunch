@@ -8,11 +8,31 @@ const asyncHandler = require('../middleware/asyncHandler');
 // Función para registrar un nuevo usuario
 exports.registerUser = asyncHandler(async (req, res, next) => {
     // Obtenemos los datos del cuerpo de la solicitud 
-    const { nombre, email, password, rol } = req.body;
+    const { nombre, email, password, rol, storeData } = req.body;
 
     // Validación básica
     if (!nombre || !email || !password || !rol) {
         return res.status(400).json({ msg: 'Por favor, incluye todos los campos.' });
+    }
+    
+    // Validación adicional para comercios
+    if (rol === 'comercio') {
+        if (!storeData || !storeData.nombre_comercio || !storeData.direccion || !storeData.telefono || !storeData.categoria) {
+            return res.status(400).json({ msg: 'Por favor, incluye todos los campos requeridos del comercio (nombre, dirección, teléfono, categoría).' });
+        }
+        
+        // Validar coordenadas si se proporcionan
+        if (storeData.latitud !== null && storeData.latitud !== undefined) {
+            if (isNaN(storeData.latitud) || storeData.latitud < -90 || storeData.latitud > 90) {
+                return res.status(400).json({ msg: 'Latitud debe ser un número entre -90 y 90.' });
+            }
+        }
+        
+        if (storeData.longitud !== null && storeData.longitud !== undefined) {
+            if (isNaN(storeData.longitud) || storeData.longitud < -180 || storeData.longitud > 180) {
+                return res.status(400).json({ msg: 'Longitud debe ser un número entre -180 y 180.' });
+            }
+        }
     }
 
     // 1. Verificar si el usuario ya existe
@@ -32,12 +52,31 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
     );
 
     // 4. Lógica específica si el rol es 'comercio'
-    if (rol === 'comercio') {
-        // Creamos una entrada básica en la tabla 'stores' asociada a este nuevo usuario
+    if (rol === 'comercio' && storeData) {
+        // Creamos una entrada completa en la tabla 'stores' asociada a este nuevo usuario
         await pool.query(
-            'INSERT INTO stores (user_id, nombre_comercio, direccion) VALUES ($1, $2, $3)',
-            [newUser.rows[0].id, `${nombre}'s Store`, 'Dirección por definir']
+            `INSERT INTO stores 
+            (user_id, nombre_comercio, direccion, latitud, longitud, telefono, horario, descripcion, categoria, activo) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+                newUser.rows[0].id,
+                storeData.nombre_comercio,
+                storeData.direccion,
+                storeData.latitud || null,
+                storeData.longitud || null,
+                storeData.telefono,
+                storeData.horario || 'Por definir',
+                storeData.descripcion || '',
+                storeData.categoria,
+                true // activo por defecto
+            ]
         );
+        
+        console.log('✅ Comercio creado exitosamente:', {
+            user_id: newUser.rows[0].id,
+            nombre_comercio: storeData.nombre_comercio,
+            categoria: storeData.categoria
+        });
     }
 
     // 5. Crear y firmar el JWT

@@ -5,7 +5,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -18,6 +17,7 @@ import {
   StatusBar,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { publicApi } from '../services/api';
@@ -262,7 +262,7 @@ const StoreProfileScreen = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['top', 'left', 'right']}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </SafeAreaView>
     );
@@ -270,7 +270,7 @@ const StoreProfileScreen = () => {
 
   if (!store) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
+      <SafeAreaView style={styles.errorContainer} edges={['top', 'left', 'right']}>
         <Ionicons name="alert-circle-outline" size={64} color="#8E8E93" />
         <Text style={styles.errorText}>Tienda no encontrada</Text>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -283,7 +283,7 @@ const StoreProfileScreen = () => {
   const distance = getDistance();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <StatusBar barStyle="light-content" />
       
       {/* Header con imagen */}

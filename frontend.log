@@ -1,0 +1,16 @@
+Starting project at /workspaces/Delicrunch/Frontend
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+Starting Metro Bundler
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+Tunnel connected.
+Tunnel ready.
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+The following packages should be updated for best compatibility with the installed expo version:
+  expo@54.0.30 - expected version: ~54.0.31
+  expo-constants@18.0.12 - expected version: ~18.0.13
+  expo-linear-gradient@12.0.1 - expected version: ~15.0.8
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8081
+Logs for your project will appear below.

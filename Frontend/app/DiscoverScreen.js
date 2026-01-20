@@ -1,11 +1,6 @@
-/**
- * DiscoverScreen - Pantalla de Descubrimiento
- * Con detección GPS automática y sincronización de ubicación
- */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -19,20 +14,27 @@ import {
   Platform,
   StatusBar,
   Alert,
+  Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { publicApi } from '../services/api';
+import api from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocation } from '../contexts/LocationContext';
+import { useAuth } from '../contexts/AuthContext';
+import { getAvatarById } from '../src/constants/profileAvatars';
 import { COLORS, SPACING } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
+import FlashDealModal from '../components/FlashDealModal';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.42;
 
 const DiscoverScreen = () => {
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { 
     userLocation, 
     isLoadingLocation, 
@@ -40,6 +42,10 @@ const DiscoverScreen = () => {
     nearbyRadius,
     calculateDistance,
   } = useLocation();
+  
+  // Estado del perfil
+  const [userProfile, setUserProfile] = useState(null);
+  const backendBase = (api.defaults?.baseURL || '').replace(/\/?api$/, '');
   
   // Estados
   const [products, setProducts] = useState([]);
@@ -50,6 +56,8 @@ const DiscoverScreen = () => {
   const [categoryList, setCategoryList] = useState(['Todos', 'Tacos', 'Pizza', 'Sushi', 'Café', 'Desayunos', 'Postres']);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [sections, setSections] = useState({ recommended: [], saving: [], surprise: [] });
+  const [showFlashDealModal, setShowFlashDealModal] = useState(false);
+  const [flashDealProducts, setFlashDealProducts] = useState([]);
 
   const shuffleArray = (arr) => {
     const copy = [...arr];
@@ -111,13 +119,48 @@ const DiscoverScreen = () => {
     } catch (e) {}
   }, []);
 
+  // Fetch perfil del usuario
+  const fetchUserProfile = async () => {
+    try {
+      const response = await api.get('/profiles/me');
+      setUserProfile(response.data);
+    } catch (e) {
+      // Usuario no autenticado
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       setIsLoading(true);
       fetchProducts().finally(() => setIsLoading(false));
       loadFavorites();
-    }, [userLocation])
+      if (user) {
+        fetchUserProfile();
+        checkFirstLogin();
+      }
+    }, [userLocation, user])
   );
+
+  // Verificar si necesita ver el modal de primer login
+  const checkFirstLogin = async () => {
+    try {
+      const response = await api.get('/profiles/check-first-login');
+      if (response.data.should_show_modal && user?.rol === 'comprador') {
+        // Mostrar el FlashDealModal
+        setShowFlashDealModal(true);
+        // Obtener productos para el modal
+        const productsResponse = await publicApi.get('/products');
+        const availableProducts = productsResponse.data.filter(p => 
+          (p.cantidad_disponible || 0) > 0
+        );
+        setFlashDealProducts(availableProducts.slice(0, 10));
+        // Marcar como mostrado
+        await api.post('/profiles/first-login');
+      }
+    } catch (e) {
+      console.error('Error checking first login:', e);
+    }
+  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -161,12 +204,63 @@ const DiscoverScreen = () => {
       return;
     }
 
-    const recommended = shuffleArray(filteredProducts).slice(0, 6);
-    const savingSource = filteredProducts.filter(p => discountPct(p) >= 40);
-    const saving = shuffleArray(savingSource.length ? savingSource : filteredProducts).slice(0, 6);
-    const surprise = shuffleArray(filteredProducts).slice(0, 6);
-    setSections({ recommended, saving, surprise });
-  }, [filteredProducts]);
+    const loadSections = async () => {
+      try {
+        // Recomendados para ti (basados en historial si hay usuario, o aleatorio)
+        let recommended = [];
+        if (user) {
+          try {
+            const recommendedResponse = await api.get('/products/recommended');
+            recommended = recommendedResponse.data || [];
+          } catch (e) {
+            // Si falla, usar productos filtrados aleatorios
+            recommended = shuffleArray(filteredProducts).slice(0, 6);
+          }
+        } else {
+          recommended = shuffleArray(filteredProducts).slice(0, 6);
+        }
+
+        // Ahorra antes de que sea tarde (productos listos)
+        let saving = [];
+        try {
+          const readyResponse = await publicApi.get('/products/ready');
+          saving = readyResponse.data || [];
+          if (saving.length === 0) {
+            // Fallback a productos con gran descuento
+            const savingSource = filteredProducts.filter(p => discountPct(p) >= 40);
+            saving = shuffleArray(savingSource.length ? savingSource : filteredProducts).slice(0, 6);
+          }
+        } catch (e) {
+          const savingSource = filteredProducts.filter(p => discountPct(p) >= 40);
+          saving = shuffleArray(savingSource.length ? savingSource : filteredProducts).slice(0, 6);
+        }
+
+        // Nuevas Surprise Bags (productos nuevos o de tiendas nuevas)
+        let surprise = [];
+        try {
+          const newResponse = await publicApi.get('/products/new');
+          surprise = newResponse.data || [];
+          if (surprise.length === 0) {
+            surprise = shuffleArray(filteredProducts).slice(0, 6);
+          }
+        } catch (e) {
+          surprise = shuffleArray(filteredProducts).slice(0, 6);
+        }
+
+        setSections({ recommended, saving, surprise });
+      } catch (e) {
+        console.error('Error loading sections:', e);
+        // Fallback a lógica anterior
+        const recommended = shuffleArray(filteredProducts).slice(0, 6);
+        const savingSource = filteredProducts.filter(p => discountPct(p) >= 40);
+        const saving = shuffleArray(savingSource.length ? savingSource : filteredProducts).slice(0, 6);
+        const surprise = shuffleArray(filteredProducts).slice(0, 6);
+        setSections({ recommended, saving, surprise });
+      }
+    };
+
+    loadSections();
+  }, [filteredProducts, user]);
 
   const toggleFavorite = async (product) => {
     try {
@@ -275,12 +369,57 @@ const DiscoverScreen = () => {
     );
   }
 
+  // Obtener el primer nombre del usuario
+  const firstName = userProfile?.nombre?.split(' ')[0] || 'Usuario';
+  
+  // Renderizar avatar del usuario
+  const renderUserAvatar = () => {
+    if (userProfile?.avatar_icon_id) {
+      const avatar = getAvatarById(userProfile.avatar_icon_id);
+      const IconComp = avatar.iconSet === 'material' ? MaterialCommunityIcons : Ionicons;
+      return (
+        <View style={[styles.greetingAvatar, { backgroundColor: avatar.backgroundColor }]}>
+          <IconComp name={avatar.icon} size={22} color={avatar.color} />
+        </View>
+      );
+    } else if (userProfile?.foto_perfil) {
+      return (
+        <Image
+          source={{ uri: userProfile.foto_perfil.startsWith('http') ? userProfile.foto_perfil : (backendBase + userProfile.foto_perfil) }}
+          style={styles.greetingAvatarImage}
+        />
+      );
+    }
+    return (
+      <View style={styles.greetingAvatarPlaceholder}>
+        <Text style={styles.greetingAvatarInitial}>{firstName.charAt(0).toUpperCase()}</Text>
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
+      {/* Saludo personalizado */}
+      {userProfile && (
+        <TouchableOpacity 
+          style={styles.greetingContainer}
+          onPress={() => navigation.navigate('Perfil')}
+          activeOpacity={0.7}
+        >
+          {renderUserAvatar()}
+          <View style={styles.greetingTextContainer}>
+            <Text style={styles.greetingText}>
+              Hola, <Text style={styles.greetingName}>{firstName}</Text> 👋
+            </Text>
+            <Text style={styles.greetingSubtext}>¿Qué vas a rescatar hoy?</Text>
+          </View>
+        </TouchableOpacity>
+      )}
+      
       {/* Header con ubicación */}
-      <View style={styles.header}>
+      <View style={[styles.header, !userProfile && styles.headerNoGreeting]}>
         <TouchableOpacity 
           style={styles.locationContainer} 
           onPress={handleDetectLocation}
@@ -402,15 +541,45 @@ const DiscoverScreen = () => {
 
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* FlashDealModal para primer login */}
+      {showFlashDealModal && flashDealProducts.length > 0 && (
+        <Modal
+          visible={showFlashDealModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowFlashDealModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setShowFlashDealModal(false)}
+              >
+                <Ionicons name="close" size={28} color={COLORS.text} />
+              </TouchableOpacity>
+              <FlashDealModal 
+                products={flashDealProducts} 
+                navigation={navigation}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { 
+    flex: 1, 
+    backgroundColor: COLORS.background,
+    paddingBottom: Platform.OS === 'android' ? 8 : 0, // Margin extra para Android
+  },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
   loadingText: { marginTop: 12, fontSize: 16, color: COLORS.text },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, paddingBottom: SPACING.sm },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
+  headerNoGreeting: { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
   locationContainer: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   locationTextContainer: { marginLeft: 6, marginRight: 4 },
   locationTitle: { fontSize: 16, fontWeight: '600', color: COLORS.primary },
@@ -453,6 +622,86 @@ const styles = StyleSheet.create({
   ratingText: { fontSize: 12, fontWeight: '600', color: COLORS.text, marginLeft: 2 },
   distanceText: { fontSize: 12, color: '#8E8E93' },
   priceText: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
+  // Estilos del saludo personalizado
+  greetingContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: SPACING.md, 
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 6 : 4,
+    paddingBottom: Platform.OS === 'android' ? 8 : 8,
+    backgroundColor: COLORS.background,
+  },
+  greetingAvatar: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  greetingAvatarImage: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  greetingAvatarPlaceholder: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    backgroundColor: COLORS.primary, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  greetingAvatarInitial: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    color: '#FFFFFF',
+  },
+  greetingTextContainer: { 
+    flex: 1,
+  },
+  greetingText: { 
+    fontSize: 15, 
+    color: COLORS.text,
+  },
+  greetingName: { 
+    fontWeight: '700', 
+    color: COLORS.primary,
+  },
+  greetingSubtext: { 
+    fontSize: 12, 
+    color: '#8E8E93',
+    marginTop: 1,
+  },
+  // Estilos del modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: COLORS.background,
+    borderRadius: 20,
+    padding: SPACING.md,
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
 export default DiscoverScreen;

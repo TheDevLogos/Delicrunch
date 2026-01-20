@@ -48,13 +48,14 @@ const StripeOnboarding = () => {
       return <Text style={styles.statusText}>No se pudo verificar el estado de tu cuenta de pagos.</Text>;
     }
 
-    if (status.chargesEnabled) {
+    // Cuenta completamente activa
+    if (status.chargesEnabled && status.payoutsEnabled && status.detailsSubmitted) {
       return (
         <>
           <View style={styles.statusContainer}>
             <Ionicons name="checkmark-circle" size={20} color="#30D158" />
             <Text style={[styles.statusText, { color: '#30D158' }]}>
-              Tu cuenta de pagos está activa y lista para recibir fondos.
+              Tu cuenta está activa y lista para recibir pagos
             </Text>
           </View>
           <StyledButton
@@ -67,17 +68,20 @@ const StripeOnboarding = () => {
       );
     }
 
+    // Tiene cuenta pero falta información o permisos
     if (status.hasStripeAccount) {
       return (
         <>
           <View style={styles.statusContainer}>
             <Ionicons name="alert-circle" size={20} color="#ff9500" />
             <Text style={[styles.statusText, { color: '#ff9500' }]}>
-              Aún falta completar tu registro de pagos.
+              {!status.chargesEnabled && 'No puedes recibir pagos aún. '}
+              {!status.payoutsEnabled && 'No puedes recibir transferencias aún. '}
+              {!status.detailsSubmitted && 'Información incompleta. '}
             </Text>
           </View>
           <StyledButton
-            title="Continuar Registro"
+            title="Continuar Configuración"
             onPress={handleOnboarding}
             isLoading={isCreatingLink}
           />
@@ -85,10 +89,11 @@ const StripeOnboarding = () => {
       );
     }
 
+    // No tiene cuenta
     return (
       <>
         <Text style={styles.statusText}>
-          Para recibir pagos por tus ventas, necesitas conectar una cuenta bancaria.
+          Para recibir pagos por tus ventas, necesitas conectar una cuenta bancaria con Stripe.
         </Text>
         <StyledButton
           title="Conectar con Stripe"

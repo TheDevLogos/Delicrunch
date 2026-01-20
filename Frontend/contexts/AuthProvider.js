@@ -61,8 +61,8 @@ export const AuthProvider = ({ children }) => {
           setSimulatedRoleState(savedSimulatedRole);
         }
       } catch (e) {
-        // Si es un error 401, el token ya fue limpiado por el interceptor
-        if (e.response?.status !== 401) {
+        // Si es un error 401 o 404, no interesa registrar (401 token inválido, 404 perfil no existe)
+        if (e.response?.status !== 401 && e.response?.status !== 404) {
           logger.error(e, 'AuthProvider.signIn');
         }
         await AsyncStorage.removeItem('userToken');
@@ -100,9 +100,8 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } catch (e) {
-        // Si es un error 401, el token ya fue limpiado por el interceptor
-        // No necesitamos registrar este error ya que es esperado cuando hay un token inválido
-        if (e.response?.status !== 401) {
+        // Si es un error 401 o 404 no lo registramos (esperados: token inválido o perfil no encontrado)
+        if (e.response?.status !== 401 && e.response?.status !== 404) {
           logger.error(e, 'AuthProvider.bootstrap');
         }
         // Limpiar estado de autenticación y rol simulado

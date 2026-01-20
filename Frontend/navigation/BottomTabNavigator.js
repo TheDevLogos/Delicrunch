@@ -412,14 +412,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopWidth: 0,
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-    height: Platform.OS === 'ios' ? 88 : 68,
+    paddingBottom: Platform.OS === 'ios' ? 25 : 12, // Reducido para iOS y aumentado para Android
+    height: Platform.OS === 'ios' ? 85 : 72, // Reducido height para subir el tab navigator
     // Sombra suave
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 8,
+    // Margin bottom para evitar conflicto con botones de Android
+    marginBottom: Platform.OS === 'android' ? 8 : 0,
   },
   tabBarLabel: {
     fontSize: 11,

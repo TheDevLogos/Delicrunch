@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS products (
     -- Estado
     activo BOOLEAN DEFAULT TRUE,
     destacado BOOLEAN DEFAULT FALSE,
+    producto_listo BOOLEAN DEFAULT FALSE, -- Marca si el producto está listo para "Ahorra antes de que sea tarde"
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -78,6 +79,14 @@ CREATE TABLE IF NOT EXISTS profiles (
     total_pedidos INTEGER DEFAULT 0,
     total_ahorrado DECIMAL(10,2) DEFAULT 0.00,
     co2_ahorrado DECIMAL(10,2) DEFAULT 0.00, -- kg de CO2 ahorrados
+    -- Campos de gamificación
+    total_xp INTEGER DEFAULT 0,
+    total_packs_saved INTEGER DEFAULT 0,
+    total_reviews INTEGER DEFAULT 0,
+    unlocked_badges JSONB DEFAULT '[]',
+    -- Control de primer login
+    first_login_shown BOOLEAN DEFAULT FALSE,
+    last_login_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -101,6 +110,14 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS ciudad TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS total_pedidos INTEGER DEFAULT 0;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS total_ahorrado DECIMAL(10,2) DEFAULT 0.00;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS co2_ahorrado DECIMAL(10,2) DEFAULT 0.00;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255);
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_account_id VARCHAR(255);
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_onboarding_complete BOOLEAN DEFAULT FALSE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS first_login_shown BOOLEAN DEFAULT FALSE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP;
+
+-- Asegurar columna producto_listo exista en products
+ALTER TABLE products ADD COLUMN IF NOT EXISTS producto_listo BOOLEAN DEFAULT FALSE;
 
 -- Tabla de pedidos
 CREATE TABLE IF NOT EXISTS orders (
@@ -219,6 +236,27 @@ CREATE TABLE IF NOT EXISTS admin_metrics (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabla de PaymentIntents para auditoría y seguimiento
+-- Registra todos los intentos de pago creados (exitosos o fallidos)
+CREATE TABLE IF NOT EXISTS payment_intents (
+    id SERIAL PRIMARY KEY,
+    stripe_payment_intent_id VARCHAR(255) UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+    store_id INTEGER REFERENCES stores(id) ON DELETE SET NULL,
+    -- Montos (en centavos)
+    amount INTEGER NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'mxn',
+    application_fee_amount INTEGER, -- Comisión de la plataforma
+    -- Estado del PaymentIntent
+    status VARCHAR(50) NOT NULL, -- requires_payment_method, requires_confirmation, processing, succeeded, canceled
+    -- Metadata adicional
+    metadata JSONB,
+    -- Auditoría
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Índices para optimizar consultas frecuentes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_stores_user_id ON stores(user_id);
@@ -238,3 +276,8 @@ CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_financial_metrics_store_fecha ON financial_metrics(store_id, fecha);
 CREATE INDEX IF NOT EXISTS idx_admin_metrics_fecha ON admin_metrics(fecha);
+CREATE INDEX IF NOT EXISTS idx_payment_intents_user_id ON payment_intents(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_intents_stripe_id ON payment_intents(stripe_payment_intent_id);
+CREATE INDEX IF NOT EXISTS idx_payment_intents_status ON payment_intents(status);
+CREATE INDEX IF NOT EXISTS idx_payment_intents_store_id ON payment_intents(store_id);
+

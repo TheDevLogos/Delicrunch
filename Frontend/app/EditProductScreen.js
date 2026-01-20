@@ -12,6 +12,7 @@ import {
   Platform,
   StatusBar,
   KeyboardAvoidingView,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,8 @@ import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 import logger from '../services/logger';
 import { formatPrice } from '../src/utils/format';
+import { BUSINESS_CATEGORIES, getCategoryLabels } from '../src/constants/categories';
+import { calculateCO2Saved } from '../src/constants/co2Factors';
 
 // TGTG Design System
 const COLORS = {
@@ -76,10 +79,35 @@ const EditProductScreen = ({ route, navigation }) => {
   const [horaFin, setHoraFin] = useState('');
   const [image, setImage] = useState(null); // Para la nueva imagen seleccionada
   const [existingImageUrl, setExistingImageUrl] = useState(null); // Para la imagen actual
+  const [productoListo, setProductoListo] = useState(false); // Nuevo estado para marcar producto listo
+  const [categoria, setCategoria] = useState('Otros');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Estados para modales
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+
+  // Opciones de horarios
+  const timeOptions = [
+    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+    '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
+    '20:00', '20:30', '21:00', '21:30', '22:00', '22:30',
+    '23:00', '23:30', '00:00',    
+  ];
+
+  const selectStartTime = (time) => {
+    setHoraInicio(time);
+    setShowStartTimePicker(false);
+  };
+  
+  const selectEndTime = (time) => {
+    setHoraFin(time);
+    setShowEndTimePicker(false);
+  };
 
   // 1. Cargar los datos del producto al iniciar la pantalla
   useEffect(() => {
@@ -91,10 +119,12 @@ const EditProductScreen = ({ route, navigation }) => {
         setDescripcion(product.descripcion);
         setPrecioOriginal(String(product.precio_original));
         setPrecioDescuento(String(product.precio_descuento));
-        setCantidad(String(product.cantidad_inicial));
+        setCantidad(String(product.cantidad_disponible || product.cantidad_inicial || 0));
         setHoraInicio(product.hora_recogida_inicio);
         setHoraFin(product.hora_recogida_fin);
         setExistingImageUrl(product.imagen_url);
+        setProductoListo(product.producto_listo || false);
+        setCategoria(product.categoria || 'Otros');
       } catch (error) {
         logger.error(error, 'fetchProduct for editing');
         Alert.alert('Error', 'No se pudieron cargar los datos del producto.');
@@ -134,10 +164,10 @@ const EditProductScreen = ({ route, navigation }) => {
       formData.append('precio_descuento', parseFloat(precioDescuento));
       // El backend espera 'cantidad_disponible' en la ruta PUT
       formData.append('cantidad_disponible', parseInt(cantidad, 10));
-      // Mantener 'cantidad_inicial' si se necesita en otros endpoints
-      formData.append('cantidad_inicial', parseInt(cantidad, 10));
       formData.append('hora_recogida_inicio', horaInicio);
       formData.append('hora_recogida_fin', horaFin);
+      formData.append('producto_listo', productoListo);
+      formData.append('categoria', categoria);
 
       // Si se seleccionó una nueva imagen, la añadimos
       if (image) {
@@ -206,8 +236,13 @@ const EditProductScreen = ({ route, navigation }) => {
     ? Math.round((1 - parseFloat(precioDescuento) / parseFloat(precioOriginal)) * 100)
     : 0;
 
+  // Calcular CO2 estimado según categoría y cantidad
+  const estimatedCO2 = cantidad && parseInt(cantidad) > 0
+    ? calculateCO2Saved(categoria, parseInt(cantidad))
+    : 0;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
       {/* Header */}
@@ -289,6 +324,31 @@ const EditProductScreen = ({ route, navigation }) => {
                 />
               </View>
             </View>
+
+            {/* Selector de Categoría */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Categoría del Producto</Text>
+              <TouchableOpacity 
+                style={styles.inputContainer}
+                onPress={() => setShowCategoryPicker(true)}
+              >
+                <Ionicons name="restaurant-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
+                <Text style={[styles.textInput, { paddingVertical: 12 }]}>
+                  {categoria}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Indicador de CO2 estimado */}
+            {estimatedCO2 > 0 && (
+              <View style={styles.co2Preview}>
+                <Ionicons name="leaf" size={18} color={COLORS.success} />
+                <Text style={styles.co2PreviewText}>
+                  ~{estimatedCO2.toFixed(1)} kg CO₂ evitados con este pack
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Precios */}
@@ -359,32 +419,52 @@ const EditProductScreen = ({ route, navigation }) => {
             <View style={styles.timeRow}>
               <View style={[styles.inputGroup, { flex: 1, marginRight: SPACING.sm }]}>
                 <Text style={styles.inputLabel}>Hora Inicio</Text>
-                <View style={styles.inputContainer}>
+                <TouchableOpacity 
+                  style={styles.timeSelector}
+                  onPress={() => setShowStartTimePicker(true)}
+                >
                   <Ionicons name="time-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="14:00"
-                    placeholderTextColor={COLORS.textLight}
-                    value={horaInicio}
-                    onChangeText={setHoraInicio}
-                  />
-                </View>
+                  <Text style={[styles.timeSelectorText, !horaInicio && { color: COLORS.textLight }]}>
+                    {horaInicio || '14:00'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={COLORS.textLight} />
+                </TouchableOpacity>
               </View>
               
               <View style={[styles.inputGroup, { flex: 1, marginLeft: SPACING.sm }]}>
                 <Text style={styles.inputLabel}>Hora Fin</Text>
-                <View style={styles.inputContainer}>
+                <TouchableOpacity 
+                  style={styles.timeSelector}
+                  onPress={() => setShowEndTimePicker(true)}
+                >
                   <Ionicons name="time-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="18:00"
-                    placeholderTextColor={COLORS.textLight}
-                    value={horaFin}
-                    onChangeText={setHoraFin}
-                  />
-                </View>
+                  <Text style={[styles.timeSelectorText, !horaFin && { color: COLORS.textLight }]}>
+                    {horaFin || '18:00'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={COLORS.textLight} />
+                </TouchableOpacity>
               </View>
             </View>
+          </View>
+
+          {/* Producto Listo */}
+          <View style={styles.formSection}>
+            <TouchableOpacity 
+              style={styles.checkboxContainer}
+              onPress={() => setProductoListo(!productoListo)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, productoListo && styles.checkboxChecked]}>
+                {productoListo && <Ionicons name="checkmark" size={18} color={COLORS.background} />}
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.checkboxLabel}>Producto ya Listo</Text>
+                <Text style={styles.checkboxDescription}>
+                  Marca esto si el pack ya está preparado y listo para recoger. 
+                  Aparecerá en la sección "Ahorra antes de que sea tarde"
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* Info Card */}
@@ -414,6 +494,108 @@ const EditProductScreen = ({ route, navigation }) => {
           )}
         </TouchableOpacity>
       </View>
+      
+      {/* Modal selector de hora inicio */}
+      <Modal
+        visible={showStartTimePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowStartTimePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.timePickerModal}>
+            <View style={styles.timePickerHeader}>
+              <TouchableOpacity onPress={() => setShowStartTimePicker(false)}>
+                <Text style={styles.timePickerCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <Text style={styles.timePickerTitle}>Hora de inicio</Text>
+              <View style={{ width: 60 }} />
+            </View>
+            <ScrollView style={styles.timePickerList}>
+              {timeOptions.map((time) => (
+                <TouchableOpacity
+                  key={time}
+                  style={[styles.timeOption, horaInicio === time && styles.timeOptionSelected]}
+                  onPress={() => selectStartTime(time)}
+                >
+                  <Text style={[styles.timeOptionText, horaInicio === time && styles.timeOptionTextSelected]}>
+                    {time}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Modal selector de hora fin */}
+      <Modal
+        visible={showEndTimePicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowEndTimePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.timePickerModal}>
+            <View style={styles.timePickerHeader}>
+              <TouchableOpacity onPress={() => setShowEndTimePicker(false)}>
+                <Text style={styles.timePickerCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <Text style={styles.timePickerTitle}>Hora de fin</Text>
+              <View style={{ width: 60 }} />
+            </View>
+            <ScrollView style={styles.timePickerList}>
+              {timeOptions.map((time) => (
+                <TouchableOpacity
+                  key={time}
+                  style={[styles.timeOption, horaFin === time && styles.timeOptionSelected]}
+                  onPress={() => selectEndTime(time)}
+                >
+                  <Text style={[styles.timeOptionText, horaFin === time && styles.timeOptionTextSelected]}>
+                    {time}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Modal selector de categoría */}
+      <Modal
+        visible={showCategoryPicker}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCategoryPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.timePickerModal}>
+            <View style={styles.timePickerHeader}>
+              <TouchableOpacity onPress={() => setShowCategoryPicker(false)}>
+                <Text style={styles.timePickerCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <Text style={styles.timePickerTitle}>Categoría del Pack</Text>
+              <View style={{ width: 60 }} />
+            </View>
+            <ScrollView style={styles.timePickerList}>
+              {BUSINESS_CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[styles.timeOption, categoria === cat.label && styles.timeOptionSelected]}
+                  onPress={() => {
+                    setCategoria(cat.label);
+                    setShowCategoryPicker(false);
+                  }}
+                >
+                  <Text style={[styles.timeOptionText, categoria === cat.label && styles.timeOptionTextSelected]}>
+                    {cat.icon} {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -637,6 +819,134 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     backgroundColor: COLORS.textLight,
+  },
+  
+  // Time selector styles
+  timeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.inputBg,
+    borderRadius: 12,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  timeSelectorText: {
+    flex: 1,
+    fontSize: 15,
+    color: COLORS.text,
+    marginLeft: 8,
+  },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timePickerModal: {
+    backgroundColor: COLORS.background,
+    borderRadius: 16,
+    width: '80%',
+    maxHeight: '60%',
+    ...SHADOWS.md,
+  },
+  timePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  timePickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  timePickerCancel: {
+    fontSize: 16,
+    color: COLORS.textLight,
+  },
+  timePickerList: {
+    maxHeight: 250,
+  },
+  timeOption: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  timeOptionSelected: {
+    backgroundColor: COLORS.primary + '15',
+  },
+  timeOptionText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  timeOptionTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
+  
+  // Checkbox styles
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.background,
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  checkboxLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  checkboxDescription: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+
+  // CO2 Preview
+  co2Preview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.success + '15',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 8,
+  },
+  co2PreviewText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.success,
+    marginLeft: 8,
+  },
+    marginBottom: 4,
+  },
+  checkboxDescription: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
 });
 

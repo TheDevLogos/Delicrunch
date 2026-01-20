@@ -2,12 +2,11 @@
  * PaymentScreen - Pantalla de Pago
  * Diseño inspirado en Too Good To Go con Stripe Connect y Sistema de Cupones
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
   ScrollView, 
   Image, 
   Alert, 
@@ -15,15 +14,19 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useStripe } from '@stripe/stripe-react-native';
 import api from '../services/api';
 import logger from '../services/logger';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import { COUPON_CATEGORIES } from '../src/constants/gamification';
+import { createCustomerSession, getStripeCustomerCards } from '../services/stripeCustomerService';
 
 const isExpoGo = Constants.appOwnership === 'expo';
 
@@ -34,6 +37,12 @@ const PaymentScreen = ({ route, navigation }) => {
   const [walletCards, setWalletCards] = useState([]);
   const [selectedCardId, setSelectedCardId] = useState(null);
   const [loadingCards, setLoadingCards] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Estados para tarjetas guardadas en Stripe
+  const [stripeSavedCards, setStripeSavedCards] = useState([]);
+  const [selectedStripeCardId, setSelectedStripeCardId] = useState(null);
+  const [loadingStripeCards, setLoadingStripeCards] = useState(false);
   
   // Estado para cupones
   const [availableCoupons, setAvailableCoupons] = useState([]);
@@ -41,10 +50,14 @@ const PaymentScreen = ({ route, navigation }) => {
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [loadingCoupons, setLoadingCoupons] = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
+  
+  // Estado para indicador de tarjetas guardadas
+  const [hasSavedCards, setHasSavedCards] = useState(false);
+  const [loadingCustomerInfo, setLoadingCustomerInfo] = useState(false);
 
   if (!product) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={COLORS.textTertiary} />
           <Text style={styles.errorText}>No se ha podido cargar la información del producto.</Text>
@@ -66,7 +79,11 @@ const PaymentScreen = ({ route, navigation }) => {
 
   // Cargar tarjetas de la billetera (metadatos) para flujos sin Stripe (Expo Go)
   useEffect(() => {
-    if (!isExpoGo) return;
+    if (!isExpoGo) {
+      // En Development Build, verificar si tiene tarjetas guardadas
+      checkSavedCards();
+      return;
+    }
     const loadCards = async () => {
       setLoadingCards(true);
       try {
@@ -84,6 +101,47 @@ const PaymentScreen = ({ route, navigation }) => {
     loadCards();
   }, []);
 
+  // Verificar si el usuario tiene tarjetas guardadas en Stripe
+  const checkSavedCards = async () => {
+    setLoadingCustomerInfo(true);
+    setLoadingStripeCards(true);
+    try {
+      console.log('🔍 Verificando tarjetas guardadas...');
+      const { customerId } = await createCustomerSession();
+      
+      // Obtener payment methods del customer usando el servicio
+      const cards = await getStripeCustomerCards(customerId);
+      
+      setStripeSavedCards(cards);
+      setHasSavedCards(cards.length > 0);
+      
+      // Seleccionar la primera tarjeta por defecto
+      if (cards.length > 0 && !selectedStripeCardId) {
+        setSelectedStripeCardId(cards[0].id);
+      }
+      
+      console.log(`✅ Usuario tiene ${cards.length} tarjetas guardadas en Stripe`);
+      
+    } catch (error) {
+      console.log('ℹ️ No se pudo verificar tarjetas guardadas:', error.message);
+      setStripeSavedCards([]);
+      setHasSavedCards(false);
+      // No mostrar error al usuario, es solo informativo
+    } finally {
+      setLoadingCustomerInfo(false);
+      setLoadingStripeCards(false);
+    }
+  };
+
+  // Función para refrescar tarjetas guardadas
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    if (!isExpoGo) {
+      await checkSavedCards();
+    }
+    setRefreshing(false);
+  }, [isExpoGo]);
+
   // Cargar cupones disponibles
   useEffect(() => {
     const loadCoupons = async () => {
@@ -96,7 +154,53 @@ const PaymentScreen = ({ route, navigation }) => {
           }
         });
         if (res.data.success) {
-          setAvailableCoupons(res.data.coupons || []);
+          let merged = res.data.coupons || [];
+          // Merge local coupons from AsyncStorage (created by RewardsScreen fallback)
+          try {
+            const local = await AsyncStorage.getItem('@delicrunch_coupons');
+            if (local) {
+              const parsed = JSON.parse(local);
+              const localActive = (parsed.active || []).map(c => {
+                // Normalize shape to match backend response used in this screen
+                const potential_discount = (() => {
+                  const t = subtotal;
+                  switch(c.type) {
+                    case 'percentage': return Math.min(t * (c.value/100), c.maxDiscount || c.max_discount || Infinity);
+                    case 'fixed': return Math.min(c.value, c.maxDiscount || c.max_discount || Infinity, t);
+                    case '2x1': return t/2;
+                    case 'free_item': return t;
+                    default: return 0;
+                  }
+                })();
+
+                return {
+                  id: c.id,
+                  name: c.name,
+                  description: c.description,
+                  type: c.type,
+                  value: c.value,
+                  category: c.category || 'ALL',
+                  min_purchase: c.minPurchase || c.min_purchase || 0,
+                  max_discount: c.maxDiscount || c.max_discount || 0,
+                  icon: c.icon,
+                  color: c.color,
+                  potential_discount,
+                  // local flag so we can treat it specially
+                  _local: true,
+                  expires_at: c.expires_at,
+                };
+              });
+
+              // Prepend local coupons but avoid duplicates
+              localActive.forEach(lc => {
+                if (!merged.some(m => m.id === lc.id)) merged.unshift(lc);
+              });
+            }
+          } catch (e) {
+            console.log('Error merging local coupons in PaymentScreen', e.message);
+          }
+
+          setAvailableCoupons(merged);
         }
       } catch (error) {
         // Si no hay API de cupones, no mostrar error
@@ -150,45 +254,95 @@ const PaymentScreen = ({ route, navigation }) => {
 
     setIsPurchasing(true);
     try {
+      // 1. Obtener Customer Session (ephemeral key + setup intent)
+      console.log('🔐 Obteniendo Customer Session...');
+      const { customerId, ephemeralKeySecret, setupIntentClientSecret } = 
+        await createCustomerSession();
+
+      console.log('✅ Customer Session obtenida:', { customerId });
+
+      // 2. Crear Payment Intent en el backend
+      console.log('💳 Creando Payment Intent...');
       const response = await api.post('/payments/create-payment-intent', {
         productId: product.id,
         cantidad: quantity,
+        coupon_id: selectedCoupon?.id || null,
+        coupon_discount: couponDiscount,
       });
-      const { clientSecret } = response.data;
+      const { clientSecret, paymentIntentId } = response.data;
 
-      const { error: initError } = await initPaymentSheet({
+      console.log('✅ Payment Intent creado:', paymentIntentId);
+
+      // 3. Preparar configuración del Payment Sheet
+      const paymentSheetConfig = {
         merchantDisplayName: "Delicrunch",
+        customerId: customerId,
+        customerEphemeralKeySecret: ephemeralKeySecret,
         paymentIntentClientSecret: clientSecret,
-        allowsDelayedPaymentMethods: false,
+        allowsDelayedPaymentMethods: true,
+        returnURL: 'delicrunch://payment-result',
         defaultBillingDetails: {
           name: 'Cliente Delicrunch',
         },
-      });
+      };
+
+      // Si hay una tarjeta seleccionada, configurar para que sea la predeterminada
+      if (selectedStripeCardId && stripeSavedCards.length > 0) {
+        console.log('💳 Usando tarjeta guardada:', selectedStripeCardId);
+        // Stripe mostrará las tarjetas guardadas automáticamente
+        // y el usuario puede seleccionar la que desee
+      }
+
+      // 4. Inicializar Payment Sheet con Customer
+      const { error: initError } = await initPaymentSheet(paymentSheetConfig);
 
       if (initError) {
-        logger.error(initError, 'initPaymentSheet');
-        Alert.alert('Error', 'No se pudo inicializar el pago.');
+        console.error('❌ Error al inicializar Payment Sheet:', initError);
+        Alert.alert(
+          'Error de Inicialización',
+          'No se pudo inicializar el sistema de pago. Por favor, intenta de nuevo.\n\nDetalle: ' + initError.message,
+          [{ text: 'OK' }]
+        );
         setIsPurchasing(false);
         return;
       }
 
+      console.log('✅ Payment Sheet inicializado correctamente');
+
+      // 5. Presentar Payment Sheet al usuario
+      console.log('📱 Mostrando Payment Sheet al usuario...');
       const { error: paymentError } = await presentPaymentSheet();
 
       if (paymentError) {
-        if (paymentError.code !== 'Canceled') {
-          logger.error(paymentError, 'presentPaymentSheet');
-          Alert.alert('Error de Pago', paymentError.message);
+        if (paymentError.code === 'Canceled') {
+          console.log('ℹ️ Usuario canceló el pago');
+        } else {
+          console.error('❌ Error en Payment Sheet:', paymentError);
+          Alert.alert(
+            'Error de Pago',
+            'Hubo un problema al procesar tu pago. Por favor, verifica tu información e intenta nuevamente.\n\nDetalle: ' + paymentError.message,
+            [{ text: 'OK' }]
+          );
         }
         setIsPurchasing(false);
         return;
       }
 
+      console.log('✅ Pago completado exitosamente');
+      
+      // Recargar tarjetas guardadas por si se agregó una nueva
+      checkSavedCards();
+      
       await onPaymentSuccess();
 
     } catch (error) {
-      logger.error(error, 'handlePurchase - PaymentScreen');
-      const errorMessage = error.response?.data?.msg || 'No se pudo procesar tu solicitud.';
-      Alert.alert('Error en la Compra', errorMessage);
+      console.error('❌ Error en initializePayment:', error);
+      const errorMessage = error.response?.data?.msg || error.message || 'No se pudo procesar tu solicitud.';
+      Alert.alert(
+        'Error en la Compra',
+        errorMessage,
+        [{ text: 'Entendido' }]
+      );
       setIsPurchasing(false);
     }
   };
@@ -340,10 +494,18 @@ const PaymentScreen = ({ route, navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+          />
+        }
       >
         {/* Header */}
         <View style={styles.header}>
@@ -566,6 +728,95 @@ const PaymentScreen = ({ route, navigation }) => {
             </View>
           </View>
         )}
+
+        {/* Payment Method Info (Development Build) */}
+        {!isExpoGo && (
+          <View style={styles.card}>
+            <View style={styles.paymentMethodHeader}>
+              <Ionicons name="card" size={20} color={COLORS.primary} />
+              <Text style={styles.cardTitle}>Método de pago</Text>
+              {stripeSavedCards.length > 0 && (
+                <View style={styles.cardCountBadge}>
+                  <Text style={styles.cardCountText}>{stripeSavedCards.length}</Text>
+                </View>
+              )}
+            </View>
+            
+            {loadingStripeCards ? (
+              <View style={{ paddingVertical: SPACING.md }}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={[styles.infoText, { textAlign: 'center', marginTop: SPACING.sm }]}>
+                  Cargando tarjetas guardadas...
+                </Text>
+              </View>
+            ) : stripeSavedCards.length > 0 ? (
+              <>
+                <View style={styles.savedCardsInfo}>
+                  <View style={styles.savedCardsLeft}>
+                    <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+                    <View style={{ marginLeft: 10 }}>
+                      <Text style={styles.savedCardsTitle}>Tarjetas guardadas</Text>
+                      <Text style={styles.savedCardsSubtext}>
+                        Selecciona una tarjeta para pagar más rápido
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                
+                {/* Lista de tarjetas guardadas */}
+                <View style={styles.savedCardsList}>
+                  {stripeSavedCards.map((card) => {
+                    const isSelected = selectedStripeCardId === card.id;
+                    return (
+                      <TouchableOpacity
+                        key={card.id}
+                        style={[styles.savedCardItem, isSelected && styles.savedCardItemSelected]}
+                        onPress={() => setSelectedStripeCardId(card.id)}
+                      >
+                        <View style={styles.savedCardLeft}>
+                          <Ionicons 
+                            name="card" 
+                            size={24} 
+                            color={isSelected ? COLORS.primary : COLORS.textSecondary} 
+                          />
+                          <View style={{ marginLeft: 10 }}>
+                            <Text style={[styles.savedCardBrand, isSelected && styles.savedCardBrandSelected]}>
+                              {card.brand?.toUpperCase() || 'TARJETA'}
+                            </Text>
+                            <Text style={styles.savedCardNumber}>•••• {card.last4}</Text>
+                            <Text style={styles.savedCardExpiry}>
+                              Vence: {String(card.exp_month).padStart(2, '0')}/{card.exp_year}
+                            </Text>
+                          </View>
+                        </View>
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            ) : (
+              <View style={styles.noCardsInfo}>
+                <Ionicons name="information-circle" size={20} color={COLORS.textSecondary} />
+                <Text style={styles.noCardsText}>
+                  Agrega una tarjeta y guárdala para futuras compras
+                </Text>
+              </View>
+            )}
+            
+            <TouchableOpacity 
+              style={styles.manageCardsBtn}
+              onPress={() => {
+                navigation.navigate('SaveCard');
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.manageCardsBtnText}>Agregar nueva tarjeta</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* Coupon Selection Modal */}
@@ -734,6 +985,57 @@ const styles = StyleSheet.create({
   couponOptionSavings: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.success, fontWeight: TYPOGRAPHY.fontWeight.medium, marginTop: 2 },
   removeCouponBtn: { margin: SPACING.md, padding: SPACING.sm, alignItems: 'center' },
   removeCouponText: { color: COLORS.error, fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.medium },
+  
+  // Payment Method Styles (Development Build)
+  paymentMethodHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.sm },
+  cardCountBadge: { backgroundColor: COLORS.primary, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 'auto' },
+  cardCountText: { color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.xs, fontWeight: TYPOGRAPHY.fontWeight.bold },
+  savedCardsInfo: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.successLight, padding: SPACING.sm, borderRadius: BORDERS.radius.md, marginBottom: SPACING.sm },
+  savedCardsLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
+  savedCardsTitle: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.text },
+  savedCardsSubtext: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary, marginTop: 2 },
+  
+  // Lista de tarjetas guardadas
+  savedCardsList: { marginVertical: SPACING.sm },
+  savedCardItem: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    padding: SPACING.sm, 
+    backgroundColor: COLORS.background,
+    borderRadius: BORDERS.radius.md, 
+    marginBottom: SPACING.xs,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  savedCardItemSelected: { 
+    backgroundColor: COLORS.primarySoft,
+    borderColor: COLORS.primary,
+  },
+  savedCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  savedCardBrand: { 
+    fontSize: TYPOGRAPHY.fontSize.base, 
+    fontWeight: TYPOGRAPHY.fontWeight.bold, 
+    color: COLORS.text,
+    letterSpacing: 0.5,
+  },
+  savedCardBrandSelected: { color: COLORS.primary },
+  savedCardNumber: { 
+    fontSize: TYPOGRAPHY.fontSize.sm, 
+    color: COLORS.textSecondary, 
+    marginTop: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  savedCardExpiry: { 
+    fontSize: TYPOGRAPHY.fontSize.xs, 
+    color: COLORS.textTertiary, 
+    marginTop: 2 
+  },
+  
+  noCardsInfo: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, padding: SPACING.sm, borderRadius: BORDERS.radius.md, marginBottom: SPACING.sm, gap: 8 },
+  noCardsText: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary },
+  manageCardsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, borderWidth: 1, borderColor: COLORS.primary, borderRadius: BORDERS.radius.md, gap: 6, marginTop: SPACING.xs },
+  manageCardsBtnText: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.medium },
 });
 
 export default PaymentScreen;

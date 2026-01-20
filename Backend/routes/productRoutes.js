@@ -17,6 +17,21 @@ router.get('/', productController.getAllAvailableProducts);
 // @acceso  Público
 router.get('/available', productController.getAllAvailableProducts);
 
+// @ruta    GET api/products/recommended
+// @desc    Obtener productos recomendados basados en historial del usuario
+// @acceso  Privado (Comprador)
+router.get('/recommended', authMiddleware, productController.getRecommendedProducts);
+
+// @ruta    GET api/products/ready
+// @desc    Obtener productos listos (marcados como producto_listo)
+// @acceso  Público
+router.get('/ready', productController.getReadyProducts);
+
+// @ruta    GET api/products/new
+// @desc    Obtener productos nuevos (creados hoy o de tiendas nuevas)
+// @acceso  Público
+router.get('/new', productController.getNewProducts);
+
 // === RUTAS PRIVADAS (Requieren token y rol 'comercio') ===
 
 // @ruta    POST api/products
