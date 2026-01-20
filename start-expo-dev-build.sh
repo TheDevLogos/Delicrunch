@@ -275,15 +275,31 @@ if [ "$CLEAN_CACHE" = true ]; then
   rm -rf .metro 2>/dev/null || true
   rm -rf /tmp/metro-* 2>/dev/null || true
   rm -rf /tmp/haste-map-* 2>/dev/null || true
-  npx expo start --clear --dev-client > "$ROOT/frontend.log" 2>&1 &
+fi
+
+# Configurar Metro hostname para Codespaces
+if [ -n "$CODESPACE_NAME" ]; then
+  METRO_HOSTNAME="${CODESPACE_NAME}-8081.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+  export REACT_NATIVE_PACKAGER_HOSTNAME="$METRO_HOSTNAME"
+  log_info "Metro Hostname configurado: $METRO_HOSTNAME"
+fi
+
+log_info "Iniciando Expo Dev Server (esto puede tomar 10-15 segundos)..."
+log_info "Esperando a que Metro Bundler esté listo..."
+
+# Iniciar Expo en background pero guardando el log
+if [ "$CLEAN_CACHE" = true ]; then
+  npx expo start --clear --dev-client 2>&1 | tee "$ROOT/frontend.log" &
 else
-  npx expo start --dev-client > "$ROOT/frontend.log" 2>&1 &
+  npx expo start --dev-client 2>&1 | tee "$ROOT/frontend.log" &
 fi
 
 EXPO_PID=$!
 echo $EXPO_PID > "$ROOT/scripts/expo.pid"
 
-sleep 8
+# Esperar a que Metro esté listo y mostrar la URL de conexión
+log_info "Esperando a que Expo genere la URL de conexión..."
+sleep 12
 
 # ═══════════════════════════════════════════════════════════════════════════
 # VERIFICACIONES
@@ -381,8 +397,78 @@ ${BOLD}🛑 Para detener todo:${NC}
 
 EOF
 
-echo -e "${CYAN}📺 Mostrando logs de Expo (Ctrl+C para salir)...${NC}\n"
-tail -f "$ROOT/Frontend/.expo/logs/expo.log" 2>/dev/null || tail -f /dev/null &
+# ═══════════════════════════════════════════════════════════════════════════
+# GENERAR QR Y URL DE CONEXIÓN
+# ═══════════════════════════════════════════════════════════════════════════
+echo ""
+echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+echo -e "${BLUE}              📱 CONEXIÓN AL DEVELOPMENT BUILD                  ${NC}"
+echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+echo ""
 
-# Mantener el script corriendo
+if [ -n "$CODESPACE_NAME" ]; then
+  EXPO_CONNECTION_URL="exp://${CODESPACE_NAME}-8081.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+  
+  echo -e "${GREEN}✅ Expo Dev Server está ejecutándose${NC}"
+  echo ""
+  echo -e "${BOLD}🔗 URL de Conexión:${NC}"
+  echo -e "   ${CYAN}${EXPO_CONNECTION_URL}${NC}"
+  echo ""
+  
+  # Intentar generar QR si qrencode está disponible
+  if command -v qrencode &> /dev/null; then
+    echo -e "${BOLD}📱 Escanea este QR desde tu Development Build:${NC}"
+    echo ""
+    qrencode -t ANSIUTF8 "$EXPO_CONNECTION_URL"
+    echo ""
+  else
+    echo -e "${YELLOW}💡 Para generar QR en terminal, instala: sudo apt install qrencode${NC}"
+    echo ""
+    echo -e "${BOLD}📱 Genera un QR manualmente:${NC}"
+    echo -e "   1. Ve a: ${CYAN}https://qr.io${NC}"
+    echo -e "   2. Pega esta URL: ${CYAN}${EXPO_CONNECTION_URL}${NC}"
+    echo -e "   3. Escanea el QR generado con tu app Delicrunch"
+    echo ""
+  fi
+  
+  echo -e "${BOLD}📋 Instrucciones:${NC}"
+  echo -e "   1. Asegúrate de que el puerto 8081 es ${GREEN}público${NC} (PORTS tab)"
+  echo -e "   2. Abre la app ${BOLD}Delicrunch${NC} en tu dispositivo (NO Expo Go)"
+  echo -e "   3. Escanea el QR o ingresa manualmente la URL"
+  echo ""
+else
+  # Modo local
+  LOCAL_IP=$(hostname -I | awk '{print $1}')
+  EXPO_CONNECTION_URL="exp://${LOCAL_IP}:8081"
+  
+  echo -e "${GREEN}✅ Expo Dev Server está ejecutándose${NC}"
+  echo ""
+  echo -e "${BOLD}🔗 URL de Conexión:${NC}"
+  echo -e "   ${CYAN}${EXPO_CONNECTION_URL}${NC}"
+  echo ""
+  
+  if command -v qrencode &> /dev/null; then
+    echo -e "${BOLD}📱 Escanea este QR desde tu Development Build:${NC}"
+    echo ""
+    qrencode -t ANSIUTF8 "$EXPO_CONNECTION_URL"
+    echo ""
+  fi
+  
+  echo -e "${BOLD}📋 Instrucciones:${NC}"
+  echo -e "   1. Conecta tu dispositivo a la ${GREEN}misma red WiFi${NC}"
+  echo -e "   2. Abre la app ${BOLD}Delicrunch${NC} en tu dispositivo"
+  echo -e "   3. Escanea el QR o ingresa manualmente: ${CYAN}${EXPO_CONNECTION_URL}${NC}"
+  echo ""
+fi
+
+echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+echo ""
+
+echo -e "${CYAN}📺 Los logs de Expo se están guardando en: $ROOT/frontend.log${NC}"
+echo -e "${CYAN}   Para ver en tiempo real: ${BOLD}tail -f $ROOT/frontend.log${NC}"
+echo ""
+echo -e "${YELLOW}Presiona Ctrl+C para detener todos los servicios${NC}"
+echo ""
+
+# Mantener el script corriendo y mostrar logs relevantes
 wait $EXPO_PID
