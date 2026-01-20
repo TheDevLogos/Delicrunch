@@ -1,0 +1,125 @@
+
+[0;34m╔══════════════════════════════════════════════════════════════════╗[0m
+[0;34m║[0m      🥐  [1mDELICRUNCH - Expo Development Build[0m  🥐              [0;34m║[0m
+[0;34m║[0m          [0;36mReact Native + Stripe SDK Nativo[0m                     [0;34m║[0m
+[0;34m╚══════════════════════════════════════════════════════════════════╝[0m
+
+
+[0;35m━━━ PASO 1/6: Limpiando procesos anteriores ━━━[0m
+
+[1;33m🧹 Limpiando procesos...[0m
+[0;32m✓ [0mLimpieza completada
+
+[0;35m━━━ PASO 2/6: Iniciando PostgreSQL ━━━[0m
+ Network delicrunch_default  Creating
+ Network delicrunch_default  Created
+ Container delicrunch-postgres  Creating
+ Container delicrunch-postgres  Created
+ Container delicrunch-postgres  Starting
+ Container delicrunch-postgres  Started
+[0;36mℹ [0mEsperando que PostgreSQL esté listo...
+[0;32m✓ [0mPostgreSQL listo
+
+[0;35m━━━ PASO 3/6: Configurando base de datos ━━━[0m
+✓ Esquema de base de datos aplicado exitosamente
+[0;32m✓ [0mdb/migrate.js
+
+🔒 Iniciando seed seguro de tiendas fijas (no destructivo)
+✅ Tienda existente actualizada: Delicias Fijo (id: 4)
+✅ Tienda existente actualizada: Meoqui Fijo (id: 6)
+✅ Tienda existente actualizada: Camargo Fijo (id: 8)
+
+✅ Seed seguro completado. No se crearon usuarios ni productos.
+[0;32m✓ [0mdb/seed-fixed-stores.js
+
+[0;35m━━━ PASO 4/6: Iniciando Backend (puerto 5001) ━━━[0m
+[0;36mℹ [0mEsperando que el Backend responda...
+.[0;32m✓ [0mBackend listo (PID: 40994)
+
+[0;35m━━━ PASO 5/6: Configurando URL pública del Backend ━━━[0m
+[0;32m✓ [0mUsando Codespaces URL
+[0;32m✓ [0mPuerto 5001 configurado como público
+
+[0;36mℹ [0mURL del Backend: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+
+[0;35m━━━ PASO 6/6: Configurando e iniciando Expo Dev Server ━━━[0m
+[0;32m✓ [0m.env actualizado con API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+[0;36mℹ [0mLimpiando caché de Expo...
+Starting project at /workspaces/Delicrunch/Frontend
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] Stripe Key: ✅ Configurada
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] Stripe Key: ✅ Configurada
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] Stripe Key: ✅ Configurada
+Starting Metro Bundler
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] Stripe Key: ✅ Configurada
+Error while reading cache, falling back to a full crawl:
+ Error: Unable to deserialize cloned data.
+    at deserialize (node:v8:436:14)
+    at DiskCacheManager.read (/workspaces/Delicrunch/Frontend/node_modules/metro-file-map/src/cache/DiskCacheManager.js:60:33)
+    at FileMap.read (/workspaces/Delicrunch/Frontend/node_modules/metro-file-map/src/index.js:284:14)
+    at /workspaces/Delicrunch/Frontend/node_modules/metro-file-map/src/index.js:202:25
+    at DependencyGraph.ready (/workspaces/Delicrunch/Frontend/node_modules/metro/src/node-haste/DependencyGraph.js:88:5)
+    at Bundler.ready (/workspaces/Delicrunch/Frontend/node_modules/metro/src/Bundler.js:62:5)
+    at IncrementalBundler.ready (/workspaces/Delicrunch/Frontend/node_modules/metro/src/IncrementalBundler.js:302:5)
+    at Server.ready (/workspaces/Delicrunch/Frontend/node_modules/metro/src/Server.js:1305:5)
+CommandError: TypeError: Cannot read properties of undefined (reading 'body')
+Check the Ngrok status page for outages: https://status.ngrok.com/
+
+[0;34m═══════════════════════════════════════════════════════════════[0m
+[0;34m              🔍 VERIFICACIÓN DE SERVICIOS                      [0m
+[0;34m═══════════════════════════════════════════════════════════════[0m
+
+[0;32m✓ [0mBackend local: http://localhost:5001
+[0;32m✓ [0mBackend túnel: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+[0;32m✓ [0mSistema de autenticación funcionando
+
+[0;32m═══════════════════════════════════════════════════════════════[0m
+[0;32m              🎉 ENTORNO LISTO PARA DESARROLLO                  [0m
+[0;32m═══════════════════════════════════════════════════════════════[0m
+
+\033[1m🌐 URLs del Sistema:\033[0m
+   Backend Local:     http://localhost:5001
+   Backend Público:   https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+   Base de Datos:     localhost:5432 (postgres/Qazwsx1234)
+
+\033[1m👤 Cuentas de Prueba:\033[0m
+   Admin:     admindeli@delicrunch.com / Admin1234
+   Comercio:  espiga@demo.com / Admin1234
+   Comprador: comprador@delicrunch.com / Comprador123
+
+\033[1m📱 IMPORTANTE - Development Build (NO Expo Go):\033[0m
+   
+   \033[1;33mTu app usa @stripe/stripe-react-native que requiere código nativo.
+   NO funcionará con Expo Go. Necesitas crear un Development Build:\033[0m
+
+   \033[0;36mPASO 1: Crear el build para Android/iOS\033[0m
+   cd Frontend
+   npx eas login                                              # Login en EAS
+   npx eas build --platform android --profile development    # Android APK
+   npx eas build --platform ios --profile development        # iOS (requiere Mac/cuenta Apple)
+
+   \033[0;36mPASO 2: Instalar el APK/IPA en tu dispositivo\033[0m
+   - Descarga el APK desde el link que te da EAS
+   - Instálalo en tu teléfono Android
+   - Para iOS: usa TestFlight o instala el .ipa directamente
+
+   \033[0;36mPASO 3: Conectar al Dev Server\033[0m
+   - Abre la app "Delicrunch" instalada (NO Expo Go)
+   - La app se conectará automáticamente al servidor Expo
+   - Escanea el QR si es necesario
+
+\033[1m📋 Logs en tiempo real:\033[0m
+   tail -f /workspaces/Delicrunch/backend.log      # Backend
+   tail -f /workspaces/Delicrunch/frontend.log     # Frontend/Expo
+
+\033[1m🛑 Para detener todo:\033[0m
+   Ctrl+C o ejecutar: kill $(cat /workspaces/Delicrunch/Backend/server.pid) $(cat /workspaces/Delicrunch/scripts/expo.pid)
+
+[0;36m📺 Mostrando logs de Expo (Ctrl+C para salir)...[0m
+
+
+[1;33m🧹 Limpiando procesos...[0m
+[0;32m✓ [0mLimpieza completada

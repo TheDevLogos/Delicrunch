@@ -267,13 +267,17 @@ log_success ".env actualizado con API URL: ${TUNNEL_URL}"
 export EXPO_PUBLIC_API_URL="${TUNNEL_URL}"
 export EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_51SRRYk8hoiRFdhGtFHnTJRVAPniX7lh6esuxdNc13Xw7GK3njphOGYTQ8An7HJSdcTxjeVMi2tULPp6DqKugVbDT00PMJuLLkJ"
 
-# Limpiar caché si se solicita
+# Limpiar caché si se solicita (incluyendo Metro que puede estar corrupto)
 if [ "$CLEAN_CACHE" = true ]; then
-  log_info "Limpiando caché de Expo..."
-  rm -rf .expo node_modules/.cache 2>/dev/null || true
-  npx expo start --clear --dev-client --tunnel &
+  log_info "Limpiando caché de Expo y Metro..."
+  rm -rf .expo 2>/dev/null || true
+  rm -rf node_modules/.cache 2>/dev/null || true
+  rm -rf .metro 2>/dev/null || true
+  rm -rf /tmp/metro-* 2>/dev/null || true
+  rm -rf /tmp/haste-map-* 2>/dev/null || true
+  npx expo start --clear --dev-client > "$ROOT/frontend.log" 2>&1 &
 else
-  npx expo start --dev-client --tunnel &
+  npx expo start --dev-client > "$ROOT/frontend.log" 2>&1 &
 fi
 
 EXPO_PID=$!
@@ -297,12 +301,12 @@ else
   log_error "Backend local no responde"
 fi
 
-# Verificar túnel
+# Verificar túnel/URL pública
 TUNNEL_RESP=$(curl -s -o /dev/null -w "%{http_code}" "${TUNNEL_URL}/" 2>/dev/null || echo "000")
 if [ "$TUNNEL_RESP" = "200" ]; then
-  log_success "Backend túnel: ${TUNNEL_URL}"
+  log_success "Backend público: ${TUNNEL_URL}"
 else
-  log_warning "Túnel respondió HTTP ${TUNNEL_RESP}"
+  log_warning "Backend público respondió HTTP ${TUNNEL_RESP} (puede requerir autenticación en primera conexión)"
 fi
 
 # Verificar login
@@ -330,6 +334,16 @@ ${BOLD}🌐 URLs del Sistema:${NC}
    Backend Local:     http://localhost:5001
    Backend Público:   ${TUNNEL_URL}
    Base de Datos:     localhost:5432 (postgres/Qazwsx1234)
+   Expo Dev Server:   http://localhost:8081
+
+${BOLD}📱 IMPORTANTE - Configurar puertos públicos en Codespaces:${NC}
+   ${YELLOW}Si estás en GitHub Codespaces, configura estos puertos como públicos:${NC}
+   1. Ve a la pestaña "PORTS" (abajo en VS Code)
+   2. Puerto 5001 → Click derecho → Port Visibility → Public
+   3. Puerto 8081 → Click derecho → Port Visibility → Public
+   4. Puerto 8082 → Click derecho → Port Visibility → Public (opcional)
+   
+   ${CYAN}Luego copia la URL del puerto 8081 para conectar tu dispositivo.${NC}
 
 ${BOLD}👤 Cuentas de Prueba:${NC}
    Admin:     admindeli@delicrunch.com / Admin1234
@@ -354,8 +368,9 @@ ${BOLD}📱 IMPORTANTE - Development Build (NO Expo Go):${NC}
 
    ${CYAN}PASO 3: Conectar al Dev Server${NC}
    - Abre la app "Delicrunch" instalada (NO Expo Go)
-   - La app se conectará automáticamente al servidor Expo
-   - Escanea el QR si es necesario
+   - Presiona 's' en la terminal para cambiar a modo servidor
+   - Escanea el QR o ingresa la URL manualmente
+   - URL formato: exp://[CODESPACE_URL]:8081
 
 ${BOLD}📋 Logs en tiempo real:${NC}
    tail -f $ROOT/backend.log      # Backend
