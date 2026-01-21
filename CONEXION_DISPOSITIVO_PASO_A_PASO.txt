@@ -1,0 +1,152 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║  📱 GUÍA PASO A PASO: Conectar Development Build a Metro           ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+❌ ERROR: java.lang.RuntimeException: Unable to load script
+
+Este error significa que tu app no puede cargar el código JavaScript desde
+el Metro Bundler (el servidor de desarrollo de Expo).
+
+═══════════════════════════════════════════════════════════════════════
+
+🎯 SOLUCIÓN RÁPIDA (3 Pasos):
+
+┌───────────────────────────────────────────────────────────────────┐
+│ PASO 1: Ejecutar el script automático                            │
+└───────────────────────────────────────────────────────────────────┘
+
+En la terminal de VS Code:
+
+$ ./fix-and-start-expo.sh
+
+Este script:
+✓ Configura puertos públicos automáticamente
+✓ Limpia cachés corruptos
+✓ Actualiza configuración de Metro
+✓ Inicia todo el sistema
+
+┌───────────────────────────────────────────────────────────────────┐
+│ PASO 2: Espera a que aparezca el QR code en la terminal          │
+└───────────────────────────────────────────────────────────────────┘
+
+Verás algo como:
+
+📱 Escanea este QR desde tu Development Build:
+[QR CODE AQUÍ]
+
+🔗 URL de Conexión:
+   exp://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev
+
+┌───────────────────────────────────────────────────────────────────┐
+│ PASO 3: Conectar tu dispositivo (ELIGE UNA OPCIÓN)               │
+└───────────────────────────────────────────────────────────────────┘
+
+OPCIÓN A - Escanear QR (MÁS FÁCIL):
+   1. Abre la app "Delicrunch" en tu teléfono
+   2. Escanea el QR que apareció en la terminal
+   3. ¡Listo!
+
+OPCIÓN B - Configuración Manual (SI EL QR NO FUNCIONA):
+   1. Abre la app "Delicrunch" en tu teléfono
+   2. Sacude el dispositivo para abrir el Dev Menu
+   3. Toca "Settings"
+   4. En "Debug server host & port" escribe:
+   
+      silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev:443
+   
+   5. Regresa atrás y toca "Reload"
+
+OPCIÓN C - URL Completa del Bundle:
+   1. En el Dev Menu, toca "Enter URL manually"
+   2. Pega esta URL exacta:
+   
+https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev/index.bundle?platform=android&dev=true&hot=false
+
+═══════════════════════════════════════════════════════════════════════
+
+🔍 DIAGNÓSTICO: ¿Por qué estaba fallando?
+
+El error ocurre por estas razones:
+
+❌ Puerto 8081 no era público en Codespaces
+   → El dispositivo no podía acceder al Metro Bundler
+   ✓ SOLUCIONADO: Los scripts configuran el puerto como público
+
+❌ Metro no sabía su hostname público
+   → Generaba URLs incorrectas (localhost:8081)
+   ✓ SOLUCIONADO: .env ahora tiene REACT_NATIVE_PACKAGER_HOSTNAME
+
+❌ Caché de Metro corrupto
+   → Metro servía código antiguo o corrupto
+   ✓ SOLUCIONADO: Limpieza automática de cachés
+
+❌ metro.config.js sin CORS
+   → El navegador del dispositivo bloqueaba las peticiones
+   ✓ SOLUCIONADO: metro.config.js con headers CORS correctos
+
+═══════════════════════════════════════════════════════════════════════
+
+⚙️ ARCHIVOS Y SCRIPTS DISPONIBLES:
+
+1. fix-and-start-expo.sh (PRINCIPAL) ⭐
+   Script todo-en-uno que soluciona y inicia todo
+
+2. start-expo-dev-build.sh
+   Script normal de inicio (ya incluye las correcciones)
+
+3. fix-unable-to-load-script.sh
+   Solo diagnóstico y configuración (no inicia el sistema)
+
+4. UNABLE_TO_LOAD_SCRIPT_SOLUTION.md
+   Documentación técnica completa
+
+5. CONEXION_RAPIDA.txt
+   Este archivo - Guía rápida de referencia
+
+═══════════════════════════════════════════════════════════════════════
+
+🚨 SI AÚN TIENES PROBLEMAS:
+
+1. Verifica que Metro está corriendo:
+   $ curl http://localhost:8081/status
+   Debe responder: {"packager":"running"}
+
+2. Verifica conectividad desde tu dispositivo:
+   Abre en el navegador de tu teléfono:
+   https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev/status
+   
+   Debe mostrar: {"packager":"running"}
+
+3. Verifica que la app es Development Build:
+   ✓ NO debe ser "Expo Go"
+   ✓ Debe decir "Delicrunch" en el ícono
+   ✓ Debe instalarse desde el APK de EAS Build
+
+4. Revisa los logs:
+   $ tail -f frontend.log
+   Busca errores de conexión o bundle
+
+5. Reinicia completamente:
+   $ pkill node
+   $ ./fix-and-start-expo.sh
+
+═══════════════════════════════════════════════════════════════════════
+
+✨ RESUMEN:
+
+Antes:  ❌ Unable to load script → App no carga
+Ahora:  ✅ Metro accesible públicamente → App funciona
+
+La solución está PERMANENTEMENTE integrada en los scripts.
+Solo ejecuta: ./fix-and-start-expo.sh
+
+═══════════════════════════════════════════════════════════════════════
+
+📞 AYUDA RÁPIDA:
+
+Script automático:     ./fix-and-start-expo.sh
+Diagnóstico solo:      ./fix-unable-to-load-script.sh
+Inicio normal:         ./start-expo-dev-build.sh --clean
+Ver documentación:     cat UNABLE_TO_LOAD_SCRIPT_SOLUTION.md
+
+═══════════════════════════════════════════════════════════════════════
