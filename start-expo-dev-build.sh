@@ -252,16 +252,29 @@ log_step "PASO 6/6: Configurando e iniciando Expo Dev Server"
 cd "$ROOT/Frontend"
 npm install --silent 2>/dev/null || npm install
 
-# Actualizar .env con la URL del túnel
+# Configurar Metro hostname ANTES de crear .env
+METRO_HOSTNAME=""
+if [ -n "$CODESPACE_NAME" ]; then
+  METRO_HOSTNAME="${CODESPACE_NAME}-8081.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+  log_info "Metro Hostname detectado: $METRO_HOSTNAME"
+fi
+
+# Actualizar .env con la URL del túnel Y Metro hostname
 cat > "$ROOT/Frontend/.env" << EOF
 # Configuración generada automáticamente - $(date)
 EXPO_PUBLIC_API_URL=${TUNNEL_URL}
 
 # Stripe Configuration
 EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51SRRYk8hoiRFdhGtFHnTJRVAPniX7lh6esuxdNc13Xw7GK3njphOGYTQ8An7HJSdcTxjeVMi2tULPp6DqKugVbDT00PMJuLLkJ
+
+# Metro Bundler Configuration for Codespaces (CRÍTICO para "Unable to load script")
+${METRO_HOSTNAME:+REACT_NATIVE_PACKAGER_HOSTNAME=$METRO_HOSTNAME}
 EOF
 
 log_success ".env actualizado con API URL: ${TUNNEL_URL}"
+if [ -n "$METRO_HOSTNAME" ]; then
+  log_success "Metro Hostname configurado en .env: $METRO_HOSTNAME"
+fi
 
 # Exportar variable de entorno
 export EXPO_PUBLIC_API_URL="${TUNNEL_URL}"
@@ -277,11 +290,10 @@ if [ "$CLEAN_CACHE" = true ]; then
   rm -rf /tmp/haste-map-* 2>/dev/null || true
 fi
 
-# Configurar Metro hostname para Codespaces
-if [ -n "$CODESPACE_NAME" ]; then
-  METRO_HOSTNAME="${CODESPACE_NAME}-8081.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+# Exportar variable de entorno para Metro (ya está en .env, pero exportamos por si acaso)
+if [ -n "$METRO_HOSTNAME" ]; then
   export REACT_NATIVE_PACKAGER_HOSTNAME="$METRO_HOSTNAME"
-  log_info "Metro Hostname configurado: $METRO_HOSTNAME"
+  log_info "Variable REACT_NATIVE_PACKAGER_HOSTNAME exportada"
 fi
 
 log_info "Iniciando Expo Dev Server (esto puede tomar 10-15 segundos)..."
@@ -446,6 +458,11 @@ echo ""
 
 if [ -n "$CODESPACE_NAME" ]; then
   EXPO_CONNECTION_URL="exp://${CODESPACE_NAME}-8081.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
+  
+  # Configurar puerto 8081 como público
+  gh codespace ports visibility 8081:public -c "$CODESPACE_NAME" 2>/dev/null && \
+    log_success "Puerto 8081 configurado como público" || \
+    log_warning "Configura puerto 8081 como público manualmente"
   
   echo -e "${GREEN}✅ Expo Dev Server está ejecutándose${NC}"
   echo ""
