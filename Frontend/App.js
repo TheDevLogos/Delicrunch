@@ -8,6 +8,7 @@ import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './contexts/AuthProvider';
 import { LocationProvider } from './contexts/LocationContext';
 import { GamificationProvider } from './contexts/GamificationContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Obtener Stripe publishable key desde variables de entorno
 const STRIPE_PUBLISHABLE_KEY = 
@@ -26,15 +27,17 @@ export default function App() {
       merchantIdentifier="merchant.com.delicrunch.app"
     >
       <SafeAreaProvider>
-        <AuthProvider>
-          <LocationProvider>
-            <GamificationProvider>
-              <NavigationContainer>
-                <AppNavigator /> 
-              </NavigationContainer>
-            </GamificationProvider>
-          </LocationProvider>
-        </AuthProvider>
+        <NotificationProvider>
+          <AuthProvider>
+            <LocationProvider>
+              <GamificationProvider>
+                <NavigationContainer>
+                  <AppNavigator /> 
+                </NavigationContainer>
+              </GamificationProvider>
+            </LocationProvider>
+          </AuthProvider>
+        </NotificationProvider>
       </SafeAreaProvider>
     </StripeProvider>
   );

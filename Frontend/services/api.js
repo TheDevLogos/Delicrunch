@@ -105,8 +105,17 @@ api.interceptors.request.use(
 
 // --- INTERCEPTOR DE RESPUESTA ---
 // Maneja errores 401 (token inválido/expirado) limpiando el token automáticamente
+// Y detecta respuestas HTML en lugar de JSON
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Verificar si la respuesta es HTML cuando esperamos JSON
+    const contentType = response.headers['content-type'] || '';
+    if (contentType.includes('text/html') && !contentType.includes('application/json')) {
+      console.error('⚠️ Servidor respondió con HTML en lugar de JSON:', response.config.url);
+      throw new Error('El servidor respondió con HTML en lugar de JSON. Verifica la URL del backend.');
+    }
+    return response;
+  },
   async (error) => {
     // Si recibimos un 401, el token es inválido o ha expirado
     if (error.response?.status === 401) {
@@ -114,6 +123,14 @@ api.interceptors.response.use(
       await AsyncStorage.removeItem('userToken');
       console.log('🔐 Token inválido detectado y eliminado automáticamente');
     }
+
+    // Detectar si la respuesta de error es HTML
+    const contentType = error.response?.headers['content-type'] || '';
+    if (contentType.includes('text/html') || error.message?.includes('<!doctype') || error.message?.includes('<!DOCTYPE')) {
+      console.error('⚠️ Error: Servidor respondió con HTML:', error.config?.url);
+      return Promise.reject(new Error('El servidor respondió con HTML. Puede ser una página de error o configuración de túnel incorrecta.'));
+    }
+
     return Promise.reject(error);
   }
 );

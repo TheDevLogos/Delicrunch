@@ -4,6 +4,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const pool = require('./db/index.js'); // CORRECCIÓN: Usar la ruta correcta y consistente
 const errorHandler = require('./middleware/errorHandler');
+const ensureJson = require('./middleware/ensureJson');
 
 const app = express();
 const PORT = process.env.PORT || 5001
@@ -21,6 +22,7 @@ const checkDbConnection = async () => {
 // Middlewares
 app.use(cors());
 app.use(express.json());
+app.use(ensureJson); // Asegurar que todas las respuestas sean JSON
 
 // Servir archivos estáticos desde la carpeta 'uploads'
 // Esto permite que el frontend acceda a las imágenes subidas a través de una URL
@@ -28,7 +30,22 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rutas de la API
 app.get('/', (req, res) => {
-    res.send('¡El servidor de Delicrunch está funcionando!');
+    res.json({
+        success: true,
+        message: 'Delicrunch API está funcionando',
+        version: '1.0.0',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Ruta de health check
+app.get('/health', (req, res) => {
+    res.json({
+        success: true,
+        status: 'healthy',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Usamos las rutas de autenticación
@@ -50,6 +67,15 @@ app.use('/api/payments', require('./routes/paymentRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 // Usamos las rutas de cupones y recompensas
 app.use('/api/coupons', require('./routes/couponRoutes'));
+
+// Middleware para manejar rutas no encontradas (404)
+app.use((req, res, next) => {
+    res.status(404).json({
+        success: false,
+        message: `Ruta no encontrada: ${req.method} ${req.path}`,
+        error: 'Not Found'
+    });
+});
 
 // Middleware de manejo de errores (debe ir después de las rutas)
 app.use(errorHandler);

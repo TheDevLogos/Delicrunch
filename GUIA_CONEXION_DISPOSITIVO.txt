@@ -1,0 +1,176 @@
+════════════════════════════════════════════════════════════════════
+  🚨 SOLUCIÓN PASO A PASO: Unable to load script
+════════════════════════════════════════════════════════════════════
+
+✅ SISTEMA INICIADO Y CONFIGURADO CORRECTAMENTE
+
+Metro Bundler: ✓ Corriendo en http://localhost:8081
+URL Pública:   ✓ https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev
+Backend:       ✓ https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+
+════════════════════════════════════════════════════════════════════
+
+📱 CONECTAR TU DISPOSITIVO - MÉTODO 1 (Settings)
+════════════════════════════════════════════════════════════════════
+
+PASO 1: Abre la app "Delicrunch" en tu teléfono
+        ⚠️  Debe ser el Development Build instalado, NO Expo Go
+
+PASO 2: Sacude el dispositivo (o presiona el botón de menú)
+        Debe aparecer el menú de desarrollo
+
+PASO 3: Toca la opción "Settings" o "Configuración"
+
+PASO 4: Busca el campo "Debug server host & port for device"
+
+PASO 5: Ingresa EXACTAMENTE esto (copia y pega):
+        ┌─────────────────────────────────────────────────────────┐
+        │ silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev:443│
+        └─────────────────────────────────────────────────────────┘
+
+PASO 6: Guarda los cambios
+
+PASO 7: Regresa al menú y toca "Reload" o "Recargar"
+
+════════════════════════════════════════════════════════════════════
+
+📱 CONECTAR TU DISPOSITIVO - MÉTODO 2 (URL Manual)
+════════════════════════════════════════════════════════════════════
+
+Si el Método 1 no funciona, usa la URL completa del bundle:
+
+PASO 1: Abre la app "Delicrunch" y sacude para abrir el menú
+
+PASO 2: Toca "Enter URL manually" o "Ingresar URL manualmente"
+
+PASO 3: Ingresa esta URL completa:
+        ┌──────────────────────────────────────────────────────────────────┐
+        │ https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev/   │
+        │ index.bundle?platform=android&dev=true&hot=false                 │
+        └──────────────────────────────────────────────────────────────────┘
+        
+        (Debe ser una sola línea sin espacios, copiar exactamente)
+
+PASO 4: Toca "Reload"
+
+════════════════════════════════════════════════════════════════════
+
+📱 CONECTAR TU DISPOSITIVO - MÉTODO 3 (QR Code desde Expo)
+════════════════════════════════════════════════════════════════════
+
+NOTA: Este método puede NO funcionar en Codespaces, usa Método 1 o 2
+
+PASO 1: En tu terminal, ve a /workspaces/Delicrunch/Frontend
+
+PASO 2: Ejecuta: npx expo start --dev-client
+
+PASO 3: Verás un QR code en la terminal
+
+PASO 4: IMPORTANTE: Antes de escanear, presiona 'm' para ver el menú
+
+PASO 5: Selecciona la opción que muestra la URL de conexión
+
+PASO 6: Escanea el QR con la app Delicrunch (NO con la cámara)
+
+════════════════════════════════════════════════════════════════════
+
+🔍 VERIFICACIONES ANTES DE CONECTAR
+════════════════════════════════════════════════════════════════════
+
+✓ 1. Metro Bundler corriendo:
+     $ curl http://localhost:8081/status
+     Debe responder: packager-status:running
+
+✓ 2. Puerto 8081 configurado como PÚBLICO:
+     - Ve a la pestaña "PORTS" en VS Code (panel inferior)
+     - Busca el puerto 8081
+     - Click derecho → "Port Visibility" → "Public"
+     - Debe mostrar un ícono de globo 🌐
+
+✓ 3. URL pública accesible desde tu dispositivo:
+     Desde tu teléfono, abre en el navegador:
+     https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev/status
+     
+     Debe mostrar: packager-status:running
+
+✓ 4. Usando Development Build correcto:
+     - La app debe llamarse "Delicrunch"
+     - NO debe ser "Expo Go"
+     - Debe ser el APK que descargaste de EAS Build
+
+════════════════════════════════════════════════════════════════════
+
+🐛 SI SIGUE SIN FUNCIONAR
+════════════════════════════════════════════════════════════════════
+
+1. Verifica logs en tiempo real:
+   $ tail -f /workspaces/Delicrunch/frontend.log
+
+2. Verifica que Metro esté usando el hostname correcto:
+   $ cat /workspaces/Delicrunch/Frontend/.env | grep REACT_NATIVE
+   Debe mostrar: REACT_NATIVE_PACKAGER_HOSTNAME=silver-telegram...
+
+3. Reinicia Metro con la configuración limpia:
+   $ cd /workspaces/Delicrunch
+   $ pkill -f "expo start"
+   $ cd Frontend
+   $ export REACT_NATIVE_PACKAGER_HOSTNAME=silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev
+   $ npx expo start --clear --dev-client
+
+4. Desde tu dispositivo Android, usa ADB para forzar la conexión:
+   $ adb reverse tcp:8081 tcp:8081
+   Luego intenta conectar con: http://localhost:8081
+
+5. Verifica el error específico en LogCat (Android):
+   $ adb logcat | grep -i "ReactNative\|Metro\|Bundle"
+
+════════════════════════════════════════════════════════════════════
+
+📋 INFORMACIÓN TÉCNICA
+════════════════════════════════════════════════════════════════════
+
+Problema Original:
+  java.lang.RuntimeException: Unable to load script
+
+Causa:
+  El dispositivo no puede descargar el bundle JavaScript desde Metro
+
+Solución Aplicada:
+  1. Metro configurado con CORS headers (metro.config.js)
+  2. REACT_NATIVE_PACKAGER_HOSTNAME exportado (.env)
+  3. Puerto 8081 configurado como público en Codespaces
+  4. URL del bundle accesible desde Internet
+
+Archivos Modificados:
+  ✓ Frontend/metro.config.js (creado)
+  ✓ Frontend/.env (actualizado)
+  ✓ start-expo-dev-build.sh (mejorado)
+
+════════════════════════════════════════════════════════════════════
+
+❓ ¿AÚN NO FUNCIONA?
+════════════════════════════════════════════════════════════════════
+
+Responde estas preguntas para diagnóstico:
+
+1. ¿Qué app estás usando para escanear/conectar?
+   □ Expo Go (❌ NO funcionará con este proyecto)
+   □ Development Build de Delicrunch instalado (✅ Correcto)
+
+2. ¿Puedes acceder a esta URL desde el navegador de tu teléfono?
+   https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev/status
+
+3. ¿Qué error exacto ves en la pantalla de tu dispositivo?
+   Anota el mensaje completo
+
+4. ¿En qué paso específico falla la conexión?
+   □ No puedo abrir el Dev Menu
+   □ No encuentro la opción "Settings"
+   □ La URL no se guarda
+   □ Al recargar, muestra el error "Unable to load script"
+   □ Otro: ___________
+
+════════════════════════════════════════════════════════════════════
+
+Última actualización: 2026-01-20 17:21 UTC
+Estado del sistema: ✅ TODO OPERACIONAL

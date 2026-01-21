@@ -244,6 +244,13 @@ const ProfileScreen = () => {
       color: COLORS.primary, // Cambiado a verde activo
     });
     options.push({
+      icon: 'notifications-outline',
+      label: 'Notificaciones',
+      subtitle: 'Configurar alertas',
+      onPress: () => navigation.navigate('NotificationSettings'),
+      color: COLORS.primary,
+    });
+    options.push({
       icon: 'help-circle-outline',
       label: 'Ayuda y Soporte',
       subtitle: 'FAQ y contacto',

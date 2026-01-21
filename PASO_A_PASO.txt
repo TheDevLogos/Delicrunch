@@ -1,0 +1,71 @@
+════════════════════════════════════════════════════════════════════
+  🚨 SOLUCIÓN: Unable to load script - PASO A PASO
+════════════════════════════════════════════════════════════════════
+
+✅ EL SISTEMA YA ESTÁ CORRIENDO CORRECTAMENTE
+
+Metro URL: https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev
+
+════════════════════════════════════════════════════════════════════
+
+📱 MÉTODO 1: Configurar el servidor en la app (RECOMENDADO)
+════════════════════════════════════════════════════════════════════
+
+1. Abre la app "Delicrunch" en tu teléfono
+   (NO Expo Go - debe ser el Development Build instalado)
+
+2. Sacude el dispositivo para abrir el DEV MENU
+
+3. Toca "Settings" o "Configuración"
+
+4. En el campo "Debug server host & port" ingresa:
+
+   silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev:443
+
+5. Vuelve atrás y toca "Reload"
+
+════════════════════════════════════════════════════════════════════
+
+📱 MÉTODO 2: URL completa del bundle
+════════════════════════════════════════════════════════════════════
+
+1. Abre la app y sacude para abrir el DEV MENU
+
+2. Toca "Enter URL manually"
+
+3. Ingresa (todo en una línea):
+
+https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev/index.bundle?platform=android&dev=true&hot=false
+
+4. Toca "Reload"
+
+════════════════════════════════════════════════════════════════════
+
+⚠️ VERIFICACIONES IMPORTANTES
+════════════════════════════════════════════════════════════════════
+
+✓ Puerto 8081 debe ser PÚBLICO:
+  - Ve a pestaña "PORTS" en VS Code
+  - Click derecho en 8081 → Port Visibility → Public
+
+✓ Prueba la URL desde el navegador de tu teléfono:
+  https://silver-telegram-7vx44jrgxxqrhrw79-8081.app.github.dev/status
+  Debe mostrar: packager-status:running
+
+✓ Usa el Development Build correcto:
+  - Debe decir "Delicrunch", NO "Expo Go"
+  - Es el APK que descargaste de EAS Build
+
+════════════════════════════════════════════════════════════════════
+
+🔧 SI SIGUE FALLANDO
+════════════════════════════════════════════════════════════════════
+
+Ver logs en tiempo real:
+$ tail -f /workspaces/Delicrunch/frontend.log
+
+Reiniciar Metro con configuración limpia:
+$ cd /workspaces/Delicrunch
+$ ./start-expo-dev-build.sh --clean
+
+════════════════════════════════════════════════════════════════════

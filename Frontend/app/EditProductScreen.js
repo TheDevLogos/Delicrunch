@@ -941,13 +941,6 @@ const styles = StyleSheet.create({
     color: COLORS.success,
     marginLeft: 8,
   },
-    marginBottom: 4,
-  },
-  checkboxDescription: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
 });
 
 export default EditProductScreen;

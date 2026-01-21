@@ -313,6 +313,15 @@ echo ""
 # Verificar Backend local
 if curl -s http://localhost:5001/ | grep -q "Delicrunch"; then
   log_success "Backend local: http://localhost:5001"
+  
+  # Verificar que responde con JSON válido
+  BACKEND_JSON=$(curl -s -H "Accept: application/json" http://localhost:5001/)
+  if echo "$BACKEND_JSON" | jq . >/dev/null 2>&1; then
+    log_success "Backend responde con JSON válido"
+  else
+    log_warning "Backend no responde con JSON válido"
+    echo "$BACKEND_JSON" | head -3
+  fi
 else
   log_error "Backend local no responde"
 fi
@@ -321,6 +330,35 @@ fi
 TUNNEL_RESP=$(curl -s -o /dev/null -w "%{http_code}" "${TUNNEL_URL}/" 2>/dev/null || echo "000")
 if [ "$TUNNEL_RESP" = "200" ]; then
   log_success "Backend público: ${TUNNEL_URL}"
+  
+  # Verificar que el túnel responde con JSON y no HTML
+  TUNNEL_CONTENT=$(curl -s -H "Accept: application/json" "${TUNNEL_URL}/" 2>/dev/null | head -1)
+  if echo "$TUNNEL_CONTENT" | grep -qi '<!doctype\|<html'; then
+    log_error "⚠️  PROBLEMA DETECTADO: El túnel responde con HTML en lugar de JSON"
+    echo ""
+    echo -e "${RED}╔═══════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║  ERROR: El backend responde con HTML (no JSON)                  ║${NC}"
+    echo -e "${RED}║                                                                   ║${NC}"
+    echo -e "${RED}║  Esto causará: 'Value<!doctype cannot be converted to JSON'      ║${NC}"
+    echo -e "${RED}╚═══════════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${YELLOW}Causas posibles:${NC}"
+    echo "1. Localtunnel requiere verificación en navegador la primera vez"
+    echo "2. El túnel está devolviendo una página de error"
+    echo "3. Configuración de CORS incorrecta"
+    echo ""
+    echo -e "${CYAN}Solución:${NC}"
+    echo "1. Abre en tu navegador: ${TUNNEL_URL}"
+    echo "2. Completa la verificación si aparece"
+    echo "3. Luego intenta conectar tu app"
+    echo ""
+    echo -e "${GREEN}Para GitHub Codespaces (RECOMENDADO):${NC}"
+    echo "Los puertos de Codespaces no requieren verificación."
+    echo "Asegúrate de que el puerto 5001 esté configurado como 'Public'"
+    echo ""
+  elif echo "$TUNNEL_CONTENT" | jq . >/dev/null 2>&1; then
+    log_success "Túnel responde con JSON válido ✓"
+  fi
 else
   log_warning "Backend público respondió HTTP ${TUNNEL_RESP} (puede requerir autenticación en primera conexión)"
 fi

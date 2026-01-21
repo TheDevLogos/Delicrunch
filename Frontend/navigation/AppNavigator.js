@@ -40,6 +40,9 @@ import BrowseScreen from '../app/BrowseScreen';
 // Pantallas de admin
 import AdminMetricsScreen from '../app/admin/AdminMetricsScreen';
 
+// Pantalla de notificaciones
+import NotificationSettingsScreen from '../app/NotificationSettingsScreen';
+
 // Importación de los navegadores de pestañas
 import MainTabNavigator from './MainTabNavigator'; // Para Compradores
 import MerchantTabNavigator from './MerchantTabNavigator'; // Para Comercios
@@ -114,6 +117,8 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="Buscar" component={BrowseScreen} options={{ title: 'Buscar', headerShown: false }} />
     {/* Pantallas de admin accesibles desde perfil */}
     <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Métricas', headerShown: true }} />
+    {/* Pantalla de configuración de notificaciones */}
+    <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ title: 'Notificaciones', headerShown: true }} />
   </Stack.Navigator>
 );
 
