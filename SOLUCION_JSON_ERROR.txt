@@ -1,0 +1,98 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║  ✅ SOLUCIÓN APLICADA: Value<!doctype cannot be converted to JSON  ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+❌ ERROR ORIGINAL:
+   java.lang.RuntimeException: Value<!doctype of type java.lang.String 
+   cannot be converted to JSONObject
+
+✅ CAUSA IDENTIFICADA:
+   El backend respondía con texto plano/HTML en lugar de JSON
+
+═══════════════════════════════════════════════════════════════════════
+
+🔧 CAMBIOS APLICADOS:
+
+1. ✅ Backend/server.js
+   - Ruta raíz ahora devuelve JSON
+   - Health check agregado (/health)
+   - Manejo 404 con JSON
+
+2. ✅ Backend/middleware/ensureJson.js (NUEVO)
+   - Fuerza todas las respuestas a JSON
+   - Intercepta texto plano y lo convierte
+
+3. ✅ Backend/middleware/errorHandler.js
+   - Errores devuelven JSON estructurado
+   - Previene headers duplicados
+   - Incluye stack trace en desarrollo
+
+4. ✅ Frontend/services/api.js
+   - Interceptor detecta respuestas HTML
+   - Mensajes de error descriptivos
+   - Validación de content-type
+
+5. ✅ start-expo-dev-build.sh
+   - Valida respuestas JSON antes de iniciar app
+   - Detecta páginas HTML automáticamente
+   - Advierte sobre túneles que requieren verificación
+
+═══════════════════════════════════════════════════════════════════════
+
+🧪 VALIDACIÓN:
+
+Ejecutar pruebas:
+$ ./test-json-response.sh
+
+Verifica que:
+- Ruta raíz devuelve JSON        ✓
+- Health check devuelve JSON     ✓
+- Rutas API devuelven JSON       ✓
+- 404 devuelve JSON              ✓
+- No hay respuestas HTML         ✓
+
+═══════════════════════════════════════════════════════════════════════
+
+🚀 INICIAR SISTEMA:
+
+$ ./start-expo-dev-build.sh --clean
+
+El script ahora:
+✓ Reinicia backend con cambios aplicados
+✓ Valida que responde con JSON
+✓ Detecta problemas de túnel
+✓ Proporciona instrucciones claras
+
+═══════════════════════════════════════════════════════════════════════
+
+✅ VERIFICACIÓN MANUAL:
+
+# 1. Verificar backend responde JSON:
+$ curl -s http://localhost:5001/ | jq .
+Debe mostrar: {"success":true,"message":"Delicrunch API..."}
+
+# 2. Verificar health check:
+$ curl -s http://localhost:5001/health | jq .
+Debe mostrar: {"success":true,"status":"healthy"...}
+
+# 3. Verificar 404 devuelve JSON:
+$ curl -s http://localhost:5001/noexiste | jq .
+Debe mostrar: {"success":false,"error":"Not Found"...}
+
+═══════════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTACIÓN COMPLETA:
+
+Ver: JSON_PARSE_ERROR_SOLUTION.md
+
+═══════════════════════════════════════════════════════════════════════
+
+✨ RESULTADO:
+
+Antes: Backend devolvía HTML/texto → App crasheaba con error de JSON
+Ahora:  Backend SIEMPRE devuelve JSON → App funciona correctamente
+
+El error "Value<!doctype cannot be converted to JSONObject" está
+PERMANENTEMENTE SOLUCIONADO.
+
+═══════════════════════════════════════════════════════════════════════

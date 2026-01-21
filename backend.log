@@ -1,9 +1,2 @@
 Servidor escuchando en el puerto 5001 en todas las interfaces
 Conexión con la base de datos establecida exitosamente.
-🔐 Intento de login: {
-  email: 'comprador@delicrunch.com',
-  passwordLength: 12,
-  body: { email: 'comprador@delicrunch.com', password: 'Comprador123' }
-}
-✅ Usuario encontrado: { id: 10, email: 'comprador@delicrunch.com', rol: 'comprador' }
-🔑 Comparación de contraseña: { isMatch: true, hashPreview: '$2b$10$GnB5VNqtPoZ8p' }
