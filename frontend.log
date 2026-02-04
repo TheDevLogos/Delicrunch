@@ -1,3 +1,5 @@
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY REACT_NATIVE_PACKAGER_HOSTNAME
 Starting project at /workspaces/Delicrunch/Frontend
 📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
 📱 [app.config.js] Stripe Key: ✅ Configurada
@@ -14,7 +16,13 @@ Waiting on http://localhost:8081
 Logs for your project will appear below.
 📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
 📱 [app.config.js] Stripe Key: ✅ Configurada
-Could not parse Expo config: android.googleServicesFile: "./google-services.json"
 📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
 📱 [app.config.js] Stripe Key: ✅ Configurada
-Could not parse Expo config: android.googleServicesFile: "./google-services.json"
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] Stripe Key: ✅ Configurada
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] Stripe Key: ✅ Configurada
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] Stripe Key: ✅ Configurada
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+📱 [app.config.js] Stripe Key: ✅ Configurada
