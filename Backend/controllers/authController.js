@@ -58,19 +58,9 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
 
     // 3. Insertar el nuevo usuario en la base de datos con campos reales
     const newUser = await pool.query(
-        `INSERT INTO users (name, email, password, role, phone, street, city, latitude, longitude) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-        [
-            userName, 
-            email, 
-            passwordHash, 
-            dbRole,
-            storeData?.telefono || null,
-            storeData?.direccion || null,
-            storeData?.ciudad || null,
-            storeData?.latitud || null,
-            storeData?.longitud || null
-        ]
+        `INSERT INTO users (nombre, email, password_hash, rol) 
+         VALUES ($1, $2, $3, $4) RETURNING *`,
+        [userName, email, passwordHash, dbRole]
     );
 
     // 4. Lógica específica si el rol es 'seller' (comercio)
@@ -105,7 +95,7 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
     const payload = {
         user: {
             id: newUser.rows[0].id,
-            rol: newUser.rows[0].role, // La BD tiene 'role', el token usa 'rol'
+            rol: newUser.rows[0].rol,
         },
     };
 
@@ -143,11 +133,11 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
     }
 
     const user = userResult.rows[0];
-    console.log('✅ Usuario encontrado:', { id: user.id, email: user.email, rol: user.role });
+    console.log('✅ Usuario encontrado:', { id: user.id, email: user.email, rol: user.rol });
 
     // 2. Comparar la contraseña enviada con la hasheada en la DB
-    const isMatch = await bcrypt.compare(password, user.password);
-    console.log('🔑 Comparación de contraseña:', { isMatch, hashPreview: user.password ? user.password.substring(0, 20) : 'NULL' });
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    console.log('🔑 Comparación de contraseña:', { isMatch, hashPreview: user.password_hash ? user.password_hash.substring(0, 20) : 'NULL' });
     if (!isMatch) {
         console.log('❌ Contraseña incorrecta');
         return res.status(400).json({ msg: 'Credenciales inválidas.' });
@@ -157,7 +147,7 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
     const payload = {
         user: {
             id: user.id,
-            rol: user.role,
+            rol: user.rol,
         },
     };
 
@@ -231,7 +221,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     const user = userResult.rows[0];
     const { password } = req.body;
 
-    const isSamePassword = await bcrypt.compare(password, user.password);
+    const isSamePassword = await bcrypt.compare(password, user.password_hash);
 
     if (isSamePassword) {
         return res.status(400).json({ msg: 'La nueva contraseña no puede ser igual a la anterior.' });
@@ -240,7 +230,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
     await pool.query(
-        'UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL WHERE id = $2',
+        'UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2',
         [passwordHash, user.id]
     );
     

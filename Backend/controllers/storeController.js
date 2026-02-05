@@ -12,7 +12,7 @@ exports.getAllStores = asyncHandler(async (req, res, next) => {
                AVG(r.rating) as calificacion_promedio,
                COUNT(DISTINCT r.id) as total_resenas
         FROM stores s
-        LEFT JOIN products p ON s.user_id = p.seller_id AND p.stock > 0
+        LEFT JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0
         LEFT JOIN reviews r ON r.product_id = p.id
         GROUP BY s.id
         ORDER BY s.nombre_comercio ASC
@@ -34,7 +34,7 @@ exports.getStoresWithProducts = asyncHandler(async (req, res, next) => {
         SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud, s.descripcion,
                COUNT(p.id) as productos_disponibles
         FROM stores s
-        JOIN products p ON s.user_id = p.seller_id AND p.stock > 0
+        JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0
         WHERE s.latitud IS NOT NULL AND s.longitud IS NOT NULL
         GROUP BY s.id
         HAVING COUNT(p.id) > 0
@@ -68,16 +68,15 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
     // Productos activos de la tienda con métricas básicas - con aliases en español
     const productsResult = await pool.query(`
         SELECT p.id, 
-               p.name AS nombre, 
-               p.description AS descripcion, 
-               p.price AS precio_descuento, 
-               p.compare_price AS precio_original,
-               p.image_url AS imagen_url, 
-               p.stock AS cantidad_disponible, 
-               p.category AS categoria
+               p.nombre, 
+               p.descripcion, 
+               p.precio_descuento, 
+               p.precio_original,
+               p.imagen_url, 
+               p.cantidad_disponible, 
+               p.categoria
         FROM products p
-        JOIN stores s ON s.id = $1 AND s.user_id = p.seller_id
-        WHERE p.is_active = true AND p.stock > 0
+        WHERE p.store_id = $1 AND p.activo = true AND p.cantidad_disponible > 0
         ORDER BY p.created_at DESC
     `, [id]);
 
