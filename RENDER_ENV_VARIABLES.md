@@ -26,13 +26,13 @@ PORT=5001
 
 # Supabase Database - Session Pooler (puerto 5432)
 DB_USER=postgres.pruesizqytpscldieivb
-DB_HOST=aws-0-us-west-1.pooler.supabase.com
+DB_HOST=aws-0-us-west-2.pooler.supabase.com
 DB_DATABASE=postgres
 DB_PASSWORD=bfOJpzZtcoGhAJdP
 DB_PORT=5432
 
 # DATABASE_URL completa
-DATABASE_URL=postgresql://postgres.pruesizqytpscldieivb:bfOJpzZtcoGhAJdP@aws-0-us-west-1.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres.pruesizqytpscldieivb:bfOJpzZtcoGhAJdP@aws-0-us-west-2.pooler.supabase.com:5432/postgres
 
 # Supabase API Keys
 SUPABASE_URL=https://pruesizqytpscldieivb.supabase.co
