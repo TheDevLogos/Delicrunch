@@ -7,10 +7,10 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 module.exports = ({ config }) => {
   // Prioridad: variable de entorno > .env > fallback
   const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001';
-  const stripePublishableKey = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  const mercadoPagoPublicKey = process.env.EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '';
   
   console.log('📱 [app.config.js] API URL:', apiUrl);
-  console.log('📱 [app.config.js] Stripe Key:', stripePublishableKey ? '✅ Configurada' : '❌ No configurada');
+  console.log('📱 [app.config.js] Mercado Pago Key:', mercadoPagoPublicKey ? '✅ Configurada' : '❌ No configurada');
   
   // Verificar si existe google-services.json
   const googleServicesPath = path.join(__dirname, 'google-services.json');
@@ -49,7 +49,7 @@ module.exports = ({ config }) => {
     extra: {
       ...(config.extra || {}),
       apiUrl: apiUrl,
-      stripePublishableKey: stripePublishableKey,
+      mercadoPagoPublicKey: mercadoPagoPublicKey,
       eas: {
         projectId: config.extra?.eas?.projectId,
       },

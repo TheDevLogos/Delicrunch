@@ -29,13 +29,7 @@
       "package": "com.delicrunch.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "WAKE_LOCK",
-        "POST_NOTIFICATIONS",
-        "SCHEDULE_EXACT_ALARM",
-        "USE_EXACT_ALARM"
+        "ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -63,18 +57,11 @@
         }
       ],
       "expo-font",
-      [
-        "@stripe/stripe-react-native",
-        {
-          "merchantIdentifier": "merchant.com.delicrunch.app",
-          "enableGooglePay": true
-        }
-      ],
       "expo-web-browser"
     ],
     "extra": {
       "apiUrl": "https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev",
-      "stripePublishableKey": "pk_test_51SRRYk8hoiRFdhGtFHnTJRVAPniX7lh6esuxdNc13Xw7GK3njphOGYTQ8An7HJSdcTxjeVMi2tULPp6DqKugVbDT00PMJuLLkJ",
+      "mercadoPagoPublicKey": "APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa",
       "eas": {
         "projectId": "266fa507-5eba-4cf8-b44f-0aa42d08a694"
       }
