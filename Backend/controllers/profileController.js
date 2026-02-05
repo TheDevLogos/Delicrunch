@@ -3,22 +3,31 @@ const asyncHandler = require('../middleware/asyncHandler');
 
 // @desc    Obtener el perfil del usuario logueado (con datos de perfil y su tienda si es comercio)
 exports.getLoggedInUserProfile = asyncHandler(async (req, res, next) => {
-    // Gracias a nuestro middleware, tenemos acceso a req.user.id
     const userId = req.user.id;
 
     // Unimos users + profiles (datos de comprador) + stores (si es comercio)
     const profileData = await pool.query(
         `SELECT 
             u.id,
-            u.nombre,
+            u.name as nombre,
             u.email,
-            u.rol,
+            u.role as rol,
+            u.phone as telefono_usuario,
+            u.street as direccion_usuario,
+            u.city as ciudad_usuario,
+            u.avatar_url,
             u.created_at,
+            -- Datos del perfil extendido
             p.telefono,
             p.direccion,
             p.ciudad,
             p.foto_perfil,
             p.preferencias_alimentarias,
+            p.total_pedidos,
+            p.total_ahorrado,
+            p.co2_ahorrado,
+            p.total_xp,
+            -- Datos de tienda si es vendedor
             s.id AS store_id,
             s.nombre_comercio,
             s.direccion AS store_direccion,
@@ -44,19 +53,33 @@ exports.getLoggedInUserProfile = asyncHandler(async (req, res, next) => {
 exports.updateLoggedInUserProfile = asyncHandler(async (req, res, next) => {
     const userId = req.user.id;
 
-    const { nombre, telefono, direccion, ciudad } = req.body;
-    const fotoFile = req.file; // upload.single('foto_perfil')
+    const { nombre, name, telefono, phone, direccion, street, ciudad, city } = req.body;
+    const fotoFile = req.file;
 
-    // Empezamos una transacción para consistencia
+    // Mapear campos (aceptar español o inglés)
+    const finalName = nombre || name;
+    const finalPhone = telefono || phone;
+    const finalStreet = direccion || street;
+    const finalCity = ciudad || city;
+
     await pool.query('BEGIN');
     try {
-        // 1) Actualizar nombre del usuario si viene
-        if (nombre && nombre.trim().length > 0) {
-            await pool.query('UPDATE users SET nombre = $1, updated_at = NOW() WHERE id = $2', [nombre.trim(), userId]);
+        // 1) Actualizar datos del usuario si vienen
+        if (finalName || finalPhone || finalStreet || finalCity) {
+            await pool.query(
+                `UPDATE users SET 
+                    name = COALESCE($1, name), 
+                    phone = COALESCE($2, phone),
+                    street = COALESCE($3, street),
+                    city = COALESCE($4, city),
+                    updated_at = NOW() 
+                 WHERE id = $5`, 
+                [finalName || null, finalPhone || null, finalStreet || null, finalCity || null, userId]
+            );
         }
 
         // 2) Preparar valores de perfil
-        const foto_perfil = fotoFile ? `/uploads/${fotoFile.filename}` : null; // Ruta relativa servida por /uploads
+        const foto_perfil = fotoFile ? `/uploads/${fotoFile.filename}` : null;
 
         // 3) Hacer upsert en profiles
         const upsertResult = await pool.query(
@@ -70,7 +93,7 @@ exports.updateLoggedInUserProfile = asyncHandler(async (req, res, next) => {
                 foto_perfil = COALESCE(EXCLUDED.foto_perfil, profiles.foto_perfil),
                 updated_at = NOW()
              RETURNING *`,
-            [userId, telefono || null, direccion || null, ciudad || null, foto_perfil]
+            [userId, finalPhone || null, finalStreet || null, finalCity || null, foto_perfil]
         );
 
         await pool.query('COMMIT');
@@ -84,21 +107,40 @@ exports.updateLoggedInUserProfile = asyncHandler(async (req, res, next) => {
 
 // @desc    Actualizar el perfil de la tienda para un usuario de tipo 'comercio'
 exports.updateStoreProfile = asyncHandler(async (req, res, next) => {
-    // Primero, verificamos que el usuario logueado es un comercio.
-    if (req.user.rol !== 'comercio') {
-        return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios.' }); // 403 Forbidden
+    // Verificar que el usuario es vendedor
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    if (!['seller', 'comercio', 'admin'].includes(userRole)) {
+        return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios.' });
     }
 
-    const { nombre_comercio, direccion, descripcion, horario_recogida } = req.body;
+    const { nombre_comercio, direccion, descripcion, horario_recogida, horario } = req.body;
     const userId = req.user.id;
 
-    const updatedStore = await pool.query(
-        `UPDATE stores SET nombre_comercio = $1, direccion = $2, descripcion = $3, horario_recogida = $4 WHERE user_id = $5 RETURNING *`,
-        [nombre_comercio, direccion, descripcion, horario_recogida, userId]
-    );
-
-    if (updatedStore.rows.length === 0) {
-        return res.status(404).json({ msg: 'Tienda no encontrada para este usuario.' });
+    // Primero verificar si existe la tienda
+    const storeExists = await pool.query('SELECT id FROM stores WHERE user_id = $1', [userId]);
+    
+    let updatedStore;
+    if (storeExists.rows.length === 0) {
+        // Crear tienda si no existe
+        updatedStore = await pool.query(
+            `INSERT INTO stores (user_id, nombre_comercio, direccion, descripcion, horario, activo)
+             VALUES ($1, $2, $3, $4, $5, true)
+             RETURNING *`,
+            [userId, nombre_comercio, direccion, descripcion, horario_recogida || horario]
+        );
+    } else {
+        // Actualizar tienda existente
+        updatedStore = await pool.query(
+            `UPDATE stores SET 
+                nombre_comercio = COALESCE($1, nombre_comercio), 
+                direccion = COALESCE($2, direccion), 
+                descripcion = COALESCE($3, descripcion), 
+                horario = COALESCE($4, horario),
+                updated_at = NOW()
+             WHERE user_id = $5 
+             RETURNING *`,
+            [nombre_comercio, direccion, descripcion, horario_recogida || horario, userId]
+        );
     }
 
     res.json(updatedStore.rows[0]);

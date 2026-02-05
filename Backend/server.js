@@ -38,8 +38,17 @@ app.get('/', (req, res) => {
     });
 });
 
-// Ruta de health check
+// Ruta de health check (tanto /health como /api/health)
 app.get('/health', (req, res) => {
+    res.json({
+        success: true,
+        status: 'healthy',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
+
+app.get('/api/health', (req, res) => {
     res.json({
         success: true,
         status: 'healthy',

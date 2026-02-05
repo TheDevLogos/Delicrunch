@@ -10,15 +10,15 @@ const updateProductAverageRating = async (productId, client) => {
     const dbClient = client || pool;
     // Calculamos promedio desde reviews que tienen ese product_id
     const avgResult = await dbClient.query(
-         `SELECT AVG(calificacion) as average, COUNT(*) as total
+         `SELECT AVG(rating) as average, COUNT(*) as total
          FROM reviews 
-         WHERE product_id = $1 AND visible = TRUE`,
+         WHERE product_id = $1`,
         [productId]
     );
     const average = parseFloat(avgResult.rows[0].average) || 0;
     const total = parseInt(avgResult.rows[0].total) || 0;
     await dbClient.query(
-        'UPDATE products SET calificacion_promedio = $1, total_reviews = $2 WHERE id = $3',
+        'UPDATE products SET rating = $1, reviews_count = $2 WHERE id = $3',
         [average.toFixed(2), total, productId]
     );
     return { average, total };
@@ -30,20 +30,9 @@ const updateProductAverageRating = async (productId, client) => {
  * @param {object} client - El cliente de la base de datos para la transacción.
  */
 const updateStoreAverageRating = async (storeId, client) => {
-    const dbClient = client || pool;
-    const avgResult = await dbClient.query(
-        `SELECT AVG(calificacion) as average, COUNT(*) as total 
-         FROM reviews 
-         WHERE store_id = $1 AND visible = TRUE`,
-        [storeId]
-    );
-    const average = parseFloat(avgResult.rows[0].average) || 0;
-    const total = parseInt(avgResult.rows[0].total) || 0;
-    await dbClient.query(
-        'UPDATE stores SET calificacion_promedio = $1, total_reviews = $2 WHERE id = $3',
-        [average.toFixed(2), total, storeId]
-    );
-    return { average, total };
+    // Función deshabilitada - no hay tabla stores separada
+    // Los vendedores están en users
+    return { average: 0, total: 0 };
 };
 
 // @desc    Crear una nueva reseña
@@ -76,7 +65,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
         // Si viene un orderId, validamos que el pedido pertenezca al usuario
         if (finalOrderId) {
             const orderResult = await client.query(
-                `SELECT o.user_id, o.store_id, oi.product_id, p.nombre as product_name
+                `SELECT o.user_id, o.seller_id, oi.product_id, p.name as product_name
                  FROM orders o
                  LEFT JOIN order_items oi ON o.id = oi.order_id
                  LEFT JOIN products p ON oi.product_id = p.id
@@ -101,18 +90,17 @@ exports.createReview = asyncHandler(async (req, res, next) => {
                 throw new Error('Ya ha enviado una reseña para este pedido.');
             }
 
-            storeId = orderResult.rows[0].store_id;
             productIdToUse = orderResult.rows[0].product_id || finalProductId;
             productName = orderResult.rows[0].product_name;
         } 
         // Si viene productId sin orderId, verificamos que el usuario haya comprado ese producto
         else if (finalProductId) {
             const purchaseCheck = await client.query(
-                `SELECT o.id as order_id, o.store_id, p.nombre as product_name
+                `SELECT o.id as order_id, p.name as product_name
                  FROM orders o
                  JOIN order_items oi ON o.id = oi.order_id
                  JOIN products p ON oi.product_id = p.id
-                 WHERE o.user_id = $1 AND oi.product_id = $2 AND o.estado IN ('listo', 'recogido', 'Entregado', 'pagado', 'confirmado')
+                 WHERE o.user_id = $1 AND oi.product_id = $2 AND o.status IN ('ready', 'delivered', 'completed', 'confirmed')
                  ORDER BY o.created_at DESC
                  LIMIT 1`,
                 [userId, finalProductId]
@@ -125,13 +113,12 @@ exports.createReview = asyncHandler(async (req, res, next) => {
             // Verificar que no exista ya una reseña para este producto por este usuario
             const reviewExists = await client.query(
                 'SELECT id FROM reviews WHERE product_id = $1 AND user_id = $2',
-                [finalProductId]
+                [finalProductId, userId]
             );
             if (reviewExists.rows.length > 0) {
                 throw new Error('Ya ha enviado una reseña para este producto.');
             }
 
-            storeId = purchaseCheck.rows[0].store_id;
             productIdToUse = finalProductId;
             productName = purchaseCheck.rows[0].product_name;
         } else {
@@ -141,18 +128,17 @@ exports.createReview = asyncHandler(async (req, res, next) => {
         // Crear la reseña
         const newReview = await client.query(
             `INSERT INTO reviews (
-                order_id, user_id, store_id, product_id, 
-                calificacion, comentario, nombre_producto, visible
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE) 
+                order_id, user_id, product_id, 
+                rating, comment, is_verified
+            ) VALUES ($1, $2, $3, $4, $5, FALSE) 
             RETURNING *`,
-            [finalOrderId, userId, storeId, productIdToUse, finalRating, comentario || '', productName]
+            [finalOrderId, userId, productIdToUse, finalRating, comentario || '']
         );
 
-        // Recalcular promedios
+        // Recalcular promedios del producto
         if (productIdToUse) {
             await updateProductAverageRating(productIdToUse, client);
         }
-        await updateStoreAverageRating(storeId, client);
 
         await client.query('COMMIT');
         
@@ -175,34 +161,49 @@ exports.getProductReviews = asyncHandler(async (req, res, next) => {
     const { productId } = req.params;
     
     const reviews = await pool.query(
-        `SELECT r.*, u.nombre as nombre_usuario,
-                p.avatar_icon_id as user_avatar
+        `SELECT r.id, r.rating, r.comment, r.created_at, r.is_verified,
+                u.name as nombre_usuario,
+                p.foto_perfil as user_avatar
          FROM reviews r 
          JOIN users u ON r.user_id = u.id 
          LEFT JOIN profiles p ON r.user_id = p.user_id
-         WHERE r.product_id = $1 AND r.visible = TRUE
+         WHERE r.product_id = $1
          ORDER BY r.created_at DESC`,
         [productId]
     );
     res.json(reviews.rows);
 });
 
-// @desc    Obtener todas las reseñas de una tienda
+// @desc    Obtener todas las reseñas de una tienda (productos de un vendedor)
 // @acceso  Público
 exports.getStoreReviews = asyncHandler(async (req, res, next) => {
     const { storeId } = req.params;
     
+    // Primero obtener el user_id del vendedor desde stores
+    const storeResult = await pool.query(
+        'SELECT user_id FROM stores WHERE id = $1',
+        [storeId]
+    );
+    
+    if (storeResult.rows.length === 0) {
+        return res.status(404).json({ msg: 'Tienda no encontrada.' });
+    }
+    
+    const sellerId = storeResult.rows[0].user_id;
+    
+    // Obtener reseñas de todos los productos de este vendedor
     const reviews = await pool.query(
-        `SELECT r.*, u.nombre as nombre_usuario,
-                p.avatar_icon_id as user_avatar,
-                pr.nombre as nombre_producto
+        `SELECT r.id, r.rating, r.comment, r.created_at, r.is_verified,
+                u.name as nombre_usuario,
+                prof.foto_perfil as user_avatar,
+                p.name as nombre_producto
          FROM reviews r 
          JOIN users u ON r.user_id = u.id 
-         LEFT JOIN profiles p ON r.user_id = p.user_id
-         LEFT JOIN products pr ON r.product_id = pr.id
-         WHERE r.store_id = $1 AND r.visible = TRUE
+         LEFT JOIN profiles prof ON r.user_id = prof.user_id
+         LEFT JOIN products p ON r.product_id = p.id
+         WHERE p.seller_id = $1
          ORDER BY r.created_at DESC`,
-        [storeId]
+        [sellerId]
     );
     res.json(reviews.rows);
 });
@@ -212,11 +213,14 @@ exports.getStoreReviews = asyncHandler(async (req, res, next) => {
 exports.getUserReviews = asyncHandler(async (req, res, next) => {
     const userId = req.user.id;
     const reviews = await pool.query(
-        `SELECT r.*, s.nombre_comercio, s.logo_url as store_logo,
-                p.nombre as nombre_producto, p.imagen_url as product_image
+        `SELECT r.*, 
+                seller.name as nombre_comercio, 
+                seller.avatar_url as store_logo,
+                p.name as nombre_producto, 
+                p.image_url as product_image
          FROM reviews r
-         JOIN stores s ON r.store_id = s.id
          LEFT JOIN products p ON r.product_id = p.id
+         LEFT JOIN users seller ON p.seller_id = seller.id
          WHERE r.user_id = $1
          ORDER BY r.created_at DESC`,
         [userId]
@@ -229,29 +233,27 @@ exports.getUserReviews = asyncHandler(async (req, res, next) => {
 exports.getMyStoreReviews = asyncHandler(async (req, res, next) => {
     const userId = req.user.id;
     
-    // Primero obtener la tienda del usuario
-    const storeResult = await pool.query(
-        'SELECT id FROM stores WHERE user_id = $1',
-        [userId]
-    );
-    
-    if (storeResult.rows.length === 0) {
-        return res.status(404).json({ msg: 'No tiene una tienda registrada.' });
-    }
-    
-    const storeId = storeResult.rows[0].id;
-    
+    // Buscar reseñas de la tienda del usuario autenticado
     const reviews = await pool.query(
-        `SELECT r.*, u.nombre as nombre_usuario, u.email as user_email,
-                p.nombre as nombre_producto, p.imagen_url as product_image,
-                o.codigo_recogida
+        `SELECT r.id, 
+                r.calificacion as rating, 
+                r.comentario as comment, 
+                r.created_at, 
+                r.calidad_comida,
+                r.valor_precio,
+                r.experiencia_recogida,
+                r.visible,
+                u.name as nombre_usuario, 
+                u.email as user_email,
+                s.nombre_comercio,
+                COALESCE(r.nombre_producto, p.name) as nombre_producto
          FROM reviews r
          JOIN users u ON r.user_id = u.id
+         JOIN stores s ON r.store_id = s.id
          LEFT JOIN products p ON r.product_id = p.id
-         LEFT JOIN orders o ON r.order_id = o.id
-         WHERE r.store_id = $1
+         WHERE s.user_id = $1
          ORDER BY r.created_at DESC`,
-        [storeId]
+        [userId]
     );
     res.json(reviews.rows);
 });
@@ -259,45 +261,46 @@ exports.getMyStoreReviews = asyncHandler(async (req, res, next) => {
 // @desc    Obtener TODAS las reseñas (Admin)
 // @acceso  Privado (Admin)
 exports.getAllReviews = asyncHandler(async (req, res, next) => {
-    // Verificar que el usuario es admin
-    if (req.user.rol !== 'admin') {
+    // Verificar que el usuario es admin - aceptar ambos idiomas
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    if (!['admin', 'administrador'].includes(userRole)) {
         return res.status(403).json({ msg: 'Acceso denegado. Solo administradores.' });
     }
     
-    const { storeId, productId, visible, page = 1, limit = 50 } = req.query;
+    const { sellerId, storeId, page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
     
     let query = `
-        SELECT r.*, 
-               u.nombre as nombre_usuario, u.email as user_email,
-               s.nombre_comercio, s.logo_url as store_logo,
-               p.nombre as nombre_producto, p.imagen_url as product_image,
-               admin.nombre as admin_respondio
+        SELECT r.id, 
+               r.calificacion as rating, 
+               r.comentario as comment, 
+               r.created_at,
+               r.calidad_comida,
+               r.valor_precio,
+               r.experiencia_recogida,
+               r.visible,
+               u.name as nombre_usuario, 
+               u.email as user_email,
+               s.nombre_comercio,
+               COALESCE(r.nombre_producto, p.name) as nombre_producto
          FROM reviews r
          JOIN users u ON r.user_id = u.id
-         JOIN stores s ON r.store_id = s.id
+         LEFT JOIN stores s ON r.store_id = s.id
          LEFT JOIN products p ON r.product_id = p.id
-         LEFT JOIN users admin ON r.respondido_por_admin_id = admin.id
          WHERE 1=1
     `;
     const params = [];
     let paramIndex = 1;
     
+    if (sellerId) {
+        query += ` AND s.user_id = $${paramIndex}`;
+        params.push(sellerId);
+        paramIndex++;
+    }
+    
     if (storeId) {
         query += ` AND r.store_id = $${paramIndex}`;
         params.push(storeId);
-        paramIndex++;
-    }
-    
-    if (productId) {
-        query += ` AND r.product_id = $${paramIndex}`;
-        params.push(productId);
-        paramIndex++;
-    }
-    
-    if (visible !== undefined) {
-        query += ` AND r.visible = $${paramIndex}`;
-        params.push(visible === 'true');
         paramIndex++;
     }
     
@@ -307,23 +310,18 @@ exports.getAllReviews = asyncHandler(async (req, res, next) => {
     const reviews = await pool.query(query, params);
     
     // Obtener conteo total
-    let countQuery = `SELECT COUNT(*) FROM reviews r WHERE 1=1`;
+    let countQuery = `SELECT COUNT(*) FROM reviews r LEFT JOIN stores s ON r.store_id = s.id WHERE 1=1`;
     const countParams = [];
     let countIndex = 1;
     
+    if (sellerId) {
+        countQuery += ` AND s.user_id = $${countIndex}`;
+        countParams.push(sellerId);
+        countIndex++;
+    }
     if (storeId) {
         countQuery += ` AND r.store_id = $${countIndex}`;
         countParams.push(storeId);
-        countIndex++;
-    }
-    if (productId) {
-        countQuery += ` AND r.product_id = $${countIndex}`;
-        countParams.push(productId);
-        countIndex++;
-    }
-    if (visible !== undefined) {
-        countQuery += ` AND r.visible = $${countIndex}`;
-        countParams.push(visible === 'true');
     }
     
     const countResult = await pool.query(countQuery, countParams);
@@ -346,116 +344,29 @@ exports.respondToReview = asyncHandler(async (req, res, next) => {
     
     const { reviewId } = req.params;
     const { respuesta } = req.body;
-    const adminId = req.user.id;
     
-    if (!respuesta || respuesta.trim() === '') {
-        return res.status(400).json({ msg: 'La respuesta no puede estar vacía.' });
-    }
-    
-    const result = await pool.query(
-        `UPDATE reviews 
-         SET respuesta_admin = $1, 
-             fecha_respuesta = CURRENT_TIMESTAMP,
-             respondido_por_admin_id = $2,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3
-         RETURNING *`,
-        [respuesta.trim(), adminId, reviewId]
-    );
-    
-    if (result.rows.length === 0) {
-        return res.status(404).json({ msg: 'Reseña no encontrada.' });
-    }
-    
-    res.json({
-        ...result.rows[0],
-        msg: 'Respuesta agregada correctamente.'
+    // Nota: La tabla reviews no tiene columnas para respuestas de admin
+    // Retornamos error indicando que la funcionalidad no está disponible
+    return res.status(501).json({ 
+        msg: 'Funcionalidad de respuestas de admin no implementada en el schema actual.' 
     });
 });
 
 // @desc    Responder a una reseña de mi tienda (Comercio)
-// @acceso  Privado (Comercio)
+// @acceso  Privado (Comercio) - FUNCIONALIDAD NO DISPONIBLE
 exports.storeRespondToReview = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
-    const { reviewId } = req.params;
-    const { respuesta } = req.body;
-    
-    if (!respuesta || respuesta.trim() === '') {
-        return res.status(400).json({ msg: 'La respuesta no puede estar vacía.' });
-    }
-    
-    // Verificar que la reseña pertenece a una tienda del usuario
-    const storeResult = await pool.query(
-        'SELECT id FROM stores WHERE user_id = $1',
-        [userId]
-    );
-    
-    if (storeResult.rows.length === 0) {
-        return res.status(404).json({ msg: 'No tiene una tienda registrada.' });
-    }
-    
-    const storeId = storeResult.rows[0].id;
-    
-    // Verificar que la reseña pertenece a esta tienda
-    const reviewCheck = await pool.query(
-        'SELECT * FROM reviews WHERE id = $1 AND store_id = $2',
-        [reviewId, storeId]
-    );
-    
-    if (reviewCheck.rows.length === 0) {
-        return res.status(403).json({ msg: 'No tiene permiso para responder esta reseña.' });
-    }
-    
-    const result = await pool.query(
-        `UPDATE reviews 
-         SET respuesta_admin = $1, 
-             fecha_respuesta = CURRENT_TIMESTAMP,
-             respondido_por_admin_id = $2,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3
-         RETURNING *`,
-        [respuesta.trim(), userId, reviewId]
-    );
-    
-    res.json({
-        ...result.rows[0],
-        msg: 'Respuesta enviada correctamente.'
+    // Nota: La tabla reviews no tiene columnas para respuestas
+    return res.status(501).json({ 
+        msg: 'Funcionalidad de respuestas de comercio no implementada en el schema actual.' 
     });
 });
 
-// @desc    Ocultar/Mostrar una reseña (Admin)
+// @desc    Ocultar/Mostrar una reseña (Admin) - FUNCIONALIDAD NO DISPONIBLE
 // @acceso  Privado (Admin)
 exports.toggleReviewVisibility = asyncHandler(async (req, res, next) => {
-    // Verificar que el usuario es admin
-    if (req.user.rol !== 'admin') {
-        return res.status(403).json({ msg: 'Acceso denegado. Solo administradores.' });
-    }
-    
-    const { reviewId } = req.params;
-    const { visible } = req.body;
-    
-    const result = await pool.query(
-        `UPDATE reviews 
-         SET visible = $1, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2
-         RETURNING *`,
-        [visible, reviewId]
-    );
-    
-    if (result.rows.length === 0) {
-        return res.status(404).json({ msg: 'Reseña no encontrada.' });
-    }
-    
-    // Recalcular promedios después de cambiar visibilidad
-    const review = result.rows[0];
-    if (review.product_id) {
-        await updateProductAverageRating(review.product_id);
-    }
-    await updateStoreAverageRating(review.store_id);
-    
-    res.json({
-        ...result.rows[0],
-        msg: visible ? 'Reseña visible.' : 'Reseña ocultada.'
+    // Nota: La tabla reviews no tiene columna 'visible'
+    return res.status(501).json({ 
+        msg: 'Funcionalidad de visibilidad no implementada en el schema actual.' 
     });
 });
 
@@ -464,7 +375,7 @@ exports.toggleReviewVisibility = asyncHandler(async (req, res, next) => {
 exports.deleteReview = asyncHandler(async (req, res, next) => {
     const { reviewId } = req.params;
     const userId = req.user.id;
-    const userRol = req.user.rol;
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
     
     // Obtener la reseña primero
     const reviewResult = await pool.query(
@@ -479,7 +390,7 @@ exports.deleteReview = asyncHandler(async (req, res, next) => {
     const review = reviewResult.rows[0];
     
     // Verificar permisos: admin puede eliminar cualquiera, usuario solo las suyas
-    if (userRol !== 'admin' && review.user_id !== userId) {
+    if (!['admin', 'administrador'].includes(userRole) && review.user_id !== userId) {
         return res.status(403).json({ msg: 'No tiene permiso para eliminar esta reseña.' });
     }
     
@@ -490,7 +401,6 @@ exports.deleteReview = asyncHandler(async (req, res, next) => {
     if (review.product_id) {
         await updateProductAverageRating(review.product_id);
     }
-    await updateStoreAverageRating(review.store_id);
     
     res.json({ msg: 'Reseña eliminada correctamente.' });
 });
@@ -500,18 +410,32 @@ exports.deleteReview = asyncHandler(async (req, res, next) => {
 exports.getStoreReviewStats = asyncHandler(async (req, res, next) => {
     const { storeId } = req.params;
     
+    // Obtener el user_id del vendedor desde stores
+    const storeResult = await pool.query(
+        'SELECT user_id FROM stores WHERE id = $1',
+        [storeId]
+    );
+    
+    if (storeResult.rows.length === 0) {
+        return res.status(404).json({ msg: 'Tienda no encontrada.' });
+    }
+    
+    const sellerId = storeResult.rows[0].user_id;
+    
+    // Obtener estadísticas de reseñas de productos de este vendedor
     const stats = await pool.query(
         `SELECT 
             COUNT(*) as total_reviews,
-            AVG(calificacion) as promedio,
-            COUNT(CASE WHEN calificacion = 5 THEN 1 END) as cinco_estrellas,
-            COUNT(CASE WHEN calificacion = 4 THEN 1 END) as cuatro_estrellas,
-            COUNT(CASE WHEN calificacion = 3 THEN 1 END) as tres_estrellas,
-            COUNT(CASE WHEN calificacion = 2 THEN 1 END) as dos_estrellas,
-            COUNT(CASE WHEN calificacion = 1 THEN 1 END) as una_estrella
-         FROM reviews 
-         WHERE store_id = $1 AND visible = TRUE`,
-        [storeId]
+            AVG(r.rating) as promedio,
+            COUNT(CASE WHEN r.rating = 5 THEN 1 END) as cinco_estrellas,
+            COUNT(CASE WHEN r.rating = 4 THEN 1 END) as cuatro_estrellas,
+            COUNT(CASE WHEN r.rating = 3 THEN 1 END) as tres_estrellas,
+            COUNT(CASE WHEN r.rating = 2 THEN 1 END) as dos_estrellas,
+            COUNT(CASE WHEN r.rating = 1 THEN 1 END) as una_estrella
+         FROM reviews r
+         JOIN products p ON r.product_id = p.id
+         WHERE p.seller_id = $1`,
+        [sellerId]
     );
     
     const result = stats.rows[0];
@@ -532,7 +456,9 @@ exports.getStoreReviewStats = asyncHandler(async (req, res, next) => {
 // @acceso  Privado
 exports.updateReview = asyncHandler(async (req, res, next) => {
     const { reviewId } = req.params;
-    const { calificacion, comentario } = req.body;
+    const { calificacion, rating, comentario, comment } = req.body;
+    const finalRating = calificacion || rating;
+    const finalComment = comentario || comment;
     const userId = req.user.id;
     
     // Verificar que la reseña pertenece al usuario
@@ -547,23 +473,21 @@ exports.updateReview = asyncHandler(async (req, res, next) => {
     
     const review = reviewResult.rows[0];
     
-    // Actualizar la reseña
+    // Actualizar la reseña usando campos correctos del schema
     const result = await pool.query(
         `UPDATE reviews 
-         SET calificacion = COALESCE($1, calificacion),
-             comentario = COALESCE($2, comentario),
-             updated_at = CURRENT_TIMESTAMP
+         SET rating = COALESCE($1, rating),
+             comment = COALESCE($2, comment)
          WHERE id = $3
          RETURNING *`,
-        [calificacion, comentario, reviewId]
+        [finalRating, finalComment, reviewId]
     );
     
     // Recalcular promedios si cambió la calificación
-    if (calificacion && calificacion !== review.calificacion) {
+    if (finalRating && finalRating !== review.rating) {
         if (review.product_id) {
             await updateProductAverageRating(review.product_id);
         }
-        await updateStoreAverageRating(review.store_id);
     }
     
     res.json({

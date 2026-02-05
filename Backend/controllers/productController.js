@@ -5,48 +5,67 @@ const path = require('path');
 
 
 exports.createProduct = asyncHandler(async (req, res, next) => {
-    // Extraer los datos del producto del cuerpo de la solicitud
+    // Extraer los datos del producto - aceptar nombres en español del frontend
     const {
+        // Nombres en español del frontend
         nombre,
         descripcion,
         precio_original,
         precio_descuento,
-        cantidad_inicial,      // Alias para cantidad_disponible
-        cantidad_disponible,   // Campo directo
-        cantidad_maxima_diaria,
+        cantidad_inicial,
+        cantidad_disponible,
         categoria,
-        hora_recogida_inicio,
-        hora_recogida_fin,
-        producto_listo         // Nuevo campo para marcar productos listos
+        imagen_url: imagenUrlBody,
+        // Nombres en inglés alternativos
+        name,
+        description,
+        price,
+        compare_price,
+        stock,
+        category,
+        image_url: imageUrlBody
     } = req.body;
 
-    // Usar cantidad_disponible o cantidad_inicial (para compatibilidad con frontend)
-    const cantidadDisponible = parseInt(cantidad_disponible || cantidad_inicial || 0);
-    const cantidadMaxima = parseInt(cantidad_maxima_diaria || cantidadDisponible || 10);
+    // Mapear a nombres reales de la BD (inglés)
+    const productName = nombre || name;
+    const productDescription = descripcion || description || '';
+    const productPrice = parseFloat(precio_descuento || price || 0);
+    const productComparePrice = parseFloat(precio_original || compare_price || productPrice);
+    const productStock = parseInt(cantidad_disponible || cantidad_inicial || stock || 0);
+    const productCategory = categoria || category || 'Otros';
 
     // Validación básica
-    if (!nombre || !precio_original || !precio_descuento || !cantidadDisponible) {
-        return res.status(400).json({ msg: 'Por favor, complete todos los campos obligatorios (nombre, precios, cantidad).' });
+    if (!productName || !productPrice || productStock < 0) {
+        return res.status(400).json({ msg: 'Por favor, complete todos los campos obligatorios (nombre, precio, cantidad).' });
     }
     
     // La URL de la imagen viene de multer (si se subió un archivo) o del body
-    let imagen_url = req.file ? `/uploads/${req.file.filename}` : null;
-    if (!imagen_url && req.body.imagen_url) {
-        imagen_url = req.body.imagen_url;
+    let finalImageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    if (!finalImageUrl) {
+        finalImageUrl = imagenUrlBody || imageUrlBody || null;
     }
     
-    // El middleware getStoreId nos proporciona req.storeId
-    const storeId = req.storeId;
+    // El vendedor es el usuario actual (seller_id = user.id)
+    const sellerId = req.user.id;
 
-    // Insertar el nuevo producto en la base de datos
+    // Insertar el nuevo producto en la base de datos con campos reales
     const newProduct = await pool.query(
-        `INSERT INTO products (store_id, nombre, descripcion, precio_original, precio_descuento, 
-            cantidad_disponible, cantidad_maxima_diaria, categoria, hora_recogida_inicio, hora_recogida_fin, imagen_url, producto_listo)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING *`,
-        [storeId, nombre, descripcion || '', precio_original, precio_descuento, 
-         cantidadDisponible, cantidadMaxima, categoria || 'Otros', 
-         hora_recogida_inicio || '14:00', hora_recogida_fin || '18:00', imagen_url, producto_listo || false]
+        `INSERT INTO products (seller_id, name, description, price, compare_price, 
+            stock, category, image_url, is_active)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+            RETURNING 
+                id,
+                name as nombre,
+                description as descripcion,
+                price as precio_descuento,
+                compare_price as precio_original,
+                stock as cantidad_disponible,
+                category as categoria,
+                image_url as imagen_url,
+                is_active as activo,
+                created_at`,
+        [sellerId, productName, productDescription, productPrice, productComparePrice, 
+         productStock, productCategory, finalImageUrl]
     );
 
     res.status(201).json(newProduct.rows[0]);
@@ -55,23 +74,75 @@ exports.createProduct = asyncHandler(async (req, res, next) => {
 // @desc    Obtener todos los productos de la tienda del comercio logueado
 // @acceso  Privado (solo para rol 'comercio')
 exports.getStoreProducts = asyncHandler(async (req, res, next) => {
-    // El middleware getStoreId nos proporciona req.storeId
-    const storeId = req.storeId;
+    // El vendedor es el usuario actual
+    const sellerId = req.user.id;
 
-    const products = await pool.query('SELECT * FROM products WHERE store_id = $1 ORDER BY created_at DESC', [storeId]);
+    const products = await pool.query(
+        `SELECT 
+            id,
+            name as nombre,
+            description as descripcion,
+            price as precio_descuento,
+            compare_price as precio_original,
+            stock as cantidad_disponible,
+            category as categoria,
+            image_url as imagen_url,
+            images,
+            is_active as activo,
+            is_featured,
+            rating as calificacion_promedio,
+            reviews_count as total_resenas,
+            sales_count,
+            created_at,
+            updated_at
+        FROM products 
+        WHERE seller_id = $1 
+        ORDER BY created_at DESC`, 
+        [sellerId]
+    );
     res.json(products.rows);
 });
 
 // @desc    Obtener TODOS los productos disponibles de TODAS las tiendas
 // @acceso  Público
 exports.getAllAvailableProducts = asyncHandler(async (req, res, next) => {
-    // Obtenemos productos y unimos la tabla de tiendas para incluir información del comercio
+    // Obtenemos productos con aliases para compatibilidad con frontend (español)
     const products = await pool.query(
-        `SELECT p.*, s.nombre_comercio, s.direccion
-            FROM products p
-            JOIN stores s ON p.store_id = s.id
-            WHERE p.cantidad_disponible > 0
-            ORDER BY p.created_at DESC`
+        `SELECT 
+            p.id,
+            p.name as nombre,
+            p.description as descripcion,
+            p.price as precio_descuento,
+            p.compare_price as precio_original,
+            p.stock as cantidad_disponible,
+            p.category as categoria,
+            p.image_url as imagen_url,
+            p.images,
+            p.is_active as activo,
+            p.is_featured,
+            p.rating as calificacion_promedio,
+            p.reviews_count as total_resenas,
+            p.sales_count,
+            p.views_count,
+            p.seller_id,
+            p.latitude,
+            p.longitude,
+            p.created_at,
+            p.updated_at,
+            -- Campos del vendedor con aliases para frontend
+            u.name as nombre_comercio,
+            u.city as ciudad,
+            u.street as direccion,
+            u.latitude as latitud,
+            u.longitude as longitud,
+            u.phone as telefono_comercio,
+            -- Agregar store_id para compatibilidad con frontend
+            s.id as store_id
+        FROM products p
+        LEFT JOIN users u ON p.seller_id = u.id
+        LEFT JOIN stores s ON s.user_id = u.id
+        WHERE p.stock > 0 AND p.is_active = true
+        ORDER BY p.created_at DESC`
     );
     res.json(products.rows);
 });
@@ -81,78 +152,88 @@ exports.getAllAvailableProducts = asyncHandler(async (req, res, next) => {
 // @acceso  Privado (solo el comercio dueño del producto)
 exports.updateProduct = asyncHandler(async (req, res, next) => {
     const productId = req.params.id;
+    const sellerId = req.user.id;
+    
+    // Aceptar campos en español (frontend) o inglés (BD)
     const { 
-        nombre, 
-        descripcion, 
-        precio_original, 
-        precio_descuento, 
-        cantidad_disponible, 
-        cantidad_maxima_diaria,
-        categoria,
-        hora_recogida_inicio, 
-        hora_recogida_fin, 
-        imagen_url,
-        activo,
-        producto_listo  // Nuevo campo
+        nombre, name,
+        descripcion, description,
+        precio_original, compare_price,
+        precio_descuento, price,
+        cantidad_disponible, stock,
+        categoria, category,
+        imagen_url, image_url,
+        activo, is_active
     } = req.body;
 
+    // Verificar que el producto pertenece al vendedor
+    const currentProduct = await pool.query(
+        'SELECT * FROM products WHERE id = $1 AND seller_id = $2', 
+        [productId, sellerId]
+    );
+    if (currentProduct.rows.length === 0) {
+        return res.status(404).json({ msg: 'Producto no encontrado o no tienes permiso para editarlo.' });
+    }
+    const current = currentProduct.rows[0];
+
     // --- INICIO LÓGICA PARA BORRAR IMAGEN ANTIGUA ---
-    // Si se sube un archivo nuevo, buscamos y eliminamos el antiguo.
     if (req.file) {
-        const productResult = await pool.query('SELECT imagen_url FROM products WHERE id = $1', [productId]);
-        if (productResult.rows.length > 0) {
-            const oldImageUrl = productResult.rows[0].imagen_url;
-            if (oldImageUrl && oldImageUrl.startsWith('/uploads/')) {
-                const oldImagePath = path.join(__dirname, '..', oldImageUrl);
-                fs.unlink(oldImagePath, (err) => {
-                    if (err) console.error(`Error al eliminar imagen antigua: ${oldImagePath}`, err);
-                    else console.log(`Imagen antigua eliminada: ${oldImagePath}`);
-                });
-            }
+        const oldImageUrl = current.image_url;
+        if (oldImageUrl && oldImageUrl.startsWith('/uploads/')) {
+            const oldImagePath = path.join(__dirname, '..', oldImageUrl);
+            fs.unlink(oldImagePath, (err) => {
+                if (err) console.error(`Error al eliminar imagen antigua: ${oldImagePath}`, err);
+                else console.log(`Imagen antigua eliminada: ${oldImagePath}`);
+            });
         }
     }
     // --- FIN LÓGICA ---
 
     // Si se sube una nueva imagen, req.file contendrá la información.
-    const newImageUrl = req.file ? `/uploads/${req.file.filename}` : imagen_url;
+    const newImageUrl = req.file ? `/uploads/${req.file.filename}` : (imagen_url || image_url);
     
-    // Obtener valores actuales del producto para campos no proporcionados
-    const currentProduct = await pool.query('SELECT * FROM products WHERE id = $1', [productId]);
-    if (currentProduct.rows.length === 0) {
-        return res.status(404).json({ msg: 'Producto no encontrado.' });
-    }
-    const current = currentProduct.rows[0];
+    // Mapear campos (aceptar español o inglés)
+    const finalName = nombre || name || current.name;
+    const finalDescription = descripcion !== undefined ? descripcion : (description !== undefined ? description : current.description);
+    const finalComparePrice = precio_original || compare_price || current.compare_price;
+    const finalPrice = precio_descuento || price || current.price;
+    const finalStock = cantidad_disponible !== undefined ? cantidad_disponible : (stock !== undefined ? stock : current.stock);
+    const finalCategory = categoria || category || current.category;
+    const finalIsActive = activo !== undefined ? activo : (is_active !== undefined ? is_active : current.is_active);
 
-    // Actualizar producto con valores proporcionados o existentes
+    // Actualizar producto con campos reales de la BD
     const updatedProduct = await pool.query(
         `UPDATE products SET 
-            nombre = $1, 
-            descripcion = $2, 
-            precio_original = $3, 
-            precio_descuento = $4, 
-            cantidad_disponible = $5, 
-            cantidad_maxima_diaria = $6,
-            categoria = $7,
-            hora_recogida_inicio = $8, 
-            hora_recogida_fin = $9, 
-            imagen_url = $10,
-            activo = $11,
-            producto_listo = $12,
+            name = $1, 
+            description = $2, 
+            compare_price = $3, 
+            price = $4, 
+            stock = $5, 
+            category = $6,
+            image_url = $7,
+            is_active = $8,
             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $13 RETURNING *`,
+         WHERE id = $9 
+         RETURNING 
+            id,
+            name as nombre,
+            description as descripcion,
+            price as precio_descuento,
+            compare_price as precio_original,
+            stock as cantidad_disponible,
+            category as categoria,
+            image_url as imagen_url,
+            is_active as activo,
+            updated_at`,
         [
-            nombre || current.nombre, 
-            descripcion !== undefined ? descripcion : current.descripcion, 
-            precio_original || current.precio_original, 
-            precio_descuento || current.precio_descuento, 
-            cantidad_disponible !== undefined ? cantidad_disponible : current.cantidad_disponible, 
-            cantidad_maxima_diaria || current.cantidad_maxima_diaria,
-            categoria || current.categoria,
-            hora_recogida_inicio || current.hora_recogida_inicio, 
-            hora_recogida_fin || current.hora_recogida_fin, 
-            newImageUrl || current.imagen_url,
-            activo !== undefined ? activo : current.activo,
-            producto_listo !== undefined ? producto_listo : current.producto_listo,
+            finalName, 
+            finalDescription, 
+            finalComparePrice, 
+            finalPrice, 
+            finalStock, 
+            finalCategory,
+            newImageUrl || current.image_url,
+            finalIsActive,
             productId
         ]
     );
@@ -164,29 +245,30 @@ exports.updateProduct = asyncHandler(async (req, res, next) => {
 // @acceso  Privado (solo el comercio dueño del producto)
 exports.deleteProduct = asyncHandler(async (req, res, next) => {
     const productId = req.params.id;
+    const sellerId = req.user.id;
 
-    // --- INICIO LÓGICA PARA BORRAR IMAGEN ---
-    // Antes de eliminar el producto, obtenemos la URL de su imagen para borrar el archivo.
-    const productResult = await pool.query('SELECT imagen_url FROM products WHERE id = $1', [productId]);
-    if (productResult.rows.length > 0) {
-        const imageUrl = productResult.rows[0].imagen_url;
-        if (imageUrl && imageUrl.startsWith('/uploads/')) {
-            const imagePath = path.join(__dirname, '..', imageUrl);
-            fs.unlink(imagePath, (err) => {
-                if (err) console.error(`Error al eliminar imagen: ${imagePath}`, err);
-                else console.log(`Imagen eliminada: ${imagePath}`);
-            });
-        }
-    }
-    // --- FIN LÓGICA ---
-
-    // La verificación de propiedad ahora la hace el middleware `checkProductOwnership`
-    // Procedemos directamente a eliminar.
-    const result = await pool.query('DELETE FROM products WHERE id = $1', [productId]);
+    // Verificar propiedad y obtener imagen para eliminar
+    const productResult = await pool.query(
+        'SELECT image_url FROM products WHERE id = $1 AND seller_id = $2', 
+        [productId, sellerId]
+    );
     
-    if (result.rowCount === 0) {
-        return res.status(404).json({ msg: 'Producto no encontrado.' });
+    if (productResult.rows.length === 0) {
+        return res.status(404).json({ msg: 'Producto no encontrado o no tienes permiso para eliminarlo.' });
     }
+
+    // Eliminar imagen si existe
+    const imageUrl = productResult.rows[0].image_url;
+    if (imageUrl && imageUrl.startsWith('/uploads/')) {
+        const imagePath = path.join(__dirname, '..', imageUrl);
+        fs.unlink(imagePath, (err) => {
+            if (err) console.error(`Error al eliminar imagen: ${imagePath}`, err);
+            else console.log(`Imagen eliminada: ${imagePath}`);
+        });
+    }
+
+    // Eliminar el producto
+    await pool.query('DELETE FROM products WHERE id = $1', [productId]);
     
     res.json({ msg: 'Producto eliminado exitosamente.' });
 });
@@ -195,13 +277,39 @@ exports.deleteProduct = asyncHandler(async (req, res, next) => {
 // @desc    Obtener un único producto por su ID
 // @acceso  Público
 exports.getProductById = asyncHandler(async (req, res, next) => {
-    const productId = req.params.id; // Obtenemos el ID de los parámetros de la URL
+    const productId = req.params.id;
 
     const product = await pool.query(
-        `SELECT p.*, s.nombre_comercio, s.direccion, s.descripcion AS store_description
-            FROM products p
-            JOIN stores s ON p.store_id = s.id
-            WHERE p.id = $1`,
+        `SELECT 
+            p.id,
+            p.name as nombre,
+            p.description as descripcion,
+            p.price as precio_descuento,
+            p.compare_price as precio_original,
+            p.stock as cantidad_disponible,
+            p.category as categoria,
+            p.image_url as imagen_url,
+            p.images,
+            p.is_active as activo,
+            p.is_featured,
+            p.rating as calificacion_promedio,
+            p.reviews_count as total_resenas,
+            p.sales_count,
+            p.views_count,
+            p.seller_id,
+            p.latitude,
+            p.longitude,
+            p.created_at,
+            -- Información del vendedor
+            u.name as nombre_comercio,
+            u.city as ciudad,
+            u.street as direccion,
+            u.phone as telefono_comercio,
+            u.latitude as latitud,
+            u.longitude as longitud
+        FROM products p
+        LEFT JOIN users u ON u.id = p.seller_id
+        WHERE p.id = $1`,
         [productId]
     );
 
@@ -215,23 +323,22 @@ exports.getProductById = asyncHandler(async (req, res, next) => {
 // @desc    Obtener estadísticas de productos para la tienda del comercio
 // @acceso  Privado (solo para rol 'comercio')
 exports.getProductStats = asyncHandler(async (req, res, next) => {
-    // El middleware getStoreId nos proporciona req.storeId
-    const storeId = req.storeId;
+    const sellerId = req.user.id;
 
     const stats = await pool.query(
         `SELECT 
             p.id, 
-            p.nombre, 
-            p.cantidad_maxima_diaria as cantidad_inicial, 
-            p.cantidad_disponible,
-            p.precio_descuento,
+            p.name as nombre, 
+            p.stock as cantidad_disponible,
+            p.price as precio_descuento,
+            p.sales_count as total_vendidos,
             COUNT(oi.id) AS total_pedidos
          FROM products p
          LEFT JOIN order_items oi ON p.id = oi.product_id
-         WHERE p.store_id = $1
+         WHERE p.seller_id = $1
          GROUP BY p.id
          ORDER BY total_pedidos DESC`,
-        [storeId]
+        [sellerId]
     );
 
     res.json(stats.rows);
@@ -244,12 +351,12 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
 
     // Obtener categorías de productos que el usuario ha comprado o marcado como favoritos
     const userCategories = await pool.query(
-        `SELECT DISTINCT p.categoria
+        `SELECT DISTINCT p.category as categoria
          FROM products p
          LEFT JOIN order_items oi ON p.id = oi.product_id
          LEFT JOIN orders o ON oi.order_id = o.id
-         LEFT JOIN favorites f ON p.store_id = f.store_id
-         WHERE (o.user_id = $1 OR f.user_id = $1) AND p.categoria IS NOT NULL
+         LEFT JOIN favorites f ON p.id = f.product_id
+         WHERE (o.user_id = $1 OR f.user_id = $1) AND p.category IS NOT NULL
          LIMIT 10`,
         [userId]
     );
@@ -259,10 +366,24 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
     if (categories.length === 0) {
         // Si no hay categorías, devolver productos aleatorios
         const randomProducts = await pool.query(
-            `SELECT p.*, s.nombre_comercio, s.direccion, s.latitud, s.longitud
+            `SELECT 
+                p.id,
+                p.name as nombre,
+                p.description as descripcion,
+                p.price as precio_descuento,
+                p.compare_price as precio_original,
+                p.stock as cantidad_disponible,
+                p.category as categoria,
+                p.image_url as imagen_url,
+                p.is_active as activo,
+                p.rating as calificacion_promedio,
+                u.name as nombre_comercio,
+                u.street as direccion,
+                u.latitude as latitud,
+                u.longitude as longitud
              FROM products p
-             JOIN stores s ON p.store_id = s.id
-             WHERE p.cantidad_disponible > 0 AND p.activo = true
+             LEFT JOIN users u ON u.id = p.seller_id
+             WHERE p.stock > 0 AND p.is_active = true
              ORDER BY RANDOM()
              LIMIT 20`
         );
@@ -271,10 +392,24 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
 
     // Obtener productos de las categorías favoritas del usuario
     const recommendedProducts = await pool.query(
-        `SELECT p.*, s.nombre_comercio, s.direccion, s.latitud, s.longitud
+        `SELECT 
+            p.id,
+            p.name as nombre,
+            p.description as descripcion,
+            p.price as precio_descuento,
+            p.compare_price as precio_original,
+            p.stock as cantidad_disponible,
+            p.category as categoria,
+            p.image_url as imagen_url,
+            p.is_active as activo,
+            p.rating as calificacion_promedio,
+            u.name as nombre_comercio,
+            u.street as direccion,
+            u.latitude as latitud,
+            u.longitude as longitud
          FROM products p
-         JOIN stores s ON p.store_id = s.id
-         WHERE p.categoria = ANY($1) AND p.cantidad_disponible > 0 AND p.activo = true
+         LEFT JOIN users u ON u.id = p.seller_id
+         WHERE p.category = ANY($1) AND p.stock > 0 AND p.is_active = true
          ORDER BY p.created_at DESC
          LIMIT 20`,
         [categories]
@@ -283,14 +418,29 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
     res.json(recommendedProducts.rows);
 });
 
-// @desc    Obtener productos listos (marcados como producto_listo)
+// @desc    Obtener productos destacados (is_featured = true)
 // @acceso  Público
 exports.getReadyProducts = asyncHandler(async (req, res, next) => {
     const readyProducts = await pool.query(
-        `SELECT p.*, s.nombre_comercio, s.direccion, s.latitud, s.longitud
+        `SELECT 
+            p.id,
+            p.name as nombre,
+            p.description as descripcion,
+            p.price as precio_descuento,
+            p.compare_price as precio_original,
+            p.stock as cantidad_disponible,
+            p.category as categoria,
+            p.image_url as imagen_url,
+            p.is_active as activo,
+            p.is_featured,
+            p.rating as calificacion_promedio,
+            u.name as nombre_comercio,
+            u.street as direccion,
+            u.latitude as latitud,
+            u.longitude as longitud
          FROM products p
-         JOIN stores s ON p.store_id = s.id
-         WHERE p.producto_listo = true AND p.cantidad_disponible > 0 AND p.activo = true
+         LEFT JOIN users u ON u.id = p.seller_id
+         WHERE p.is_featured = true AND p.stock > 0 AND p.is_active = true
          ORDER BY p.created_at DESC
          LIMIT 20`
     );
@@ -302,11 +452,27 @@ exports.getReadyProducts = asyncHandler(async (req, res, next) => {
 // @acceso  Público
 exports.getNewProducts = asyncHandler(async (req, res, next) => {
     const newProducts = await pool.query(
-        `SELECT p.*, s.nombre_comercio, s.direccion, s.latitud, s.longitud, s.created_at as store_created_at
+        `SELECT 
+            p.id,
+            p.name as nombre,
+            p.description as descripcion,
+            p.price as precio_descuento,
+            p.compare_price as precio_original,
+            p.stock as cantidad_disponible,
+            p.category as categoria,
+            p.image_url as imagen_url,
+            p.is_active as activo,
+            p.rating as calificacion_promedio,
+            p.created_at,
+            u.name as nombre_comercio,
+            u.street as direccion,
+            u.latitude as latitud,
+            u.longitude as longitud,
+            u.created_at as seller_created_at
          FROM products p
-         JOIN stores s ON p.store_id = s.id
-         WHERE p.cantidad_disponible > 0 AND p.activo = true
-         AND (p.created_at >= CURRENT_DATE OR s.created_at >= CURRENT_DATE - INTERVAL '7 days')
+         LEFT JOIN users u ON u.id = p.seller_id
+         WHERE p.stock > 0 AND p.is_active = true
+         AND (p.created_at >= CURRENT_DATE OR u.created_at >= CURRENT_DATE - INTERVAL '7 days')
          ORDER BY p.created_at DESC
          LIMIT 20`
     );

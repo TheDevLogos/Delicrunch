@@ -7,18 +7,29 @@ const asyncHandler = require('../middleware/asyncHandler');
 
 // Función para registrar un nuevo usuario
 exports.registerUser = asyncHandler(async (req, res, next) => {
-    // Obtenemos los datos del cuerpo de la solicitud 
-    const { nombre, email, password, rol, storeData } = req.body;
+    // Obtenemos los datos del cuerpo de la solicitud - aceptar español o inglés
+    const { nombre, name, email, password, rol, role, storeData } = req.body;
+    
+    // Mapear campos
+    const userName = nombre || name;
+    const userRole = rol || role || 'buyer';
 
     // Validación básica
-    if (!nombre || !email || !password || !rol) {
-        return res.status(400).json({ msg: 'Por favor, incluye todos los campos.' });
+    if (!userName || !email || !password) {
+        return res.status(400).json({ msg: 'Por favor, incluye todos los campos (nombre, email, password).' });
     }
     
-    // Validación adicional para comercios
-    if (rol === 'comercio') {
-        if (!storeData || !storeData.nombre_comercio || !storeData.direccion || !storeData.telefono || !storeData.categoria) {
-            return res.status(400).json({ msg: 'Por favor, incluye todos los campos requeridos del comercio (nombre, dirección, teléfono, categoría).' });
+    // Mapear roles de español a inglés para la BD
+    let dbRole = userRole.toLowerCase();
+    if (dbRole === 'comprador') dbRole = 'buyer';
+    if (dbRole === 'comercio') dbRole = 'seller';
+    if (dbRole === 'administrador') dbRole = 'admin';
+    
+    // Validación adicional para comercios/sellers
+    if (['comercio', 'seller'].includes(userRole.toLowerCase())) {
+        dbRole = 'seller';
+        if (!storeData || !storeData.nombre_comercio || !storeData.direccion || !storeData.telefono) {
+            return res.status(400).json({ msg: 'Por favor, incluye todos los campos requeridos del comercio (nombre, dirección, teléfono).' });
         }
         
         // Validar coordenadas si se proporcionan
@@ -45,15 +56,26 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // 3. Insertar el nuevo usuario en la base de datos
+    // 3. Insertar el nuevo usuario en la base de datos con campos reales
     const newUser = await pool.query(
-        'INSERT INTO users (nombre, email, password_hash, rol) VALUES ($1, $2, $3, $4) RETURNING *',
-        [nombre, email, passwordHash, rol]
+        `INSERT INTO users (name, email, password, role, phone, street, city, latitude, longitude) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        [
+            userName, 
+            email, 
+            passwordHash, 
+            dbRole,
+            storeData?.telefono || null,
+            storeData?.direccion || null,
+            storeData?.ciudad || null,
+            storeData?.latitud || null,
+            storeData?.longitud || null
+        ]
     );
 
-    // 4. Lógica específica si el rol es 'comercio'
-    if (rol === 'comercio' && storeData) {
-        // Creamos una entrada completa en la tabla 'stores' asociada a este nuevo usuario
+    // 4. Lógica específica si el rol es 'seller' (comercio)
+    if (dbRole === 'seller' && storeData) {
+        // Creamos una entrada en la tabla 'stores' asociada a este nuevo usuario
         await pool.query(
             `INSERT INTO stores 
             (user_id, nombre_comercio, direccion, latitud, longitud, telefono, horario, descripcion, categoria, activo) 
@@ -67,8 +89,8 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
                 storeData.telefono,
                 storeData.horario || 'Por definir',
                 storeData.descripcion || '',
-                storeData.categoria,
-                true // activo por defecto
+                storeData.categoria || 'Otros',
+                true
             ]
         );
         
@@ -79,21 +101,21 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
         });
     }
 
-    // 5. Crear y firmar el JWT
+    // 5. Crear y firmar el JWT - usar 'rol' para compatibilidad con frontend
     const payload = {
         user: {
             id: newUser.rows[0].id,
-            rol: newUser.rows[0].rol,
+            rol: newUser.rows[0].role, // La BD tiene 'role', el token usa 'rol'
         },
     };
 
     jwt.sign(
         payload,
         process.env.JWT_SECRET,
-        { expiresIn: '5h' }, // El token expira en 5 horas
+        { expiresIn: '5h' },
         (err, token) => {
             if (err) return next(err);
-            res.status(201).json({ token }); // Respondemos con el token
+            res.status(201).json({ token });
         }
     );
 });
@@ -121,11 +143,11 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
     }
 
     const user = userResult.rows[0];
-    console.log('✅ Usuario encontrado:', { id: user.id, email: user.email, rol: user.rol });
+    console.log('✅ Usuario encontrado:', { id: user.id, email: user.email, rol: user.role });
 
     // 2. Comparar la contraseña enviada con la hasheada en la DB
-    const isMatch = await bcrypt.compare(password, user.password_hash);
-    console.log('🔑 Comparación de contraseña:', { isMatch, hashPreview: user.password_hash.substring(0, 20) });
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log('🔑 Comparación de contraseña:', { isMatch, hashPreview: user.password ? user.password.substring(0, 20) : 'NULL' });
     if (!isMatch) {
         console.log('❌ Contraseña incorrecta');
         return res.status(400).json({ msg: 'Credenciales inválidas.' });
@@ -135,7 +157,7 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
     const payload = {
         user: {
             id: user.id,
-            rol: user.rol,
+            rol: user.role,
         },
     };
 
@@ -164,7 +186,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const passwordResetExpires = new Date(Date.now() + 3600000); // 1 hora
     await pool.query(
-        'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE email = $3',
+        'UPDATE users SET reset_password_token = $1, reset_password_expires = $2 WHERE email = $3',
         [passwordResetToken, passwordResetExpires, email]
     );
     const resetUrl = `http://localhost:8081/reset-password/${resetToken}`;
@@ -198,7 +220,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     const userResult = await pool.query(
-        'SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW()',
+        'SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_expires > NOW()',
         [passwordResetToken]
     );
 
@@ -209,7 +231,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     const user = userResult.rows[0];
     const { password } = req.body;
 
-    const isSamePassword = await bcrypt.compare(password, user.password_hash);
+    const isSamePassword = await bcrypt.compare(password, user.password);
 
     if (isSamePassword) {
         return res.status(400).json({ msg: 'La nueva contraseña no puede ser igual a la anterior.' });
@@ -218,7 +240,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
     await pool.query(
-        'UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2',
+        'UPDATE users SET password = $1, reset_password_token = NULL, reset_password_expires = NULL WHERE id = $2',
         [passwordHash, user.id]
     );
     

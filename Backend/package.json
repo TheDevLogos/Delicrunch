@@ -16,16 +16,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@supabase/supabase-js": "^2.94.1",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "mercadopago": "^2.0.15",
+    "mongoose": "^9.1.5",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
-    "pg": "^8.16.3",
-    "stripe": "^19.2.0"
+    "pg": "^8.16.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

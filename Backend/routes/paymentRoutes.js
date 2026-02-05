@@ -1,80 +1,97 @@
 const express = require('express');
 const router = express.Router();
 const { 
-    createCustomerSession,
-    createPaymentIntent, 
-    createAccountLink,
-    handleOnboardingRefresh,
-    getAccountStatus,
-    getConnectedAccountBalance,
-    getUpcomingPayouts,
+    createPreference,
+    handleWebhook,
+    getPaymentStatus,
+    merchantSetup,
+    getMerchantStatus,
+    getMerchantBalance,
+    getMerchantPayouts,
     listSavedCards,
     addSavedCard,
     deleteSavedCard,
     setDefaultSavedCard,
-    getStripeCustomerCards,
-    setDefaultPaymentMethod,
-    syncCards,
-    deletePaymentMethod,
+    paymentCallback,
 } = require('../controllers/paymentController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// @route   POST /api/payments/customer-session
-// @desc    Crea Customer, Ephemeral Key y SetupIntent para guardar tarjetas
-// @access  Privado (Comprador)
-router.post('/customer-session', authMiddleware, createCustomerSession);
+// === MERCADO PAGO CHECKOUT PRO ===
 
-// @route   POST /api/payments/create-payment-intent
-// @desc    Crea una intención de pago con Stripe
+// @route   POST /api/payments/create-preference
+// @desc    Crea una preferencia de pago para Checkout Pro
+// @access  Privado (Comprador)
+router.post('/create-preference', authMiddleware, createPreference);
+
+// @route   POST /api/payments/webhook
+// @desc    Webhook para notificaciones de Mercado Pago
+// @access  Público (llamado por Mercado Pago)
+router.post('/webhook', handleWebhook);
+
+// @route   GET /api/payments/status/:paymentId
+// @desc    Obtiene el estado de un pago
 // @access  Privado
-router.post('/create-payment-intent', authMiddleware, createPaymentIntent);
+router.get('/status/:paymentId', authMiddleware, getPaymentStatus);
 
-// @route   POST /api/payments/create-account-link
-// @desc    Crea un enlace de onboarding de Stripe para un comercio
+// === CALLBACKS DE MERCADO PAGO ===
+
+// @route   GET /api/payments/callback/success
+// @desc    Callback de pago exitoso - redirige a la app móvil
+// @access  Público (llamado por Mercado Pago redirect)
+router.get('/callback/success', paymentCallback);
+
+// @route   GET /api/payments/callback/failure
+// @desc    Callback de pago fallido - redirige a la app móvil
+// @access  Público (llamado por Mercado Pago redirect)
+router.get('/callback/failure', paymentCallback);
+
+// @route   GET /api/payments/callback/pending
+// @desc    Callback de pago pendiente - redirige a la app móvil
+// @access  Público (llamado por Mercado Pago redirect)
+router.get('/callback/pending', paymentCallback);
+
+// === CONFIGURACIÓN DE COMERCIOS ===
+
+// @route   POST /api/payments/merchant-setup
+// @desc    Configura cuenta de Mercado Pago para comercio
 // @access  Privado (Comercio)
-router.post('/create-account-link', authMiddleware, createAccountLink);
+router.post('/merchant-setup', authMiddleware, merchantSetup);
 
-// @route   GET /api/payments/stripe-account-status
-// @desc    Obtiene el estado de la cuenta de Stripe del comercio
+// @route   GET /api/payments/merchant-status
+// @desc    Obtiene el estado de configuración del comercio
 // @access  Privado (Comercio)
-// @route   GET /api/payments/connected-account-balance
-// @desc    Obtiene el balance de la cuenta conectada del comercio
+router.get('/merchant-status', authMiddleware, getMerchantStatus);
+
+// @route   GET /api/payments/merchant-balance
+// @desc    Obtiene el balance del comercio
 // @access  Privado (Comercio)
-router.get('/connected-account-balance', authMiddleware, getConnectedAccountBalance);
+router.get('/merchant-balance', authMiddleware, getMerchantBalance);
 
-// @route   GET /api/payments/upcoming-payouts
-// @desc    Obtiene los próximos pagos de la cuenta conectada
+// @route   GET /api/payments/merchant-payouts
+// @desc    Obtiene historial de pagos del comercio
 // @access  Privado (Comercio)
-router.get('/upcoming-payouts', authMiddleware, getUpcomingPayouts);
+router.get('/merchant-payouts', authMiddleware, getMerchantPayouts);
 
-router.get('/stripe-account-status', authMiddleware, getAccountStatus);
+// === MÉTODOS DE PAGO GUARDADOS ===
 
-router.get('/stripe-onboarding-refresh', handleOnboardingRefresh);
-
-// @route   GET /api/payments/stripe-cards/:customerId
-// @desc    Obtiene las tarjetas guardadas en Stripe de un customer
-// @access  Privado (Comprador)
-router.get('/stripe-cards/:customerId', authMiddleware, getStripeCustomerCards);
-
-// @route   PUT /api/payments/set-default-payment-method
-// @desc    Establece un payment method como predeterminado en Stripe y BD
-// @access  Privado (Comprador)
-router.put('/set-default-payment-method', authMiddleware, setDefaultPaymentMethod);
-
-// @route   POST /api/payments/sync-cards
-// @desc    Sincroniza tarjetas de Stripe con la base de datos local
-// @access  Privado (Comprador)
-router.post('/sync-cards', authMiddleware, syncCards);
-
-// @route   DELETE /api/payments/payment-methods/:paymentMethodId
-// @desc    Elimina un payment method de Stripe y BD
-// @access  Privado (Comprador)
-router.delete('/payment-methods/:paymentMethodId', authMiddleware, deletePaymentMethod);
-
-// Métodos de pago guardados (solo metadatos, no PCI)
+// @route   GET /api/payments/methods
+// @desc    Lista métodos de pago guardados
+// @access  Privado
 router.get('/methods', authMiddleware, listSavedCards);
+
+// @route   POST /api/payments/methods
+// @desc    Agrega un método de pago
+// @access  Privado
 router.post('/methods', authMiddleware, addSavedCard);
+
+// @route   DELETE /api/payments/methods/:id
+// @desc    Elimina un método de pago
+// @access  Privado
 router.delete('/methods/:id', authMiddleware, deleteSavedCard);
+
+// @route   PUT /api/payments/methods/:id/default
+// @desc    Establece método de pago como predeterminado
+// @access  Privado
 router.put('/methods/:id/default', authMiddleware, setDefaultSavedCard);
 
 module.exports = router;

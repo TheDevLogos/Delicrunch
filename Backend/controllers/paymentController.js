@@ -1,132 +1,32 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+/**
+ * Payment Controller - Mercado Pago Checkout Pro
+ * Implementación de pagos para marketplace con split de pagos
+ */
+const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 const asyncHandler = require('../middleware/asyncHandler');
 const pool = require('../db');
 
-/**
- * @desc    Crear Customer Session para guardar tarjetas (Ephemeral Key + SetupIntent)
- * @route   POST /api/payments/customer-session
- * @access  Privado (Comprador)
- */
-exports.createCustomerSession = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
-    const userEmail = req.user.email;
-
-    // 1. Validar que el usuario sea comprador o admin
-    if (req.user.rol !== 'comprador' && req.user.rol !== 'admin') {
-        return res.status(403).json({ 
-            msg: 'Acción no autorizada. Solo compradores y administradores pueden guardar tarjetas.' 
-        });
-    }
-
-    // 2. Buscar el perfil del usuario y su stripe_customer_id
-    const profileResult = await pool.query(
-        'SELECT id, stripe_customer_id FROM profiles WHERE user_id = $1',
-        [userId]
-    );
-
-    if (profileResult.rows.length === 0) {
-        return res.status(404).json({ 
-            msg: 'Perfil no encontrado. Verifica que el usuario esté registrado correctamente.' 
-        });
-    }
-
-    let { stripe_customer_id: stripeCustomerId } = profileResult.rows[0];
-    const profileId = profileResult.rows[0].id;
-
-    // 3. Si no existe stripe_customer_id, crear un Customer en Stripe
-    if (!stripeCustomerId) {
-        try {
-            const customer = await stripe.customers.create({
-                email: userEmail,
-                metadata: {
-                    user_id: userId.toString(),
-                    profile_id: profileId.toString(),
-                    platform: 'delicrunch',
-                },
-            });
-            
-            stripeCustomerId = customer.id;
-
-            // Guardar el customer_id en la base de datos
-            await pool.query(
-                'UPDATE profiles SET stripe_customer_id = $1 WHERE id = $2',
-                [stripeCustomerId, profileId]
-            );
-
-            console.log(`✅ Stripe Customer creado: ${stripeCustomerId} para user_id: ${userId}`);
-        } catch (error) {
-            console.error('❌ Error al crear Stripe Customer:', error);
-            return res.status(500).json({ 
-                msg: 'Error al crear cliente en Stripe.',
-                error: error.message 
-            });
-        }
-    }
-
-    // 4. Crear Ephemeral Key para el Customer
-    let ephemeralKey;
-    try {
-        ephemeralKey = await stripe.ephemeralKeys.create(
-            { customer: stripeCustomerId },
-            { apiVersion: '2024-12-18.acacia' } // Versión fija de la API de Stripe
-        );
-    } catch (error) {
-        console.error('❌ Error al crear Ephemeral Key:', error);
-        return res.status(500).json({ 
-            msg: 'Error al crear clave efímera.',
-            error: error.message 
-        });
-    }
-
-    // 5. Crear SetupIntent para guardar método de pago
-    let setupIntent;
-    try {
-        setupIntent = await stripe.setupIntents.create({
-            customer: stripeCustomerId,
-            payment_method_types: ['card'],
-            usage: 'off_session', // Para pagos futuros sin que el usuario esté presente
-            metadata: {
-                user_id: userId.toString(),
-                purpose: 'save_card_for_future_payments',
-            },
-        });
-    } catch (error) {
-        console.error('❌ Error al crear SetupIntent:', error);
-        return res.status(500).json({ 
-            msg: 'Error al crear intención de configuración.',
-            error: error.message 
-        });
-    }
-
-    // 6. Retornar los datos necesarios al cliente
-    res.json({
-        customerId: stripeCustomerId,
-        ephemeralKeySecret: ephemeralKey.secret,
-        setupIntentClientSecret: setupIntent.client_secret,
-        publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
-    });
+// Configuración de Mercado Pago
+const client = new MercadoPagoConfig({ 
+    accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
+    options: { timeout: 5000 }
 });
 
+const preferenceClient = new Preference(client);
+const paymentClient = new Payment(client);
+
 /**
- * @desc    Crear una intención de pago para un marketplace (Stripe Connect)
- * @route   POST /api/payments/create-payment-intent
+ * @desc    Crear preferencia de pago para Checkout Pro
+ * @route   POST /api/payments/create-preference
  * @access  Privado (Comprador)
- * 
- * MODELO: Destination Charges
- * - La plataforma (Delicrunch) cobra al comprador
- * - Se envía 75% al comercio automáticamente (transfer_data)
- * - La plataforma retiene 25% (application_fee_amount)
- * - Comprador ve "Delicrunch" como merchant
- * 
- * IDEMPOTENCIA: Usa idempotency_key para evitar duplicados
  */
-exports.createPaymentIntent = asyncHandler(async (req, res, next) => {
-    const { productId, cantidad = 1, coupon_discount = 0, payment_method_id } = req.body;
+exports.createPreference = asyncHandler(async (req, res, next) => {
+    const { productId, cantidad = 1, coupon_discount = 0 } = req.body;
     const userId = req.user.id;
 
-    // === VALIDACIONES MEJORADAS ===
+    // === VALIDACIONES ===
     if (!productId) {
-        console.warn('⚠️ Payment Intent: Missing productId', { userId });
+        console.warn('⚠️ Preference: Missing productId', { userId });
         return res.status(400).json({ msg: 'Se requiere el ID del producto.' });
     }
 
@@ -136,33 +36,33 @@ exports.createPaymentIntent = asyncHandler(async (req, res, next) => {
         });
     }
 
-    // === IDEMPOTENCY KEY ===
-    // Previene duplicación si usuario hace doble clic
-    const timestamp = Date.now();
-    const idempotencyKey = `pi_${userId}_${productId}_${cantidad}_${timestamp}`;
-
-    console.log('💰 Creating Payment Intent', {
+    console.log('💰 Creating Mercado Pago Preference', {
         userId,
         productId,
         cantidad,
         couponDiscount: coupon_discount,
-        idempotencyKey,
-        timestamp: new Date(timestamp).toISOString(),
     });
 
     try {
-        // 1. Obtener producto completo con datos del comercio
+        // 1. Obtener producto completo con datos del vendedor
         const productResult = await pool.query(
-            `SELECT p.id, p.nombre, p.precio_descuento, p.store_id, p.activo,
-                    s.stripe_account_id, s.nombre_comercio, s.comision_plataforma
+            `SELECT 
+                p.id, 
+                p.name as nombre, 
+                p.price as precio_descuento, 
+                p.seller_id, 
+                p.is_active as activo, 
+                p.image_url as imagen_url,
+                u.name as nombre_comercio,
+                u.email as seller_email
              FROM products p
-             JOIN stores s ON p.store_id = s.id
+             LEFT JOIN users u ON p.seller_id = u.id
              WHERE p.id = $1`,
             [productId]
         );
 
         if (productResult.rows.length === 0) {
-            console.warn('⚠️ Product not found or inactive', { productId });
+            console.warn('⚠️ Product not found', { productId });
             return res.status(404).json({ msg: 'Producto no encontrado.' });
         }
 
@@ -173,83 +73,27 @@ exports.createPaymentIntent = asyncHandler(async (req, res, next) => {
             return res.status(400).json({ msg: 'Este producto no está disponible actualmente.' });
         }
 
-        const merchantStripeAccountId = product.stripe_account_id;
-
-        if (!merchantStripeAccountId) {
-            console.error('❌ Merchant not configured for payments', {
-                storeId: product.store_id,
-                productId,
-                storeName: product.nombre_comercio,
-            });
-            return res.status(400).json({ 
-                msg: 'El comercio asociado a este producto no está configurado para recibir pagos.' 
-            });
-        }
-
-        // === VALIDAR ESTADO DE CUENTA MERCHANT ===
-        // Crítico: Verificar que la cuenta pueda recibir pagos
-        let merchantAccount;
-        try {
-            merchantAccount = await stripe.accounts.retrieve(merchantStripeAccountId);
-            
-            if (!merchantAccount.charges_enabled) {
-                console.error('❌ Merchant charges not enabled', {
-                    accountId: merchantStripeAccountId,
-                    storeName: product.nombre_comercio,
-                });
-                return res.status(400).json({
-                    msg: 'El comercio no puede recibir pagos en este momento. Por favor, contacta soporte.'
-                });
-            }
-
-            console.log('✅ Merchant account validated', {
-                accountId: merchantStripeAccountId,
-                chargesEnabled: merchantAccount.charges_enabled,
-                payoutsEnabled: merchantAccount.payouts_enabled,
-            });
-        } catch (error) {
-            console.error('❌ Error retrieving merchant account', {
-                accountId: merchantStripeAccountId,
-                error: error.message,
-            });
-            return res.status(500).json({
-                msg: 'Error al verificar la cuenta del comercio. Intenta de nuevo.'
-            });
-        }
-
-        // 2. Obtener stripe_customer_id del comprador
-        const profileResult = await pool.query(
-            'SELECT stripe_customer_id FROM profiles WHERE user_id = $1',
-            [userId]
-        );
-
-        let stripeCustomerId = null;
-        if (profileResult.rows.length > 0) {
-            stripeCustomerId = profileResult.rows[0].stripe_customer_id;
-        }
-
-        // 3. Calcular montos en centavos
+        // 2. Calcular montos
         const subtotal = Number(product.precio_descuento) * Number(cantidad);
         const totalAfterCoupon = Math.max(0, subtotal - Number(coupon_discount));
         
-        // Validar mínimo de transacción (Stripe MXN: ~$10)
+        // Validar mínimo de transacción (Mercado Pago MXN: $10)
         if (totalAfterCoupon < 10) {
             return res.status(400).json({
                 msg: 'El monto mínimo de compra es $10.00 MXN.'
             });
         }
 
-        // Validar máximo (prevenir errores)
+        // Validar máximo
         if (totalAfterCoupon > 500000) {
             return res.status(400).json({
                 msg: 'El monto máximo por transacción es $500,000.00 MXN.'
             });
         }
 
-        const priceInCents = Math.round(totalAfterCoupon * 100);
-        const comisionPorcentaje = product.comision_plataforma || 25; // Default 25%
-        const applicationFeeAmount = Math.round(priceInCents * (comisionPorcentaje / 100));
-        const merchantAmount = priceInCents - applicationFeeAmount;
+        const comisionPorcentaje = 25; // Default 25%
+        const platformFeeAmount = Math.round(totalAfterCoupon * (comisionPorcentaje / 100) * 100) / 100;
+        const merchantAmount = Math.round((totalAfterCoupon - platformFeeAmount) * 100) / 100;
 
         console.log('💰 Payment calculation', {
             productName: product.nombre,
@@ -258,394 +102,483 @@ exports.createPaymentIntent = asyncHandler(async (req, res, next) => {
             subtotal,
             couponDiscount: coupon_discount,
             totalAfterCoupon,
-            priceInCents,
-            applicationFeeAmount,
+            platformFeeAmount,
             merchantAmount,
             platformPercentage: comisionPorcentaje,
             merchantPercentage: 100 - comisionPorcentaje,
         });
 
-        // 4. Crear el PaymentIntent con la división del pago
-        const paymentIntentData = {
-            amount: priceInCents,
-            currency: 'mxn',
-            automatic_payment_methods: {
-                enabled: true,
-                allow_redirects: 'never', // Solo tarjetas, no OXXO/SPEI
+        // 3. Obtener email del comprador
+        const userResult = await pool.query(
+            'SELECT email, name as nombre FROM users WHERE id = $1',
+            [userId]
+        );
+        const userEmail = userResult.rows[0]?.email || '';
+        const userName = userResult.rows[0]?.nombre || 'Cliente';
+
+        // 4. Crear preferencia de Mercado Pago
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
+        
+        // Para Checkout Pro, usamos URLs del backend que redirigen a la app móvil
+        // Mercado Pago requiere URLs HTTP/HTTPS, no deep links
+        const successUrl = `${backendUrl}/api/payments/callback/success`;
+        const failureUrl = `${backendUrl}/api/payments/callback/failure`;
+        const pendingUrl = `${backendUrl}/api/payments/callback/pending`;
+        
+        const preferenceData = {
+            items: [
+                {
+                    id: product.id.toString(),
+                    title: product.nombre,
+                    description: `${cantidad}x ${product.nombre} - ${product.nombre_comercio}`,
+                    picture_url: product.imagen_url || '',
+                    category_id: 'food',
+                    quantity: cantidad,
+                    currency_id: 'MXN',
+                    unit_price: Number((totalAfterCoupon / cantidad).toFixed(2)),
+                }
+            ],
+            payer: {
+                email: userEmail,
+                name: userName,
             },
-            application_fee_amount: applicationFeeAmount,
-            transfer_data: {
-                destination: merchantStripeAccountId,
+            back_urls: {
+                success: successUrl,
+                failure: failureUrl,
+                pending: pendingUrl,
             },
+            // auto_return solo funciona con URLs públicas (no localhost)
+            // auto_return: 'approved',
+            notification_url: `${backendUrl}/api/payments/webhook`,
+            external_reference: JSON.stringify({
+                user_id: userId,
+                product_id: productId,
+                seller_id: product.seller_id,
+                cantidad: cantidad,
+                coupon_discount: coupon_discount,
+                subtotal: subtotal,
+                total: totalAfterCoupon,
+                platform_fee: platformFeeAmount,
+                merchant_amount: merchantAmount,
+            }),
             metadata: {
-                product_id: productId.toString(),
+                user_id: userId,
+                product_id: productId,
+                seller_id: product.seller_id,
                 product_name: product.nombre,
-                cantidad: cantidad.toString(),
-                user_id: userId.toString(),
-                store_id: product.store_id.toString(),
                 store_name: product.nombre_comercio,
-                coupon_discount: coupon_discount.toString(),
-                subtotal: subtotal.toString(),
-                total: totalAfterCoupon.toString(),
-                commission_percentage: comisionPorcentaje.toString(),
-                platform_fee: (applicationFeeAmount / 100).toString(),
-                merchant_amount: (merchantAmount / 100).toString(),
+                cantidad: cantidad,
+                coupon_discount: coupon_discount,
+                platform_fee: platformFeeAmount,
+                merchant_amount: merchantAmount,
             },
-            description: `${cantidad}x ${product.nombre} - ${product.nombre_comercio}`,
+            statement_descriptor: 'DELICRUNCH',
+            expires: true,
+            expiration_date_from: new Date().toISOString(),
+            expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
         };
 
-        // Si existe customer, asociarlo para usar tarjetas guardadas
-        if (stripeCustomerId) {
-            paymentIntentData.customer = stripeCustomerId;
+        // Si el vendedor tiene cuenta de Mercado Pago, configurar marketplace fee
+        if (product.seller_email) {
+            preferenceData.marketplace_fee = platformFeeAmount;
         }
 
-        // Si se proporciona payment_method, asociarlo
-        if (payment_method_id) {
-            paymentIntentData.payment_method = payment_method_id;
-            paymentIntentData.confirm = false; // El frontend confirmará
-        }
+        const preference = await preferenceClient.create({ body: preferenceData });
 
-        // Crear PaymentIntent con IDEMPOTENCIA
-        const paymentIntent = await stripe.paymentIntents.create(
-            paymentIntentData,
-            {
-                idempotencyKey: idempotencyKey,
-            }
-        );
-
-        console.log('✅ Payment Intent created successfully', {
-            paymentIntentId: paymentIntent.id,
-            amount: paymentIntent.amount,
-            status: paymentIntent.status,
-            applicationFeeAmount: paymentIntent.application_fee_amount,
-            merchantAccount: merchantStripeAccountId,
+        console.log('✅ Mercado Pago Preference created', {
+            preferenceId: preference.id,
+            initPoint: preference.init_point,
         });
 
-        // 5. Guardar en BD para auditoría (opcional pero recomendado)
+        // 5. Guardar preferencia en BD para auditoría
         try {
             await pool.query(
-                `INSERT INTO payment_intents (
-                    stripe_payment_intent_id, user_id, product_id, store_id,
-                    amount, currency, status, application_fee_amount, metadata
+                `INSERT INTO payment_preferences (
+                    mercadopago_preference_id, user_id, product_id, store_id,
+                    amount, currency, status, platform_fee_amount, metadata
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                ON CONFLICT (stripe_payment_intent_id) DO NOTHING`,
+                ON CONFLICT (mercadopago_preference_id) DO NOTHING`,
                 [
-                    paymentIntent.id,
+                    preference.id,
                     userId,
                     productId,
-                    product.store_id,
-                    priceInCents,
-                    'mxn',
-                    paymentIntent.status,
-                    applicationFeeAmount,
-                    JSON.stringify(paymentIntent.metadata),
+                    product.seller_id,
+                    totalAfterCoupon,
+                    'MXN',
+                    'pending',
+                    platformFeeAmount,
+                    JSON.stringify(preferenceData.metadata),
                 ]
             );
         } catch (dbError) {
-            // No fallar si la tabla no existe aún, solo log warning
-            console.warn('⚠️ Could not save payment_intent to DB (table may not exist)', {
-                error: dbError.message,
-            });
+            console.warn('⚠️ Could not save preference to DB', { error: dbError.message });
         }
 
-        // 6. Enviar el client_secret al frontend para que inicialice el PaymentSheet
+        // 6. Responder al frontend
         res.json({
-            clientSecret: paymentIntent.client_secret,
-            paymentIntentId: paymentIntent.id,
+            preferenceId: preference.id,
+            initPoint: preference.init_point,
+            sandboxInitPoint: preference.sandbox_init_point,
             amount: totalAfterCoupon,
-            merchantAmount: merchantAmount / 100,
-            platformFee: applicationFeeAmount / 100,
+            merchantAmount: merchantAmount,
+            platformFee: platformFeeAmount,
         });
 
     } catch (error) {
-        console.error('❌ Error creating Payment Intent', {
+        console.error('❌ Error creating Mercado Pago Preference', {
             userId,
             productId,
             error: error.message,
-            errorType: error.type,
-            errorCode: error.code,
-            errorParam: error.param,
         });
 
-        // === MANEJO ESPECÍFICO DE ERRORES STRIPE ===
-        if (error.type === 'StripeCardError') {
-            return res.status(402).json({
-                msg: 'Tu tarjeta fue declinada.',
-                decline_code: error.decline_code,
-            });
-        }
-
-        if (error.type === 'StripeRateLimitError') {
-            return res.status(429).json({
-                msg: 'Demasiadas solicitudes. Intenta de nuevo en unos momentos.',
-            });
-        }
-
-        if (error.type === 'StripeInvalidRequestError') {
-            return res.status(400).json({
-                msg: 'Solicitud inválida. Verifica los datos e intenta de nuevo.',
-                details: process.env.NODE_ENV === 'development' ? error.message : undefined,
-            });
-        }
-
-        if (error.type === 'StripeAPIError') {
-            return res.status(500).json({
-                msg: 'Error en el servicio de pagos. Intenta más tarde.',
-            });
-        }
-
-        if (error.type === 'StripeConnectionError') {
-            return res.status(503).json({
-                msg: 'No se pudo conectar con el servicio de pagos. Verifica tu conexión.',
-            });
-        }
-
-        if (error.type === 'StripeAuthenticationError') {
-            console.error('🔥 CRITICAL: Stripe authentication failed', { 
-                error: error.message 
-            });
-            return res.status(500).json({
-                msg: 'Error de autenticación con el servicio de pagos. Contacta soporte.',
-            });
-        }
-
-        // Error genérico
         return res.status(500).json({
-            msg: 'Error al crear la intención de pago.',
+            msg: 'Error al crear la preferencia de pago.',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined,
         });
     }
 });
 
 /**
- * @desc    Crear un enlace de onboarding de Stripe Connect para un comercio
- * @route   POST /api/payments/create-account-link
+ * @desc    Webhook para recibir notificaciones de Mercado Pago
+ * @route   POST /api/payments/webhook
+ * @access  Público (llamado por Mercado Pago)
+ */
+exports.handleWebhook = asyncHandler(async (req, res, next) => {
+    const { type, data } = req.body;
+
+    console.log('📩 Mercado Pago Webhook received:', { type, data });
+
+    try {
+        if (type === 'payment') {
+            const paymentId = data?.id;
+            if (!paymentId) {
+                return res.status(200).json({ received: true });
+            }
+
+            // Obtener detalles del pago
+            const payment = await paymentClient.get({ id: paymentId });
+
+            console.log('💳 Payment details:', {
+                id: payment.id,
+                status: payment.status,
+                statusDetail: payment.status_detail,
+                externalReference: payment.external_reference,
+            });
+
+            // Parsear external_reference
+            let orderData;
+            try {
+                orderData = JSON.parse(payment.external_reference);
+            } catch (e) {
+                console.warn('⚠️ Could not parse external_reference');
+                orderData = {};
+            }
+
+            // Actualizar o crear orden según el estado del pago
+            if (payment.status === 'approved') {
+                // Generar número de orden único
+                const orderNumber = `DC-${Date.now().toString(36).toUpperCase()}`;
+                
+                // Obtener seller_id del producto
+                let sellerId = orderData.seller_id;
+                if (!sellerId && orderData.product_id) {
+                    const productRes = await pool.query(
+                        'SELECT seller_id FROM products WHERE id = $1',
+                        [orderData.product_id]
+                    );
+                    sellerId = productRes.rows[0]?.seller_id;
+                }
+
+                // Crear orden exitosa con campos correctos de la tabla orders
+                const orderResult = await pool.query(
+                    `INSERT INTO orders (
+                        user_id, seller_id, order_number, total, subtotal,
+                        status, payment_status, payment_method, mp_payment_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    ON CONFLICT (order_number) DO NOTHING
+                    RETURNING id`,
+                    [
+                        orderData.user_id,
+                        sellerId,
+                        orderNumber,
+                        orderData.total,
+                        orderData.subtotal || orderData.total,
+                        'confirmed',
+                        'approved',
+                        'mercadopago',
+                        payment.id.toString()
+                    ]
+                );
+
+                // Crear order_item si se creó la orden
+                if (orderResult.rows.length > 0 && orderData.product_id) {
+                    const productRes = await pool.query(
+                        'SELECT name, price, image_url FROM products WHERE id = $1',
+                        [orderData.product_id]
+                    );
+                    const prod = productRes.rows[0];
+                    
+                    await pool.query(
+                        `INSERT INTO order_items (
+                            order_id, product_id, product_name, quantity, unit_price, subtotal
+                        ) VALUES ($1, $2, $3, $4, $5, $6)`,
+                        [
+                            orderResult.rows[0].id,
+                            orderData.product_id,
+                            prod?.name || 'Producto',
+                            orderData.cantidad || 1,
+                            prod?.price || orderData.total,
+                            orderData.total
+                        ]
+                    );
+                }
+
+                console.log('✅ Order created from webhook', { paymentId: payment.id, orderId: orderResult.rows[0]?.id });
+            } else if (payment.status === 'rejected' || payment.status === 'cancelled') {
+                // Registrar pago fallido
+                console.log('❌ Payment failed', { 
+                    paymentId: payment.id, 
+                    status: payment.status,
+                    statusDetail: payment.status_detail 
+                });
+            }
+        }
+
+        res.status(200).json({ received: true });
+    } catch (error) {
+        console.error('❌ Error processing webhook:', error);
+        res.status(200).json({ received: true }); // Siempre responder 200 a MP
+    }
+});
+
+/**
+ * @desc    Obtener estado de un pago
+ * @route   GET /api/payments/status/:paymentId
+ * @access  Privado
+ */
+exports.getPaymentStatus = asyncHandler(async (req, res, next) => {
+    const { paymentId } = req.params;
+
+    try {
+        const payment = await paymentClient.get({ id: paymentId });
+
+        res.json({
+            id: payment.id,
+            status: payment.status,
+            statusDetail: payment.status_detail,
+            transactionAmount: payment.transaction_amount,
+            currencyId: payment.currency_id,
+            dateApproved: payment.date_approved,
+            dateCreated: payment.date_created,
+            paymentMethodId: payment.payment_method_id,
+            paymentTypeId: payment.payment_type_id,
+        });
+    } catch (error) {
+        console.error('❌ Error getting payment status:', error);
+        res.status(500).json({ msg: 'Error al obtener estado del pago.' });
+    }
+});
+
+/**
+ * @desc    Configurar cuenta de Mercado Pago para comercio
+ * @route   POST /api/payments/merchant-setup
  * @access  Privado (Comercio)
  */
-exports.createAccountLink = asyncHandler(async (req, res, next) => {
-    // 1. Asegurarse de que el usuario es un comercio o admin
-    if (req.user.rol !== 'comercio' && req.user.rol !== 'admin') {
-        return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios y administradores.' });
+exports.merchantSetup = asyncHandler(async (req, res, next) => {
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    if (!['seller', 'comercio', 'admin'].includes(userRole)) {
+        return res.status(403).json({ msg: 'Acción no autorizada.' });
     }
 
     const userId = req.user.id;
-    let stripeAccountId, entityId, tableName;
+    const { mercadopago_email } = req.body;
 
-    // 2. Buscar stripe_account_id según el rol
-    if (req.user.rol === 'comercio') {
-        // Para comercios, usar stores
-        const storeResult = await pool.query('SELECT id, stripe_account_id FROM stores WHERE user_id = $1', [userId]);
-        if (storeResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'Tienda no encontrada para este usuario.' });
-        }
-        stripeAccountId = storeResult.rows[0].stripe_account_id;
-        entityId = storeResult.rows[0].id;
-        tableName = 'stores';
-    } else {
-        // Para admin, usar profiles
-        const profileResult = await pool.query('SELECT id, stripe_account_id FROM profiles WHERE user_id = $1', [userId]);
-        if (profileResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'Perfil no encontrado para este usuario.' });
-        }
-        stripeAccountId = profileResult.rows[0].stripe_account_id;
-        entityId = profileResult.rows[0].id;
-        tableName = 'profiles';
+    if (!mercadopago_email) {
+        return res.status(400).json({ msg: 'Se requiere el email de Mercado Pago.' });
     }
 
-    // 3. Si aún no tiene una cuenta de Stripe, crear una
-    if (!stripeAccountId) {
-        const account = await stripe.accounts.create({
-            type: 'express',
-            country: 'MX',
-            email: req.user.email,
+    try {
+        // Actualizar usuario vendedor con info de Mercado Pago
+        // Primero verificar si existe en stores, si no, crear
+        let storeResult = await pool.query(
+            'SELECT id FROM stores WHERE user_id = $1',
+            [userId]
+        );
+        
+        if (storeResult.rows.length === 0) {
+            // Crear entrada en stores
+            const userInfo = await pool.query(
+                'SELECT name, street, phone FROM users WHERE id = $1',
+                [userId]
+            );
+            const user = userInfo.rows[0];
+            
+            storeResult = await pool.query(
+                `INSERT INTO stores (user_id, nombre_comercio, direccion, telefono, activo, mercadopago_email, mercadopago_configured)
+                 VALUES ($1, $2, $3, $4, true, $5, true)
+                 RETURNING id, nombre_comercio`,
+                [userId, user?.name || 'Mi Tienda', user?.street || '', user?.phone || '', mercadopago_email]
+            );
+        } else {
+            // Actualizar tienda existente
+            storeResult = await pool.query(
+                `UPDATE stores 
+                 SET mercadopago_email = $1, 
+                     mercadopago_configured = true,
+                     updated_at = NOW()
+                 WHERE user_id = $2
+                 RETURNING id, nombre_comercio`,
+                [mercadopago_email, userId]
+            );
+        }
+
+        console.log('✅ Merchant Mercado Pago configured:', {
+            storeId: storeResult.rows[0].id,
+            storeName: storeResult.rows[0].nombre_comercio,
         });
-        stripeAccountId = account.id;
 
-        // Guardar el nuevo ID en nuestra base de datos
-        await pool.query(`UPDATE ${tableName} SET stripe_account_id = $1 WHERE id = $2`, [stripeAccountId, entityId]);
-    }
-
-    // 4. Crear el enlace de la cuenta para el onboarding
-    const returnUrl = `${process.env.FRONTEND_URL}/stripe-onboarding-success`;
-    const refreshUrl = `${process.env.BACKEND_URL}/api/payments/stripe-onboarding-refresh`;
-
-    const accountLink = await stripe.accountLinks.create({
-        account: stripeAccountId,
-        refresh_url: refreshUrl,
-        return_url: returnUrl,
-        type: 'account_onboarding',
-    });
-
-    // 5. Devolver la URL del enlace al frontend
-    res.json({ url: accountLink.url });
-});
-
-/**
- * @desc    Manejar el refresh del enlace de onboarding de Stripe
- * @route   GET /api/payments/stripe-onboarding-refresh
- * @access  Público (invocado por Stripe)
- */
-exports.handleOnboardingRefresh = asyncHandler(async (req, res, next) => {
-    // Stripe añade 'account' como query param, pero no lo necesitamos para la lógica.
-    // Simplemente redirigimos al usuario a una página de error en el frontend.
-    // El frontend le pedirá al usuario que vuelva a intentar el proceso.
-    res.redirect(`${process.env.FRONTEND_URL}/stripe-onboarding-error`);
-});
-
-/**
- * @desc    Obtener el estado de la cuenta de Stripe del comercio logueado
- * @route   GET /api/payments/stripe-account-status
- * @access  Privado (Comercio)
- */
-exports.getAccountStatus = asyncHandler(async (req, res, next) => {
-    if (req.user.rol !== 'comercio' && req.user.rol !== 'admin') {
-        return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios y administradores.' });
-    }
-
-    let stripeAccountId;
-
-    // Buscar stripe_account_id según el rol
-    if (req.user.rol === 'comercio') {
-        const storeResult = await pool.query('SELECT stripe_account_id FROM stores WHERE user_id = $1', [req.user.id]);
-        if (storeResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'Tienda no encontrada.' });
-        }
-        stripeAccountId = storeResult.rows[0].stripe_account_id;
-    } else {
-        const profileResult = await pool.query('SELECT stripe_account_id FROM profiles WHERE user_id = $1', [req.user.id]);
-        if (profileResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'Perfil no encontrado.' });
-        }
-        stripeAccountId = profileResult.rows[0].stripe_account_id;
-    }
-
-    if (!stripeAccountId) {
-        return res.json({ 
-            hasStripeAccount: false, 
-            chargesEnabled: false,
-            payoutsEnabled: false,
-            detailsSubmitted: false,
+        res.json({
+            success: true,
+            msg: 'Cuenta de Mercado Pago configurada correctamente.',
+            store: storeResult.rows[0],
         });
+    } catch (error) {
+        console.error('❌ Error setting up merchant:', error);
+        res.status(500).json({ msg: 'Error al configurar Mercado Pago.' });
     }
-
-    const account = await stripe.accounts.retrieve(stripeAccountId);
-
-    res.json({
-        hasStripeAccount: true,
-        chargesEnabled: account.charges_enabled,
-        payoutsEnabled: account.payouts_enabled,
-        detailsSubmitted: account.details_submitted,
-        country: account.country,
-        defaultCurrency: account.default_currency,
-        type: account.type,
-        email: account.email,
-    });
 });
 
 /**
- * @desc    Obtener balance de la cuenta conectada del comercio
- * @route   GET /api/payments/connected-account-balance
+ * @desc    Obtener estado de configuración del comercio
+ * @route   GET /api/payments/merchant-status
  * @access  Privado (Comercio)
  */
-exports.getConnectedAccountBalance = asyncHandler(async (req, res, next) => {
-    if (req.user.rol !== 'comercio' && req.user.rol !== 'admin') {
-        return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios y administradores.' });
+exports.getMerchantStatus = asyncHandler(async (req, res, next) => {
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    if (!['seller', 'comercio', 'admin'].includes(userRole)) {
+        return res.status(403).json({ msg: 'Acción no autorizada.' });
     }
 
-    let stripeAccountId;
+    const userId = req.user.id;
 
-    // Buscar stripe_account_id según el rol
-    if (req.user.rol === 'comercio') {
-        const storeResult = await pool.query('SELECT stripe_account_id FROM stores WHERE user_id = $1', [req.user.id]);
-        if (storeResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'Tienda no encontrada.' });
+    try {
+        const result = await pool.query(
+            `SELECT id, nombre_comercio, mercadopago_email, mercadopago_configured,
+                    comision_plataforma
+             FROM stores WHERE user_id = $1`,
+            [userId]
+        );
+
+        if (result.rows.length === 0) {
+            // Si no hay tienda, devolver estado por defecto
+            return res.json({
+                hasMercadoPagoAccount: false,
+                mercadopagoEmail: null,
+                chargesEnabled: false,
+                payoutsEnabled: false,
+                detailsSubmitted: false,
+                comisionPlataforma: 25,
+            });
         }
-        stripeAccountId = storeResult.rows[0].stripe_account_id;
-    } else {
-        const profileResult = await pool.query('SELECT stripe_account_id FROM profiles WHERE user_id = $1', [req.user.id]);
-        if (profileResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'Perfil no encontrado.' });
-        }
-        stripeAccountId = profileResult.rows[0].stripe_account_id;
+
+        const store = result.rows[0];
+
+        res.json({
+            hasMercadoPagoAccount: !!store.mercadopago_configured,
+            mercadopagoEmail: store.mercadopago_email,
+            chargesEnabled: store.mercadopago_configured || false,
+            payoutsEnabled: store.mercadopago_configured || false,
+            detailsSubmitted: store.mercadopago_configured || false,
+            comisionPlataforma: store.comision_plataforma || 25,
+        });
+    } catch (error) {
+        console.error('❌ Error getting merchant status:', error);
+        res.status(500).json({ msg: 'Error al obtener estado del comercio.' });
     }
-
-    if (!stripeAccountId) {
-        return res.status(400).json({ msg: 'No tienes una cuenta de Stripe conectada.' });
-    }
-
-    // Obtener balance de la cuenta conectada
-    const balance = await stripe.balance.retrieve({
-        stripeAccount: stripeAccountId,
-    });
-
-    // Formatear respuesta
-    res.json({
-        available: balance.available.map(b => ({
-            amount: b.amount / 100, // Convertir de centavos a pesos
-            currency: b.currency.toUpperCase(),
-        })),
-        pending: balance.pending.map(b => ({
-            amount: b.amount / 100,
-            currency: b.currency.toUpperCase(),
-        })),
-    });
 });
 
 /**
- * @desc    Obtener próximos pagos (payouts) de la cuenta conectada
- * @route   GET /api/payments/upcoming-payouts
+ * @desc    Obtener balance del comercio
+ * @route   GET /api/payments/merchant-balance
  * @access  Privado (Comercio)
  */
-exports.getUpcomingPayouts = asyncHandler(async (req, res, next) => {
-    if (req.user.rol !== 'comercio' && req.user.rol !== 'admin') {
-        return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios y administradores.' });
+exports.getMerchantBalance = asyncHandler(async (req, res, next) => {
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    if (!['seller', 'comercio', 'admin'].includes(userRole)) {
+        return res.status(403).json({ msg: 'Acción no autorizada.' });
     }
 
-    let stripeAccountId;
+    const userId = req.user.id;
 
-    // Buscar stripe_account_id según el rol
-    if (req.user.rol === 'comercio') {
-        const storeResult = await pool.query('SELECT stripe_account_id FROM stores WHERE user_id = $1', [req.user.id]);
-        if (storeResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'Tienda no encontrada.' });
-        }
-        stripeAccountId = storeResult.rows[0].stripe_account_id;
-    } else {
-        const profileResult = await pool.query('SELECT stripe_account_id FROM profiles WHERE user_id = $1', [req.user.id]);
-        if (profileResult.rows.length === 0) {
-            return res.status(404).json({ msg: 'Perfil no encontrado.' });
-        }
-        stripeAccountId = profileResult.rows[0].stripe_account_id;
+    try {
+        // Calcular balance basado en órdenes del vendedor
+        const balanceResult = await pool.query(
+            `SELECT 
+                COALESCE(SUM(CASE WHEN payment_status = 'approved' THEN total * 0.75 ELSE 0 END), 0) as available,
+                COALESCE(SUM(CASE WHEN payment_status = 'pending' THEN total * 0.75 ELSE 0 END), 0) as pending
+             FROM orders 
+             WHERE seller_id = $1`,
+            [userId]
+        );
+
+        const balance = balanceResult.rows[0];
+
+        res.json({
+            available: [{ amount: parseFloat(balance.available) || 0, currency: 'MXN' }],
+            pending: [{ amount: parseFloat(balance.pending) || 0, currency: 'MXN' }],
+        });
+    } catch (error) {
+        console.error('❌ Error getting merchant balance:', error);
+        res.status(500).json({ msg: 'Error al obtener balance.' });
     }
-
-    if (!stripeAccountId) {
-        return res.status(400).json({ msg: 'No tienes una cuenta de Stripe conectada.' });
-    }
-
-    // Obtener últimos payouts
-    const payouts = await stripe.payouts.list(
-        { limit: 10 },
-        { stripeAccount: stripeAccountId }
-    );
-
-    // Formatear respuesta
-    const formattedPayouts = payouts.data.map(payout => ({
-        id: payout.id,
-        amount: payout.amount / 100,
-        currency: payout.currency.toUpperCase(),
-        status: payout.status,
-        arrivalDate: payout.arrival_date,
-        created: payout.created,
-        description: payout.description,
-        method: payout.method,
-        type: payout.type,
-    }));
-
-    res.json({ payouts: formattedPayouts });
 });
 
 /**
- * @desc    Listar métodos de pago guardados del usuario (solo metadatos)
+ * @desc    Obtener historial de pagos del comercio
+ * @route   GET /api/payments/merchant-payouts
+ * @access  Privado (Comercio)
+ */
+exports.getMerchantPayouts = asyncHandler(async (req, res, next) => {
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    if (!['seller', 'comercio', 'admin'].includes(userRole)) {
+        return res.status(403).json({ msg: 'Acción no autorizada.' });
+    }
+
+    const userId = req.user.id;
+
+    try {
+        // Obtener últimas órdenes pagadas como "payouts"
+        const payoutsResult = await pool.query(
+            `SELECT id, total * 0.75 as amount, payment_status as status, 
+                    created_at, mp_payment_id as payment_id
+             FROM orders 
+             WHERE seller_id = $1 AND payment_status = 'approved'
+             ORDER BY created_at DESC
+             LIMIT 10`,
+            [userId]
+        );
+
+        const payouts = payoutsResult.rows.map(p => ({
+            id: p.id,
+            amount: parseFloat(p.amount) || 0,
+            currency: 'MXN',
+            status: 'paid',
+            arrivalDate: p.created_at,
+            created: p.created_at,
+            description: `Venta #${p.id}`,
+            method: 'mercadopago',
+            type: 'bank_account',
+        }));
+
+        res.json({ payouts });
+    } catch (error) {
+        console.error('❌ Error getting merchant payouts:', error);
+        res.status(500).json({ msg: 'Error al obtener historial de pagos.' });
+    }
+});
+
+/**
+ * @desc    Listar métodos de pago guardados del usuario (metadatos)
  * @route   GET /api/payments/methods
  * @access  Privado
  */
@@ -659,7 +592,7 @@ exports.listSavedCards = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Agregar un método de pago (solo metadatos, no almacenar PAN/CVV)
+ * @desc    Agregar método de pago (metadatos)
  * @route   POST /api/payments/methods
  * @access  Privado
  */
@@ -668,7 +601,7 @@ exports.addSavedCard = asyncHandler(async (req, res) => {
     const { brand, last4, exp_month, exp_year, make_default } = req.body;
 
     if (!brand || !last4 || String(last4).length !== 4 || !exp_month || !exp_year) {
-        return res.status(400).json({ msg: 'Datos de tarjeta inválidos (solo metadatos).' });
+        return res.status(400).json({ msg: 'Datos de tarjeta inválidos.' });
     }
 
     await pool.query('BEGIN');
@@ -692,7 +625,7 @@ exports.addSavedCard = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Eliminar un método de pago guardado
+ * @desc    Eliminar método de pago guardado
  * @route   DELETE /api/payments/methods/:id
  * @access  Privado
  */
@@ -707,70 +640,7 @@ exports.deleteSavedCard = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Obtener las tarjetas guardadas en Stripe de un customer
- * @route   GET /api/payments/stripe-cards/:customerId
- * @access  Privado (Comprador)
- */
-exports.getStripeCustomerCards = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
-    const { customerId } = req.params;
-
-    // Validar que el usuario sea comprador o admin
-    if (req.user.rol !== 'comprador' && req.user.rol !== 'admin') {
-        return res.status(403).json({ 
-            msg: 'Acción no autorizada. Solo compradores y administradores pueden ver sus tarjetas.' 
-        });
-    }
-
-    // Verificar que el customerId pertenece al usuario
-    const profileResult = await pool.query(
-        'SELECT stripe_customer_id FROM profiles WHERE user_id = $1',
-        [userId]
-    );
-
-    if (profileResult.rows.length === 0 || profileResult.rows[0].stripe_customer_id !== customerId) {
-        return res.status(403).json({ 
-            msg: 'No tienes permisos para acceder a este customer.' 
-        });
-    }
-
-    try {
-        // Obtener payment methods del customer en Stripe
-        const paymentMethods = await stripe.paymentMethods.list({
-            customer: customerId,
-            type: 'card',
-        });
-
-        // Formatear la respuesta para el frontend
-        const cards = paymentMethods.data.map(pm => ({
-            id: pm.id,
-            brand: pm.card.brand,
-            last4: pm.card.last4,
-            exp_month: pm.card.exp_month,
-            exp_year: pm.card.exp_year,
-            funding: pm.card.funding,
-            created: pm.created,
-        }));
-
-        console.log(`✅ Obtenidas ${cards.length} tarjetas para customer ${customerId}`);
-
-        res.json({
-            success: true,
-            cards,
-            count: cards.length,
-        });
-
-    } catch (error) {
-        console.error('❌ Error al obtener tarjetas de Stripe:', error);
-        res.status(500).json({ 
-            msg: 'Error al obtener tarjetas guardadas.',
-            error: error.message 
-        });
-    }
-});
-
-/**
- * @desc    Establecer un método de pago como predeterminado
+ * @desc    Establecer método de pago como predeterminado
  * @route   PUT /api/payments/methods/:id/default
  * @access  Privado
  */
@@ -795,281 +665,101 @@ exports.setDefaultSavedCard = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Establecer payment method de Stripe como predeterminado
- * @route   PUT /api/payments/set-default-payment-method
- * @access  Privado (Comprador)
+ * @desc    Callback de Mercado Pago - redirige a la app móvil
+ * @route   GET /api/payments/callback/:status
+ * @access  Público
  */
-exports.setDefaultPaymentMethod = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
-    const { paymentMethodId } = req.body;
+exports.paymentCallback = asyncHandler(async (req, res) => {
+    const path = req.path;
+    const status = path.includes('success') ? 'success' : path.includes('failure') ? 'failure' : 'pending';
+    
+    // Obtener parámetros de Mercado Pago
+    const {
+        collection_id,
+        collection_status,
+        payment_id,
+        status: mpStatus,
+        external_reference,
+        payment_type,
+        merchant_order_id,
+        preference_id,
+    } = req.query;
 
-    // Validar rol
-    if (req.user.rol !== 'comprador' && req.user.rol !== 'admin') {
-        return res.status(403).json({ 
-            msg: 'Acción no autorizada. Solo compradores y administradores.' 
-        });
-    }
+    console.log('📱 Payment Callback', {
+        status,
+        payment_id,
+        collection_status,
+        preference_id,
+    });
 
-    if (!paymentMethodId) {
-        return res.status(400).json({ msg: 'paymentMethodId es requerido' });
-    }
+    // Construir URL de deep link para la app móvil
+    const appScheme = process.env.APP_SCHEME || 'delicrunch';
+    const params = new URLSearchParams({
+        status,
+        payment_id: payment_id || '',
+        collection_status: collection_status || '',
+        external_reference: external_reference || '',
+    });
 
-    // 1. Obtener stripe_customer_id
-    const profileResult = await pool.query(
-        'SELECT stripe_customer_id FROM profiles WHERE user_id = $1',
-        [userId]
-    );
-
-    if (profileResult.rows.length === 0) {
-        return res.status(404).json({ msg: 'Perfil no encontrado' });
-    }
-
-    const { stripe_customer_id: customerId } = profileResult.rows[0];
-
-    if (!customerId) {
-        return res.status(400).json({ msg: 'Usuario no tiene Customer en Stripe' });
-    }
-
-    try {
-        // 2. Verificar que el payment method pertenece al customer
-        const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
-        
-        if (paymentMethod.customer !== customerId) {
-            return res.status(403).json({ 
-                msg: 'Este método de pago no pertenece a este usuario' 
-            });
+    const deepLink = `${appScheme}://payment-result?${params.toString()}`;
+    
+    // HTML de redirección a la app móvil
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Delicrunch - ${status === 'success' ? 'Pago Exitoso' : status === 'failure' ? 'Pago Fallido' : 'Pago Pendiente'}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+            color: white;
         }
-
-        // 3. Actualizar en Stripe como payment method por defecto
-        await stripe.customers.update(customerId, {
-            invoice_settings: {
-                default_payment_method: paymentMethodId
-            }
-        });
-
-        // 4. Actualizar en BD local (profiles)
-        await pool.query(
-            'UPDATE profiles SET default_payment_method_id = $1 WHERE user_id = $2',
-            [paymentMethodId, userId]
-        );
-
-        // 5. Actualizar saved_cards (mantener sincronía)
-        await pool.query('UPDATE saved_cards SET is_default = FALSE WHERE user_id = $1', [userId]);
-        await pool.query(
-            'UPDATE saved_cards SET is_default = TRUE WHERE stripe_payment_method_id = $1 AND user_id = $2',
-            [paymentMethodId, userId]
-        );
-
-        console.log(`✅ Payment method ${paymentMethodId} establecido como default para user ${userId}`);
-
-        res.json({
-            success: true,
-            msg: 'Método de pago establecido como predeterminado',
-            paymentMethodId
-        });
-
-    } catch (error) {
-        console.error('❌ Error al establecer payment method:', error);
-        res.status(500).json({
-            msg: 'Error al actualizar método de pago',
-            error: error.message
-        });
-    }
-});
-
-/**
- * @desc    Sincronizar tarjetas de Stripe con BD local
- * @route   POST /api/payments/sync-cards
- * @access  Privado (Comprador)
- */
-exports.syncCards = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
-
-    // Validar rol
-    if (req.user.rol !== 'comprador' && req.user.rol !== 'admin') {
-        return res.status(403).json({ 
-            msg: 'Acción no autorizada. Solo compradores y administradores.' 
-        });
-    }
-
-    // 1. Obtener stripe_customer_id
-    const profileResult = await pool.query(
-        'SELECT stripe_customer_id, default_payment_method_id FROM profiles WHERE user_id = $1',
-        [userId]
-    );
-
-    if (profileResult.rows.length === 0) {
-        return res.status(404).json({ msg: 'Perfil no encontrado' });
-    }
-
-    const { stripe_customer_id: customerId, default_payment_method_id: currentDefault } = profileResult.rows[0];
-
-    if (!customerId) {
-        return res.status(400).json({ msg: 'Usuario no tiene Customer en Stripe' });
-    }
-
-    try {
-        // 2. Obtener payment methods de Stripe
-        const paymentMethods = await stripe.paymentMethods.list({
-            customer: customerId,
-            type: 'card',
-        });
-
-        // 3. Obtener default payment method del customer en Stripe
-        const customer = await stripe.customers.retrieve(customerId);
-        const stripeDefaultPM = customer.invoice_settings?.default_payment_method;
-
-        // 4. Eliminar tarjetas locales que no existen en Stripe
-        await pool.query(
-            `DELETE FROM saved_cards 
-             WHERE user_id = $1 
-             AND stripe_payment_method_id NOT IN (${paymentMethods.data.map((_, i) => `$${i + 2}`).join(',')})`,
-            [userId, ...paymentMethods.data.map(pm => pm.id)]
-        );
-
-        // 5. Insertar o actualizar tarjetas
-        for (const pm of paymentMethods.data) {
-            const isDefault = stripeDefaultPM === pm.id;
-
-            await pool.query(
-                `INSERT INTO saved_cards 
-                (user_id, stripe_payment_method_id, brand, last4, exp_month, exp_year, is_default)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (user_id, stripe_payment_method_id) 
-                DO UPDATE SET 
-                    brand = EXCLUDED.brand,
-                    last4 = EXCLUDED.last4,
-                    exp_month = EXCLUDED.exp_month,
-                    exp_year = EXCLUDED.exp_year,
-                    is_default = EXCLUDED.is_default`,
-                [
-                    userId,
-                    pm.id,
-                    pm.card.brand,
-                    pm.card.last4,
-                    pm.card.exp_month,
-                    pm.card.exp_year,
-                    isDefault
-                ]
-            );
+        .container {
+            text-align: center;
+            padding: 2rem;
         }
-
-        // 6. Actualizar default en profiles si cambió en Stripe
-        if (stripeDefaultPM && stripeDefaultPM !== currentDefault) {
-            await pool.query(
-                'UPDATE profiles SET default_payment_method_id = $1 WHERE user_id = $2',
-                [stripeDefaultPM, userId]
-            );
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
         }
-
-        console.log(`✅ Sincronizadas ${paymentMethods.data.length} tarjetas para user ${userId}`);
-
-        res.json({
-            success: true,
-            msg: 'Tarjetas sincronizadas correctamente',
-            synced: paymentMethods.data.length,
-            defaultPaymentMethodId: stripeDefaultPM
-        });
-
-    } catch (error) {
-        console.error('❌ Error al sincronizar tarjetas:', error);
-        res.status(500).json({
-            msg: 'Error al sincronizar tarjetas',
-            error: error.message
-        });
-    }
-});
-
-/**
- * @desc    Eliminar un payment method de Stripe
- * @route   DELETE /api/payments/payment-methods/:paymentMethodId
- * @access  Privado (Comprador)
- */
-exports.deletePaymentMethod = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
-    const { paymentMethodId } = req.params;
-
-    if (!paymentMethodId) {
-        return res.status(400).json({ msg: 'paymentMethodId es requerido' });
-    }
-
-    // 1. Obtener customer
-    const profileResult = await pool.query(
-        'SELECT stripe_customer_id, default_payment_method_id FROM profiles WHERE user_id = $1',
-        [userId]
-    );
-
-    if (profileResult.rows.length === 0) {
-        return res.status(404).json({ msg: 'Perfil no encontrado' });
-    }
-
-    const { stripe_customer_id: customerId, default_payment_method_id: defaultPM } = profileResult.rows[0];
-
-    try {
-        // 2. Verificar que el payment method pertenece al customer
-        const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
-        
-        if (paymentMethod.customer !== customerId) {
-            return res.status(403).json({ 
-                msg: 'Este método de pago no pertenece a este usuario' 
-            });
+        h1 { margin: 0 0 0.5rem 0; }
+        p { opacity: 0.9; }
+        .btn {
+            display: inline-block;
+            background: white;
+            color: #10B981;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 1rem;
         }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">${status === 'success' ? '✅' : status === 'failure' ? '❌' : '⏳'}</div>
+        <h1>${status === 'success' ? '¡Pago Exitoso!' : status === 'failure' ? 'Pago Fallido' : 'Pago Pendiente'}</h1>
+        <p>${status === 'success' ? 'Tu compra se ha procesado correctamente.' : status === 'failure' ? 'Hubo un problema con tu pago.' : 'Tu pago está siendo procesado.'}</p>
+        <a class="btn" href="${deepLink}">Abrir Delicrunch</a>
+    </div>
+    <script>
+        // Intentar abrir la app automáticamente
+        setTimeout(function() {
+            window.location.href = "${deepLink}";
+        }, 1000);
+    </script>
+</body>
+</html>`;
 
-        // 3. Detach de Stripe
-        await stripe.paymentMethods.detach(paymentMethodId);
-
-        // 4. Eliminar de BD local
-        await pool.query(
-            'DELETE FROM saved_cards WHERE stripe_payment_method_id = $1 AND user_id = $2',
-            [paymentMethodId, userId]
-        );
-
-        // 5. Si era la tarjeta por defecto, limpiar en profiles
-        if (defaultPM === paymentMethodId) {
-            await pool.query(
-                'UPDATE profiles SET default_payment_method_id = NULL WHERE user_id = $1',
-                [userId]
-            );
-
-            // Establecer otra tarjeta como default si existe
-            const remainingCards = await pool.query(
-                'SELECT stripe_payment_method_id FROM saved_cards WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1',
-                [userId]
-            );
-
-            if (remainingCards.rows.length > 0) {
-                const newDefaultPM = remainingCards.rows[0].stripe_payment_method_id;
-                
-                await stripe.customers.update(customerId, {
-                    invoice_settings: {
-                        default_payment_method: newDefaultPM
-                    }
-                });
-
-                await pool.query(
-                    'UPDATE profiles SET default_payment_method_id = $1 WHERE user_id = $2',
-                    [newDefaultPM, userId]
-                );
-
-                await pool.query(
-                    'UPDATE saved_cards SET is_default = TRUE WHERE stripe_payment_method_id = $1 AND user_id = $2',
-                    [newDefaultPM, userId]
-                );
-            }
-        }
-
-        console.log(`✅ Payment method ${paymentMethodId} eliminado para user ${userId}`);
-
-        res.json({
-            success: true,
-            msg: 'Método de pago eliminado correctamente'
-        });
-
-    } catch (error) {
-        console.error('❌ Error al eliminar payment method:', error);
-        res.status(500).json({
-            msg: 'Error al eliminar método de pago',
-            error: error.message
-        });
-    }
+    res.send(html);
 });

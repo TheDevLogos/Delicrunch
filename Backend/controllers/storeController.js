@@ -10,7 +10,7 @@ exports.getStoresWithProducts = asyncHandler(async (req, res, next) => {
         SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud, s.descripcion,
                COUNT(p.id) as productos_disponibles
         FROM stores s
-        JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0
+        JOIN products p ON s.user_id = p.seller_id AND p.stock > 0
         WHERE s.latitud IS NOT NULL AND s.longitud IS NOT NULL
         GROUP BY s.id
         HAVING COUNT(p.id) > 0
@@ -29,7 +29,7 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
     const storeResult = await pool.query(`
         SELECT s.id, s.user_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
                s.descripcion, s.telefono, s.horario,
-               u.nombre AS owner_nombre, u.email AS owner_email
+               u.name AS owner_nombre, u.email AS owner_email
         FROM stores s
         LEFT JOIN users u ON s.user_id = u.id
         WHERE s.id = $1
@@ -41,22 +41,30 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
 
     const store = storeResult.rows[0];
 
-    // Productos activos de la tienda con métricas básicas
+    // Productos activos de la tienda con métricas básicas - con aliases en español
     const productsResult = await pool.query(`
-        SELECT p.id, p.nombre, p.descripcion, p.precio_original, p.precio_descuento,
-               p.imagen_url, p.cantidad_disponible, p.categoria
+        SELECT p.id, 
+               p.name AS nombre, 
+               p.description AS descripcion, 
+               p.price AS precio_descuento, 
+               p.compare_price AS precio_original,
+               p.image_url AS imagen_url, 
+               p.stock AS cantidad_disponible, 
+               p.category AS categoria
         FROM products p
-        WHERE p.store_id = $1 AND p.activo = TRUE
+        JOIN stores s ON s.id = $1 AND s.user_id = p.seller_id
+        WHERE p.is_active = true AND p.stock > 0
         ORDER BY p.created_at DESC
     `, [id]);
 
-    // Reseñas de la tienda (directamente por store_id)
+    // Reseñas de la tienda (vía productos)
     const reviewsResult = await pool.query(`
-        SELECT r.id, r.calificacion, r.comentario, r.created_at,
-               u.nombre AS user_nombre
+        SELECT r.id, r.rating AS calificacion, r.comment AS comentario, r.created_at AS fecha,
+               u.name AS nombre_usuario
         FROM reviews r
         JOIN users u ON r.user_id = u.id
-        WHERE r.store_id = $1
+        JOIN products p ON r.product_id = p.id
+        JOIN stores s ON s.id = $1 AND s.user_id = p.seller_id
         ORDER BY r.created_at DESC
         LIMIT 20
     `, [id]);

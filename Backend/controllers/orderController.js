@@ -28,7 +28,9 @@ const calculatePlatformFee = (total, feePercentage = 25) => {
 // @route   POST /api/orders
 // @access  Privado (comprador)
 exports.createOrder = asyncHandler(async (req, res, next) => {
-    if (!['comprador', 'admin'].includes(req.user.rol)) {
+    // Aceptar tanto inglés como español para compatibilidad
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    if (!['buyer', 'comprador', 'admin'].includes(userRole)) {
         return res.status(403).json({ msg: 'Solo los compradores pueden realizar pedidos.' });
     }
 
@@ -46,7 +48,7 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         // 1. Obtener producto con bloqueo para evitar race conditions
         const productResult = await client.query(
-            'SELECT p.*, s.comision_plataforma FROM products p JOIN stores s ON p.store_id = s.id WHERE p.id = $1 FOR UPDATE',
+            'SELECT p.*, u.name as seller_name FROM products p JOIN users u ON p.seller_id = u.id WHERE p.id = $1 FOR UPDATE',
             [productId]
         );
         
@@ -57,13 +59,13 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         const product = productResult.rows[0];
 
         // 2. Verificar stock
-        if (product.cantidad_disponible < cantidad) {
-            throw new Error(`Stock insuficiente. Solo hay ${product.cantidad_disponible} disponibles.`);
+        if (product.stock < cantidad) {
+            throw new Error(`Stock insuficiente. Solo hay ${product.stock} disponibles.`);
         }
 
         // 3. Calcular totales
-        const subtotal = parseFloat(product.precio_descuento) * cantidad;
-        const comisionPorcentaje = product.comision_plataforma || 25;
+        const subtotal = parseFloat(product.price) * cantidad;
+        const comisionPorcentaje = 25; // Comisión fija del 25%
         const comisionPlataforma = calculatePlatformFee(subtotal, comisionPorcentaje);
         const total = subtotal;
 
@@ -73,44 +75,38 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         while (!codigoUnico) {
             codigoRecogida = generatePickupCode();
             const existe = await client.query(
-                "SELECT id FROM orders WHERE codigo_recogida = $1 AND estado NOT IN ('recogido', 'cancelado', 'reembolsado')",
+                "SELECT id FROM orders WHERE order_number = $1 AND status NOT IN ('delivered', 'cancelled', 'refunded')",
                 [codigoRecogida]
             );
             if (existe.rows.length === 0) codigoUnico = true;
         }
 
-        // 5. Calcular fecha de recogida programada (hoy entre hora_inicio y hora_fin)
+        // 5. Fecha de recogida (hoy)
         const hoy = new Date();
         const fechaRecogida = new Date(hoy);
-        if (product.hora_recogida_inicio) {
-            const [h, m] = product.hora_recogida_inicio.split(':');
-            fechaRecogida.setHours(parseInt(h), parseInt(m), 0);
-        }
 
         // 6. Actualizar stock
         await client.query(
-            'UPDATE products SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2',
+            'UPDATE products SET stock = stock - $1 WHERE id = $2',
             [cantidad, productId]
         );
 
         // 7. Crear el pedido
         const orderResult = await client.query(
             `INSERT INTO orders (
-                user_id, store_id, codigo_recogida, subtotal, comision_plataforma, 
-                total, estado, metodo_pago, stripe_payment_intent_id, fecha_recogida_programada
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+                user_id, seller_id, order_number, subtotal, 
+                total, status, payment_method, mp_payment_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
             RETURNING *`,
             [
                 userId, 
-                product.store_id, 
+                product.seller_id, 
                 codigoRecogida, 
                 subtotal, 
-                comisionPlataforma, 
                 total, 
-                'confirmado', 
+                'confirmed', 
                 'stripe',
-                stripePaymentIntentId || null,
-                fechaRecogida
+                stripePaymentIntentId || null
             ]
         );
 
@@ -118,13 +114,13 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         // 8. Crear items del pedido
         await client.query(
-            `INSERT INTO order_items (order_id, product_id, cantidad, precio_unitario, subtotal)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [newOrder.id, productId, cantidad, product.precio_descuento, subtotal]
+            `INSERT INTO order_items (order_id, product_id, quantity, unit_price, product_name, subtotal)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [newOrder.id, productId, cantidad, product.price, product.name, subtotal]
         );
 
-        // 9. Actualizar estadísticas del comprador
-        const ahorro = (parseFloat(product.precio_original) - parseFloat(product.precio_descuento)) * cantidad;
+        // 9. Actualizar estadísticas del comprador (si existe tabla profiles)
+        const ahorro = (parseFloat(product.compare_price || product.price) - parseFloat(product.price)) * cantidad;
         
         // Calcular CO2 según categoría del producto
         const { calculateCO2Saved } = require('../utils/co2Factors');
@@ -143,10 +139,10 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         // 10. Obtener datos completos para la respuesta
         const orderComplete = await pool.query(
-            `SELECT o.*, s.nombre_comercio, s.direccion, s.telefono, s.latitud, s.longitud,
-                    p.nombre AS nombre_producto, p.imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin
+            `SELECT o.*, seller.name as seller_name, seller.street, seller.phone, seller.latitude, seller.longitude,
+                    p.name AS product_name, p.image_url
              FROM orders o
-             JOIN stores s ON o.store_id = s.id
+             JOIN users seller ON o.seller_id = seller.id
              JOIN order_items oi ON oi.order_id = o.id
              JOIN products p ON oi.product_id = p.id
              WHERE o.id = $1`,
@@ -179,15 +175,15 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 exports.getOrderById = asyncHandler(async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.id;
-    const userRole = req.user.rol;
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
 
     const orderResult = await pool.query(
         `SELECT o.*, 
-                s.nombre_comercio, s.direccion, s.telefono, s.latitud, s.longitud,
-                oi.product_id, oi.cantidad, oi.precio_unitario,
-                p.nombre AS nombre_producto, p.imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin
+                seller.name as seller_name, seller.street, seller.phone, seller.latitude, seller.longitude,
+                oi.product_id, oi.quantity, oi.unit_price,
+                p.name AS product_name, p.image_url
          FROM orders o
-         JOIN stores s ON o.store_id = s.id
+         JOIN users seller ON o.seller_id = seller.id
          LEFT JOIN order_items oi ON oi.order_id = o.id
          LEFT JOIN products p ON oi.product_id = p.id
          WHERE o.id = $1`,
@@ -201,7 +197,7 @@ exports.getOrderById = asyncHandler(async (req, res, next) => {
     const order = orderResult.rows[0];
 
     // Verificar que el usuario sea el dueño del pedido o admin
-    if (order.user_id !== userId && userRole !== 'admin') {
+    if (order.user_id !== userId && !['admin', 'administrador'].includes(userRole)) {
         return res.status(403).json({ msg: 'No tienes permiso para ver este pedido.' });
     }
 
@@ -211,32 +207,33 @@ exports.getOrderById = asyncHandler(async (req, res, next) => {
 // @desc    Obtener los pedidos del comprador logueado
 // @acceso  Privado (Comprador)
 exports.getMyOrders = asyncHandler(async (req, res, next) => {
-    // Permitir compradores y admins para pruebas
-    if (!['comprador', 'admin'].includes(req.user.rol)) {
+    // Permitir compradores y admins para pruebas - aceptar inglés y español
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    if (!['buyer', 'comprador', 'admin'].includes(userRole)) {
         return res.status(403).json({ msg: 'Acceso denegado.' });
     }
     const orders = await pool.query(
         `SELECT 
             o.id,
             o.user_id,
-            o.store_id,
-            o.fecha_pedido,
-            o.fecha_recogida,
-            -- Mapear estado 'recogido' a 'Entregado' para el frontend
-            CASE WHEN o.estado = 'recogido' THEN 'Entregado' ELSE o.estado END AS estado,
+            o.seller_id,
+            o.created_at as fecha_pedido,
+            o.created_at as fecha_recogida,
+            -- Mapear estado 'delivered' a 'Entregado' para el frontend
+            CASE WHEN o.status = 'delivered' THEN 'Entregado' ELSE o.status END AS estado,
             -- Alias del total para compatibilidad con frontend
             o.total AS precio_total,
-            s.nombre_comercio,
-            p.nombre AS nombre_producto,
+            seller.name as nombre_comercio,
+            p.name AS nombre_producto,
             oi.product_id AS producto_id,
             CASE WHEN r.id IS NOT NULL THEN true ELSE false END AS tiene_resena
         FROM orders o
-        JOIN stores s ON o.store_id = s.id
+        JOIN users seller ON o.seller_id = seller.id
         JOIN order_items oi ON oi.order_id = o.id
         JOIN products p ON oi.product_id = p.id
         LEFT JOIN reviews r ON o.id = r.order_id
         WHERE o.user_id = $1
-        ORDER BY o.fecha_pedido DESC`,
+        ORDER BY o.created_at DESC`,
         [req.user.id]
     );
     res.json(orders.rows);
@@ -246,7 +243,7 @@ exports.getMyOrders = asyncHandler(async (req, res, next) => {
 // @acceso  Privado (Comercio)
 exports.getStoreOrders = asyncHandler(async (req, res, next) => {
     // El middleware getStoreId se encargará de esto en las rutas.
-    const storeId = req.storeId;
+    const storeId = req.storeId || req.user.id; // Usar el ID del seller (usuario actual si es seller)
     
     console.log('🏪 getStoreOrders - storeId:', storeId, 'userId:', req.user.id, 'role:', req.user.rol);
     
@@ -254,19 +251,17 @@ exports.getStoreOrders = asyncHandler(async (req, res, next) => {
     const orders = await pool.query(
         `SELECT 
             o.*,
-            u.nombre AS nombre_comprador, 
+            u.name AS nombre_comprador, 
             u.email AS email_comprador,
-            oi.cantidad, 
-            oi.precio_unitario,
-            p.nombre AS nombre_producto, 
-            p.imagen_url,
-            p.hora_recogida_inicio,
-            p.hora_recogida_fin
+            oi.quantity as cantidad, 
+            oi.unit_price as precio_unitario,
+            p.name AS nombre_producto, 
+            p.image_url as imagen_url
          FROM orders o
          JOIN users u ON o.user_id = u.id
          JOIN order_items oi ON oi.order_id = o.id
          JOIN products p ON oi.product_id = p.id
-         WHERE o.store_id = $1
+         WHERE o.seller_id = $1
          ORDER BY o.created_at DESC`,
         [storeId]
     );
@@ -280,13 +275,14 @@ exports.getStoreOrders = asyncHandler(async (req, res, next) => {
 // @access  Privado (Comercio o Admin)
 exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { estado } = req.body;
+    const { status, estado } = req.body; // Aceptar ambos nombres
+    const finalStatus = status || estado;
     const userId = req.user.id;
-    const userRole = req.user.rol;
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
 
-    // Validar estado
-    const estadosPermitidos = ['pendiente', 'confirmado', 'en_preparacion', 'listo', 'recogido', 'cancelado'];
-    if (!estadosPermitidos.includes(estado)) {
+    // Validar estado - usar nombres en inglés del schema
+    const estadosPermitidos = ['pending', 'confirmed', 'preparing', 'ready', 'in_delivery', 'delivered', 'cancelled', 'refunded'];
+    if (!estadosPermitidos.includes(finalStatus)) {
         return res.status(400).json({ msg: 'Estado inválido.' });
     }
 
@@ -297,7 +293,7 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
 
         // Obtener la orden
         const orderResult = await client.query(
-            'SELECT o.*, s.user_id AS store_owner_id FROM orders o JOIN stores s ON o.store_id = s.id WHERE o.id = $1',
+            'SELECT o.*, o.seller_id FROM orders o WHERE o.id = $1',
             [id]
         );
 
@@ -308,31 +304,36 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
         const order = orderResult.rows[0];
 
         // Verificar permisos: solo el comercio dueño o admin pueden actualizar
-        if (userRole !== 'admin' && order.store_owner_id !== userId) {
+        if (!['admin', 'administrador'].includes(userRole) && order.seller_id !== userId) {
             return res.status(403).json({ msg: 'No tienes permisos para actualizar este pedido.' });
         }
 
-        // Si se marca como recogido, registrar fecha de recogida real
-        const fechaRecogidaReal = estado === 'recogido' ? new Date() : null;
+        // Si se marca como delivered, registrar fecha
+        const deliveredAt = finalStatus === 'delivered' ? new Date() : null;
+        const confirmedAt = finalStatus === 'confirmed' ? new Date() : null;
+        const readyAt = finalStatus === 'ready' ? new Date() : null;
 
         // Actualizar el estado
         const updateResult = await client.query(
             `UPDATE orders 
-             SET estado = $1, 
-                 fecha_recogida_real = COALESCE($2, fecha_recogida_real),
+             SET status = $1, 
+                 delivered_at = COALESCE($2, delivered_at),
+                 confirmed_at = COALESCE($3, confirmed_at),
+                 ready_at = COALESCE($4, ready_at),
                  updated_at = NOW()
-             WHERE id = $3
+             WHERE id = $5
              RETURNING *`,
-            [estado, fechaRecogidaReal, id]
+            [finalStatus, deliveredAt, confirmedAt, readyAt, id]
         );
 
-        // Si la orden se completa (recogido), actualizar métricas
-        if (estado === 'recogido' && order.estado !== 'recogido') {
-            // Actualizar métricas financieras del comercio
-            await updateFinancialMetrics(client, order.store_id, order.total, order.comision_plataforma);
-            
-            // Actualizar métricas globales del admin
-            await updateAdminMetrics(client, order.total, order.comision_plataforma);
+        // Si la orden se completa (delivered), actualizar métricas si existen funciones
+        if (finalStatus === 'delivered' && order.status !== 'delivered') {
+            // Actualizar sales_count del producto
+            await client.query(
+                `UPDATE products SET sales_count = sales_count + 1 
+                 WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1)`,
+                [id]
+            );
         }
 
         await client.query('COMMIT');
@@ -359,22 +360,23 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
 // @route   GET /api/orders/store-metrics
 // @access  Privado (Comercio)
 exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
-    const storeId = req.storeId;
+    // El middleware getStoreId asigna storeId, pero usamos seller_id (user_id del comercio)
+    const sellerId = req.user.id;
     const { days = 30 } = req.query;
 
-    // Métricas generales
+    // Métricas generales - usando campos correctos del schema
     const generalMetrics = await pool.query(
         `SELECT 
             COUNT(*) as total_ordenes,
-            COUNT(CASE WHEN estado = 'recogido' THEN 1 END) as ordenes_completadas,
-            COUNT(CASE WHEN estado = 'cancelado' THEN 1 END) as ordenes_canceladas,
-            COUNT(CASE WHEN estado IN ('confirmado', 'en_preparacion', 'listo') THEN 1 END) as ordenes_pendientes,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas_totales,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN comision_plataforma ELSE 0 END), 0) as comisiones_totales,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN (total - comision_plataforma) ELSE 0 END), 0) as ingresos_netos
+            COUNT(CASE WHEN status = 'delivered' THEN 1 END) as ordenes_completadas,
+            COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as ordenes_canceladas,
+            COUNT(CASE WHEN status IN ('confirmed', 'preparing', 'ready') THEN 1 END) as ordenes_pendientes,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN total ELSE 0 END), 0) as ventas_totales,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN ROUND(total * 0.25, 2) ELSE 0 END), 0) as comisiones_totales,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN ROUND(total * 0.75, 2) ELSE 0 END), 0) as ingresos_netos
          FROM orders 
-         WHERE store_id = $1 AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`,
-        [storeId]
+         WHERE seller_id = $1 AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`,
+        [sellerId]
     );
 
     // Métricas por día (últimos 30 días)
@@ -382,30 +384,30 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
         `SELECT 
             DATE(created_at) as fecha,
             COUNT(*) as ordenes,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN (total - comision_plataforma) ELSE 0 END), 0) as ingresos
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN total ELSE 0 END), 0) as ventas,
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN ROUND(total * 0.75, 2) ELSE 0 END), 0) as ingresos
          FROM orders 
-         WHERE store_id = $1 AND created_at >= NOW() - INTERVAL '30 days'
+         WHERE seller_id = $1 AND created_at >= NOW() - INTERVAL '30 days'
          GROUP BY DATE(created_at)
          ORDER BY fecha DESC`,
-        [storeId]
+        [sellerId]
     );
 
     // Productos más vendidos
     const topProducts = await pool.query(
         `SELECT 
-            p.id, p.nombre, 
+            p.id, p.name AS nombre, 
             COUNT(oi.id) as veces_vendido,
-            SUM(oi.cantidad) as unidades_vendidas,
+            SUM(oi.quantity) as unidades_vendidas,
             COALESCE(SUM(oi.subtotal), 0) as ingresos_totales
          FROM order_items oi
          JOIN orders o ON oi.order_id = o.id
          JOIN products p ON oi.product_id = p.id
-         WHERE o.store_id = $1 AND o.estado = 'recogido' AND o.created_at >= NOW() - INTERVAL '${parseInt(days)} days'
-         GROUP BY p.id, p.nombre
+         WHERE o.seller_id = $1 AND o.status = 'delivered' AND o.created_at >= NOW() - INTERVAL '${parseInt(days)} days'
+         GROUP BY p.id, p.name
          ORDER BY veces_vendido DESC
          LIMIT 5`,
-        [storeId]
+        [sellerId]
     );
 
     res.json({
@@ -419,24 +421,25 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
 // @route   GET /api/orders/store-analytics
 // @access  Privado (Comercio)
 exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
-    const storeId = req.storeId;
+    // Usar seller_id (user_id del comercio) en lugar de storeId
+    const sellerId = req.user.id;
     const { period = '30' } = req.query; // días
 
-    // 1. Resumen general
+    // 1. Resumen general - usando campos correctos del schema
     const summary = await pool.query(
         `SELECT 
             COUNT(DISTINCT o.id) as total_pedidos,
-            COUNT(DISTINCT CASE WHEN o.estado = 'recogido' THEN o.id END) as pedidos_completados,
-            COUNT(DISTINCT CASE WHEN o.estado = 'cancelado' THEN o.id END) as pedidos_cancelados,
-            COUNT(DISTINCT CASE WHEN o.estado IN ('pendiente', 'confirmado', 'listo') THEN o.id END) as pedidos_activos,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.total ELSE 0 END), 0) as ventas_totales,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.comision_plataforma ELSE 0 END), 0) as comisiones_totales,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN (o.total - o.comision_plataforma) ELSE 0 END), 0) as ingresos_netos,
-            COALESCE(AVG(CASE WHEN o.estado = 'recogido' THEN o.total END), 0) as ticket_promedio,
+            COUNT(DISTINCT CASE WHEN o.status = 'delivered' THEN o.id END) as pedidos_completados,
+            COUNT(DISTINCT CASE WHEN o.status = 'cancelled' THEN o.id END) as pedidos_cancelados,
+            COUNT(DISTINCT CASE WHEN o.status IN ('pending', 'confirmed', 'ready') THEN o.id END) as pedidos_activos,
+            COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN o.total ELSE 0 END), 0) as ventas_totales,
+            COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN ROUND(o.total * 0.25, 2) ELSE 0 END), 0) as comisiones_totales,
+            COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN ROUND(o.total * 0.75, 2) ELSE 0 END), 0) as ingresos_netos,
+            COALESCE(AVG(CASE WHEN o.status = 'delivered' THEN o.total END), 0) as ticket_promedio,
             COUNT(DISTINCT o.user_id) as clientes_unicos
          FROM orders o
-         WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'`,
-        [storeId]
+         WHERE o.seller_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'`,
+        [sellerId]
     );
 
     // 2. Tendencia diaria (últimos 30 días)
@@ -444,47 +447,47 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
         `SELECT 
             DATE(o.created_at) as fecha,
             COUNT(*) as pedidos,
-            COUNT(CASE WHEN o.estado = 'recogido' THEN 1 END) as completados,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.total ELSE 0 END), 0) as ventas,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN (o.total - o.comision_plataforma) ELSE 0 END), 0) as ingresos
+            COUNT(CASE WHEN o.status = 'delivered' THEN 1 END) as completados,
+            COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN o.total ELSE 0 END), 0) as ventas,
+            COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN ROUND(o.total * 0.75, 2) ELSE 0 END), 0) as ingresos
          FROM orders o
-         WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '30 days'
+         WHERE o.seller_id = $1 AND o.created_at >= NOW() - INTERVAL '30 days'
          GROUP BY DATE(o.created_at)
          ORDER BY fecha ASC`,
-        [storeId]
+        [sellerId]
     );
 
-    // 3. Top productos
+    // 3. Top productos - usando campos correctos del schema
     const topProducts = await pool.query(
         `SELECT 
             p.id, 
-            p.nombre,
-            p.imagen_url,
+            p.name AS nombre,
+            p.image_url AS imagen_url,
             COUNT(DISTINCT o.id) as pedidos,
-            SUM(oi.cantidad) as unidades,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN oi.precio_unitario * oi.cantidad ELSE 0 END), 0) as ingresos,
-            ROUND(AVG(p.calificacion_promedio), 2) as rating
+            SUM(oi.quantity) as unidades,
+            COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN oi.unit_price * oi.quantity ELSE 0 END), 0) as ingresos,
+            ROUND(AVG(p.rating), 2) as rating
          FROM products p
          LEFT JOIN order_items oi ON oi.product_id = p.id
          LEFT JOIN orders o ON oi.order_id = o.id AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'
-         WHERE p.store_id = $1
-         GROUP BY p.id, p.nombre, p.imagen_url
+         WHERE p.seller_id = $1
+         GROUP BY p.id, p.name, p.image_url
          ORDER BY pedidos DESC NULLS LAST, ingresos DESC
          LIMIT 10`,
-        [storeId]
+        [sellerId]
     );
 
     // 4. Distribución por estado
     const statusDistribution = await pool.query(
         `SELECT 
-            o.estado,
+            o.status AS estado,
             COUNT(*) as cantidad,
             ROUND(COUNT(*) * 100.0 / NULLIF(SUM(COUNT(*)) OVER(), 0), 1) as porcentaje
          FROM orders o
-         WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'
-         GROUP BY o.estado
+         WHERE o.seller_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'
+         GROUP BY o.status
          ORDER BY cantidad DESC`,
-        [storeId]
+        [sellerId]
     );
 
     // 5. Horarios de mayor demanda
@@ -492,12 +495,12 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
         `SELECT 
             EXTRACT(HOUR FROM o.created_at) as hora,
             COUNT(*) as pedidos,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.total ELSE 0 END), 0) as ventas
+            COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN o.total ELSE 0 END), 0) as ventas
          FROM orders o
-         WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'
+         WHERE o.seller_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'
          GROUP BY hora
          ORDER BY pedidos DESC`,
-        [storeId]
+        [sellerId]
     );
 
     // 6. Tasa de conversión (pedidos completados vs totales)
@@ -509,12 +512,12 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
     const previousPeriod = await pool.query(
         `SELECT 
             COUNT(*) as pedidos_anteriores,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas_anteriores
+            COALESCE(SUM(CASE WHEN status = 'delivered' THEN total ELSE 0 END), 0) as ventas_anteriores
          FROM orders
-         WHERE store_id = $1 
+         WHERE seller_id = $1 
            AND created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
            AND created_at < NOW() - INTERVAL '${parseInt(period)} days'`,
-        [storeId]
+        [sellerId]
     );
 
     const prevData = previousPeriod.rows[0];
