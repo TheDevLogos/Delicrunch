@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const storeController = require('../controllers/storeController');
 
+// @route   GET /api/stores
+// @desc    Obtener todas las tiendas (sin filtros)
+// @access  Público
+router.get('/', storeController.getAllStores);
+
 // @route   GET /api/stores/with-products
 // @desc    Obtener todas las tiendas con packs disponibles y ubicación
 // @access  Público

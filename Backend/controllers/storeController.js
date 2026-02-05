@@ -1,6 +1,30 @@
 const pool = require('../db');
 const asyncHandler = require('../middleware/asyncHandler');
 
+// @desc    Obtener todas las tiendas
+// @route   GET /api/stores
+// @access  Público
+exports.getAllStores = asyncHandler(async (req, res, next) => {
+    const result = await pool.query(`
+        SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud, 
+               s.descripcion, s.telefono, s.horario,
+               COUNT(DISTINCT p.id) as total_productos,
+               AVG(r.rating) as calificacion_promedio,
+               COUNT(DISTINCT r.id) as total_resenas
+        FROM stores s
+        LEFT JOIN products p ON s.user_id = p.seller_id AND p.stock > 0
+        LEFT JOIN reviews r ON r.product_id = p.id
+        GROUP BY s.id
+        ORDER BY s.nombre_comercio ASC
+    `);
+    
+    res.json({
+        success: true,
+        count: result.rows.length,
+        data: result.rows
+    });
+});
+
 // @desc    Obtener todas las tiendas con ubicación y packs disponibles
 // @route   GET /api/stores/with-products
 // @access  Público
