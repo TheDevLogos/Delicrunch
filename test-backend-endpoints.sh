@@ -61,8 +61,18 @@ test_endpoint "GET /api/stores" "${API_URL}/stores"
 # Test 5: Stores with products
 test_endpoint "GET /api/stores/with-products" "${API_URL}/stores/with-products"
 
-# Test 6: Specific Store
-test_endpoint "GET /api/stores/1" "${API_URL}/stores/1"
+# Test 6: Specific Store (obtener ID dinámicamente)
+echo -n "Obteniendo ID de primer store... "
+stores_response=$(curl -s "${API_URL}/stores")
+first_store_id=$(echo "$stores_response" | grep -o '"id":"[0-9]*"' | head -1 | grep -o '[0-9]*')
+
+if [ -n "$first_store_id" ]; then
+    echo -e "${GREEN}ID: $first_store_id${NC}"
+    test_endpoint "GET /api/stores/${first_store_id}" "${API_URL}/stores/${first_store_id}"
+else
+    echo -e "${RED}No se pudo obtener ID${NC}"
+    echo ""
+fi
 
 # Test 7: Products
 test_endpoint "GET /api/products" "${API_URL}/products"
