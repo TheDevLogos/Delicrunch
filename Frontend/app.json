@@ -61,8 +61,7 @@
         }
       ],
       "expo-font",
-      "expo-web-browser",
-      "react-native-reanimated/plugin"
+      "expo-web-browser"
     ],
     "extra": {
       "apiUrl": "https://delicrunch.onrender.com/api",
