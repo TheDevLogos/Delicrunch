@@ -1,0 +1,34 @@
+# EAS Build Ignore
+# No incluir en el build remoto
+
+# Node modules (serán reinstalados)
+node_modules/
+
+# Cache y builds locales
+.expo/
+.expo-shared/
+android/
+ios/
+.easbuild/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archivos temporales
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Scripts locales
+scripts/
+
+# Documentación
+*.md
+!README.md
+
+# Archivos de configuración local
+.env.local
+.env.*.local
