@@ -44,17 +44,17 @@ DELETE FROM users WHERE email IN (
 
 -- Insertar usuarios con passwords hasheados con bcrypt
 -- Todos usan password: "Password123"
--- Hash generado con: bcrypt.hashSync('Password123', 10)
+-- Hash generado con: bcrypt.hash('Password123', 10)
 INSERT INTO users (nombre, email, password_hash, rol) VALUES
 -- Comercios
-('Taquería las Delicias', 'comercio@delicrunch.com', '$2a$10$KIX0yZ4nh1xVfGJ.qZ8Kze5jKR5JnPxDZvQH5YvqwX4L8K6xZr3bW', 'comercio'),
-('Pizza Orsinis', 'pizza@delicrunch.com', '$2a$10$KIX0yZ4nh1xVfGJ.qZ8Kze5jKR5JnPxDZvQH5YvqwX4L8K6xZr3bW', 'comercio'),
-('Café Placeres', 'cafe@delicrunch.com', '$2a$10$KIX0yZ4nh1xVfGJ.qZ8Kze5jKR5JnPxDZvQH5YvqwX4L8K6xZr3bW', 'comercio'),
+('Taquería las Delicias', 'comercio@delicrunch.com', '$2b$10$ccQyqcfrQNynnFXRRkWBrORbK99J214Or3cvZY9bmCtN9S3Zq95LK', 'comercio'),
+('Pizza Orsinis', 'pizza@delicrunch.com', '$2b$10$ccQyqcfrQNynnFXRRkWBrORbK99J214Or3cvZY9bmCtN9S3Zq95LK', 'comercio'),
+('Café Placeres', 'cafe@delicrunch.com', '$2b$10$ccQyqcfrQNynnFXRRkWBrORbK99J214Or3cvZY9bmCtN9S3Zq95LK', 'comercio'),
 -- Compradores
-('Cliente de Prueba', 'cliente@delicrunch.com', '$2a$10$KIX0yZ4nh1xVfGJ.qZ8Kze5jKR5JnPxDZvQH5YvqwX4L8K6xZr3bW', 'comprador'),
-('María González', 'maria@test.com', '$2a$10$KIX0yZ4nh1xVfGJ.qZ8Kze5jKR5JnPxDZvQH5YvqwX4L8K6xZr3bW', 'comprador'),
+('Cliente de Prueba', 'cliente@delicrunch.com', '$2b$10$ccQyqcfrQNynnFXRRkWBrORbK99J214Or3cvZY9bmCtN9S3Zq95LK', 'comprador'),
+('María González', 'maria@test.com', '$2b$10$ccQyqcfrQNynnFXRRkWBrORbK99J214Or3cvZY9bmCtN9S3Zq95LK', 'comprador'),
 -- Admin
-('Admin Delicrunch', 'admin@delicrunch.com', '$2a$10$KIX0yZ4nh1xVfGJ.qZ8Kze5jKR5JnPxDZvQH5YvqwX4L8K6xZr3bW', 'admin')
+('Admin Delicrunch', 'admin@delicrunch.com', '$2b$10$ccQyqcfrQNynnFXRRkWBrORbK99J214Or3cvZY9bmCtN9S3Zq95LK', 'admin')
 ON CONFLICT (email) DO UPDATE SET
     password_hash = EXCLUDED.password_hash,
     nombre = EXCLUDED.nombre,

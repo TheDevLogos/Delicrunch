@@ -9,11 +9,11 @@ exports.getAllStores = asyncHandler(async (req, res, next) => {
         SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud, 
                s.descripcion, s.telefono, s.horario,
                COUNT(DISTINCT p.id) as total_productos,
-               AVG(r.rating) as calificacion_promedio,
+               AVG(r.calificacion) as calificacion_promedio,
                COUNT(DISTINCT r.id) as total_resenas
         FROM stores s
         LEFT JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0
-        LEFT JOIN reviews r ON r.product_id = p.id
+        LEFT JOIN reviews r ON r.store_id = s.id
         GROUP BY s.id
         ORDER BY s.nombre_comercio ASC
     `);
