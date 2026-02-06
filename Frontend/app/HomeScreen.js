@@ -349,7 +349,7 @@ const navigation = useNavigation();
 
       <FlatList
         data={filteredProducts}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => `home-${item.id}-${index}`}
         renderItem={({ item }) => (
           <ProductCard
             product={item}

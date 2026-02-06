@@ -1,649 +1,431 @@
-/**
- * 🔔 DELICRUNCH - Servicio de Notificaciones Push
- * 
- * Sistema de notificaciones nativas para Android que funcionan
- * aunque la app esté cerrada. Incluye 30 mensajes creativos
- * y enganchantes para atraer usuarios.
- */
-
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ============================================================================
-// CONFIGURACIÓN DE NOTIFICACIONES
-// ============================================================================
-
-// Configurar cómo se muestran las notificaciones cuando la app está en primer plano
+// Configuración global de notificaciones
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
-    priority: Notifications.AndroidNotificationPriority.HIGH,
   }),
 });
 
-// ============================================================================
-// 30 NOTIFICACIONES CREATIVAS PARA DELICRUNCH
-// ============================================================================
-
-export const CREATIVE_NOTIFICATIONS = [
-  // 🍕 ANTOJO Y HAMBRE
+// Mensajes creativos para notificaciones (30 diferentes)
+const CREATIVE_NOTIFICATIONS = [
+  // Categoría: Antojo
   {
-    id: 1,
-    title: "🍕 ¿Cómo está tu antojo hoy?",
-    body: "Hay packs deliciosos esperándote. ¡Rescátalos antes de que se acaben!",
-    category: "antojo"
+    category: 'antojo',
+    title: '🍕 ¡Tu pizza favorita te extraña!',
+    body: 'Han pasado 3 días sin ordenar. ¿Qué tal una pizza deliciosa hoy?',
+    data: { type: 'craving', category: 'pizza' }
   },
   {
-    id: 2,
-    title: "🤔 ¿Ya decidiste qué cenar?",
-    body: "Nosotros sí: comida increíble a precios de rescate. ¡Échale un ojo!",
-    category: "antojo"
+    category: 'antojo',
+    title: '🍔 ¿Hambre de hamburguesa?',
+    body: 'Las mejores hamburguesas de la ciudad están a un tap de distancia',
+    data: { type: 'craving', category: 'burger' }
   },
   {
-    id: 3,
-    title: "😋 Tu estómago te está llamando...",
-    body: "Y nosotros tenemos la respuesta. ¡Packs sorpresa con hasta 70% OFF!",
-    category: "antojo"
+    category: 'antojo',
+    title: '🍣 Sushi fresh hoy',
+    body: 'Tu restaurante de sushi tiene nuevos rolls especiales',
+    data: { type: 'craving', category: 'sushi' }
   },
   {
-    id: 4,
-    title: "🌮 ¿Hambre a esta hora?",
-    body: "No te preocupes, tenemos comida lista esperándote. ¡Abre la app!",
-    category: "antojo"
+    category: 'antojo',
+    title: '🌮 Martes de tacos',
+    body: '¡Los mejores tacos al pastor te esperan!',
+    data: { type: 'craving', category: 'tacos' }
   },
   {
-    id: 5,
-    title: "🍔 Houston, tenemos un problema...",
-    body: "Tu refri está vacío. Solución: rescata un pack delicioso ahora.",
-    category: "antojo"
+    category: 'antojo',
+    title: '🍰 ¿Antojo de postre?',
+    body: 'Nuevos pasteles y postres disponibles cerca de ti',
+    data: { type: 'craving', category: 'dessert' }
   },
 
-  // 💰 OFERTAS Y AHORRO
+  // Categoría: Ahorro
   {
-    id: 6,
-    title: "💸 ¿Te gusta ahorrar dinero?",
-    body: "Obvio que sí. Tenemos packs con descuentos de hasta 70%. ¡No te los pierdas!",
-    category: "ahorro"
+    category: 'ahorro',
+    title: '💰 ¡Flash Deal activo!',
+    body: '50% OFF en restaurantes seleccionados por las próximas 2 horas',
+    data: { type: 'deal', discount: 50 }
   },
   {
-    id: 7,
-    title: "🎰 ¡Jackpot de comida!",
-    body: "Encontramos ofertas increíbles cerca de ti. Tu billetera te lo agradecerá.",
-    category: "ahorro"
+    category: 'ahorro',
+    title: '🎉 Cupón especial para ti',
+    body: '$100 de descuento en tu próxima orden de $500 o más',
+    data: { type: 'coupon', amount: 100 }
   },
   {
-    id: 8,
-    title: "💰 Alerta de súper oferta",
-    body: "Hay comercios con packs a precio de ganga. ¡Corre antes de que vuelen!",
-    category: "ahorro"
+    category: 'ahorro',
+    title: '⚡ Ofertas relámpago',
+    body: 'Descuentos especiales terminan en 1 hora',
+    data: { type: 'flash', urgent: true }
   },
   {
-    id: 9,
-    title: "🤑 ¿Quieres comer rico sin gastar mucho?",
-    body: "Misión posible. Rescata comida deliciosa a precios de locura.",
-    category: "ahorro"
+    category: 'ahorro',
+    title: '🏆 Recompensa desbloqueada',
+    body: 'Has ganado 200 puntos. ¡Canjéalos por descuentos!',
+    data: { type: 'rewards', points: 200 }
   },
   {
-    id: 10,
-    title: "💵 Tu dinero rinde más aquí",
-    body: "Compra inteligente: misma calidad, mitad de precio. ¡Abre Delicrunch!",
-    category: "ahorro"
-  },
-
-  // 🌍 IMPACTO AMBIENTAL
-  {
-    id: 11,
-    title: "🌍 El planeta necesita héroes",
-    body: "Cada pack que rescatas evita desperdicio. ¡Sé un héroe hoy!",
-    category: "eco"
-  },
-  {
-    id: 12,
-    title: "🦸 Tu superpoder: rescatar comida",
-    body: "Con cada compra salvas alimentos y cuidas el planeta. ¡Activa tu poder!",
-    category: "eco"
-  },
-  {
-    id: 13,
-    title: "♻️ ¿Sabías que...?",
-    body: "1/3 de la comida se desperdicia. Tú puedes cambiar eso. ¡Rescata un pack!",
-    category: "eco"
-  },
-  {
-    id: 14,
-    title: "🌱 Comer rico y cuidar el planeta",
-    body: "Dos pájaros de un tiro. Rescata comida y reduce el desperdicio.",
-    category: "eco"
-  },
-  {
-    id: 15,
-    title: "🌿 Hazlo por el planeta",
-    body: "Cada pack rescatado = menos CO2. ¡Tu pequeña acción, gran impacto!",
-    category: "eco"
+    category: 'ahorro',
+    title: '💳 Cashback disponible',
+    body: '10% de cashback en todos los restaurantes hoy',
+    data: { type: 'cashback', percentage: 10 }
   },
 
-  // ⏰ URGENCIA Y ESCASEZ
+  // Categoría: Eco-Friendly
   {
-    id: 16,
-    title: "⏰ ¡Últimas horas!",
-    body: "Los packs de hoy se están agotando. ¡No te quedes sin el tuyo!",
-    category: "urgencia"
+    category: 'eco',
+    title: '🌱 Comida sostenible',
+    body: 'Descubre restaurantes eco-friendly cerca de ti',
+    data: { type: 'eco', category: 'sustainable' }
   },
   {
-    id: 17,
-    title: "🔥 Esto se pone caliente",
-    body: "Los packs más populares están volando. ¡Apúrate!",
-    category: "urgencia"
+    category: 'eco',
+    title: '♻️ ¡Evita desperdiciar!',
+    body: 'Rescata comida deliciosa con 40% descuento antes de que cierre',
+    data: { type: 'eco', category: 'rescue' }
   },
   {
-    id: 18,
-    title: "⚡ ¡Corre, corre!",
-    body: "Quedan pocos packs disponibles cerca de ti. ¡No dejes pasar la oportunidad!",
-    category: "urgencia"
+    category: 'eco',
+    title: '🌍 Compra verde, come bien',
+    body: 'Cada pedido eco-friendly ayuda al planeta',
+    data: { type: 'eco', impact: 'positive' }
   },
   {
-    id: 19,
-    title: "🏃 Los rápidos ganan",
-    body: "Las mejores ofertas duran poco. ¿Vas a quedarte fuera?",
-    category: "urgencia"
+    category: 'eco',
+    title: '🌿 Has salvado 5kg de CO2',
+    body: '¡Tu impacto ambiental es increíble! Sigue así',
+    data: { type: 'eco', achievement: 'co2_saved' }
   },
   {
-    id: 20,
-    title: "📢 Aviso importante",
-    body: "Tus comercios favoritos tienen nuevos packs. ¡Ve antes de que se acaben!",
-    category: "urgencia"
-  },
-
-  // 🎉 DIVERSIÓN Y CURIOSIDAD
-  {
-    id: 21,
-    title: "🎲 ¿Te atreves a probar algo nuevo?",
-    body: "Los packs sorpresa son una aventura culinaria. ¡Anímate!",
-    category: "diversion"
-  },
-  {
-    id: 22,
-    title: "🎁 Tenemos una sorpresa para ti",
-    body: "Abre la app y descubre qué delicia te espera hoy.",
-    category: "diversion"
-  },
-  {
-    id: 23,
-    title: "🎯 Misión del día",
-    body: "Rescatar al menos un pack delicioso. ¿Aceptas el reto?",
-    category: "diversion"
-  },
-  {
-    id: 24,
-    title: "🌟 Tú eres especial",
-    body: "Por eso te avisamos primero: hay nuevos packs disponibles. ¡Mira!",
-    category: "diversion"
-  },
-  {
-    id: 25,
-    title: "🎪 El circo de los sabores",
-    body: "Función única: packs deliciosos a precios mágicos. ¡Entrada gratis!",
-    category: "diversion"
+    category: 'eco',
+    title: '🥗 Menú del día sostenible',
+    body: 'Opciones vegetarianas y veganas con descuento especial',
+    data: { type: 'eco', category: 'veggie' }
   },
 
-  // 🍰 ESPECÍFICOS DE COMIDA
+  // Categoría: Urgencia
   {
-    id: 26,
-    title: "🍰 ¿Un postre para endulzar el día?",
-    body: "Pastelerías cerca de ti tienen packs irresistibles. ¡Antójate!",
-    category: "comida"
+    category: 'urgencia',
+    title: '⏰ ¡Última oportunidad!',
+    body: 'El cupón de $150 expira en 30 minutos',
+    data: { type: 'urgent', reason: 'expiring_coupon' }
   },
   {
-    id: 27,
-    title: "☕ ¿Café y algo rico?",
-    body: "Combos perfectos para tu tarde. Rescátalos antes de cerrar.",
-    category: "comida"
+    category: 'urgencia',
+    title: '🔥 Stock limitado',
+    body: 'Solo quedan 3 porciones de tu platillo favorito',
+    data: { type: 'urgent', reason: 'low_stock' }
   },
   {
-    id: 28,
-    title: "🥪 Hora del snack",
-    body: "Tu cuerpo pide combustible. Tenemos opciones deliciosas cerca.",
-    category: "comida"
+    category: 'urgencia',
+    title: '⚡ Cierra en 1 hora',
+    body: 'Tu restaurante favorito está por cerrar. ¡Ordena ahora!',
+    data: { type: 'urgent', reason: 'closing_soon' }
   },
   {
-    id: 29,
-    title: "🍞 Pan recién hecho, precio de ayer",
-    body: "Panaderías con productos del día a precios increíbles. ¡Huele delicioso!",
-    category: "comida"
+    category: 'urgencia',
+    title: '🎯 Mesa reservada',
+    body: 'Tu mesa se liberará en 15 minutos. ¿Confirmas asistencia?',
+    data: { type: 'urgent', reason: 'reservation' }
   },
   {
-    id: 30,
-    title: "🥗 ¿Comida saludable a buen precio?",
-    body: "Sí existe. Rescata ensaladas, bowls y más. ¡Tu cuerpo te lo agradecerá!",
-    category: "comida"
+    category: 'urgencia',
+    title: '📦 Pedido listo',
+    body: 'Tu orden está lista para recoger. Mantiene su calor por 20 min',
+    data: { type: 'urgent', reason: 'pickup_ready' }
+  },
+
+  // Categoría: Diversión
+  {
+    category: 'diversion',
+    title: '🎲 Ruleta de la suerte',
+    body: '¡Gira la ruleta y gana descuentos de hasta 70%!',
+    data: { type: 'fun', game: 'roulette' }
+  },
+  {
+    category: 'diversion',
+    title: '🎊 ¡Sorpresa del día!',
+    body: 'Toca para descubrir tu regalo misterioso',
+    data: { type: 'fun', surprise: true }
+  },
+  {
+    category: 'diversion',
+    title: '🏅 Nuevo logro desbloqueado',
+    body: 'Has completado 10 pedidos. ¡Eres un foodie experto!',
+    data: { type: 'fun', achievement: 'foodie_expert' }
+  },
+  {
+    category: 'diversion',
+    title: '🎮 Desafío del día',
+    body: 'Prueba 3 restaurantes nuevos y gana puntos dobles',
+    data: { type: 'fun', challenge: 'explorer' }
+  },
+  {
+    category: 'diversion',
+    title: '🌟 ¡Nivel subido!',
+    body: 'Ahora eres nivel Platinum. Disfruta beneficios exclusivos',
+    data: { type: 'fun', level_up: 'platinum' }
+  },
+
+  // Categoría: Comida por hora del día
+  {
+    category: 'comida',
+    title: '☕ Buenos días',
+    body: 'Empieza el día con un desayuno delicioso',
+    data: { type: 'meal_time', meal: 'breakfast' }
+  },
+  {
+    category: 'comida',
+    title: '🌅 Hora del almuerzo',
+    body: 'Menús ejecutivos con entrega rápida disponibles',
+    data: { type: 'meal_time', meal: 'lunch' }
+  },
+  {
+    category: 'comida',
+    title: '🌙 ¿Qué hay de cenar?',
+    body: 'Cena especial con descuento después de las 8pm',
+    data: { type: 'meal_time', meal: 'dinner' }
+  },
+  {
+    category: 'comida',
+    title: '🍿 Snack de media tarde',
+    body: 'Antojitos y botanas perfectos para este momento',
+    data: { type: 'meal_time', meal: 'snack' }
+  },
+  {
+    category: 'comida',
+    title: '🌮 Viernes de antojo',
+    body: 'Fin de semana empieza con tu comida favorita',
+    data: { type: 'meal_time', meal: 'weekend' }
   }
 ];
 
-// ============================================================================
-// CONSTANTES
-// ============================================================================
-
-const STORAGE_KEYS = {
-  PUSH_TOKEN: '@delicrunch_push_token',
-  NOTIFICATION_PREFERENCES: '@delicrunch_notification_prefs',
-  LAST_NOTIFICATION_TIME: '@delicrunch_last_notif_time',
-  NOTIFICATION_HISTORY: '@delicrunch_notif_history',
-};
-
-const NOTIFICATION_CHANNELS = {
-  DEFAULT: 'delicrunch-default',
-  OFFERS: 'delicrunch-offers',
-  REMINDERS: 'delicrunch-reminders',
-};
-
-// ============================================================================
-// FUNCIONES PRINCIPALES
-// ============================================================================
-
-/**
- * Registra el dispositivo para notificaciones push
- * @returns {Promise<string|null>} Token de push o null si falla
- */
+// Registrar el dispositivo para notificaciones push
 export async function registerForPushNotifications() {
-  let token = null;
-
-  // Verificar si es un dispositivo físico
-  if (!Device.isDevice) {
-    console.log('⚠️ Las notificaciones push requieren un dispositivo físico');
-    return null;
-  }
-
-  // Verificar/solicitar permisos
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== 'granted') {
-    console.log('❌ Permisos de notificación denegados');
-    return null;
-  }
-
-  // Configurar canal de notificación para Android
-  if (Platform.OS === 'android') {
-    await setupAndroidNotificationChannels();
-  }
-
   try {
-    // Obtener el token de Expo Push
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: '266fa507-5eba-4cf8-b44f-0aa42d08a694', // Tu projectId de EAS
-    });
-    token = tokenData.data;
-    
-    // Guardar token localmente
-    await AsyncStorage.setItem(STORAGE_KEYS.PUSH_TOKEN, token);
-    console.log('✅ Push Token registrado:', token);
-  } catch (error) {
-    console.error('❌ Error obteniendo push token:', error);
-  }
+    let token;
 
-  return token;
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('⚠️ Permisos de notificación no concedidos');
+        return null;
+      }
+
+      token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log('✅ Push Token:', token);
+    } else {
+      console.log('⚠️ No es un dispositivo físico - notificaciones push no disponibles');
+      return null;
+    }
+
+    // Configuración para Android
+    if (Platform.OS === 'android') {
+      await setupAndroidNotificationChannels();
+    }
+
+    return token;
+  } catch (error) {
+    console.log('⚠️ Error al registrar notificaciones push:', error.message);
+    // No romper la app si falla el registro de notificaciones
+    return null;
+  }
 }
 
-/**
- * Configura los canales de notificación para Android
- */
+// Configurar canales de notificación para Android
 async function setupAndroidNotificationChannels() {
-  // Canal principal
-  await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.DEFAULT, {
-    name: 'Delicrunch',
-    importance: Notifications.AndroidImportance.HIGH,
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'Notificaciones Generales',
+    importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#FF6B35',
-    sound: 'default',
-    enableVibrate: true,
-    showBadge: true,
   });
 
-  // Canal de ofertas
-  await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.OFFERS, {
+  await Notifications.setNotificationChannelAsync('deals', {
     name: 'Ofertas y Descuentos',
-    description: 'Notificaciones sobre ofertas especiales y descuentos',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#4CAF50',
+    lightColor: '#FFD700',
     sound: 'default',
-    enableVibrate: true,
-    showBadge: true,
   });
 
-  // Canal de recordatorios
-  await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNELS.REMINDERS, {
-    name: 'Recordatorios',
-    description: 'Recordatorios para rescatar packs',
+  await Notifications.setNotificationChannelAsync('orders', {
+    name: 'Estado de Pedidos',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250],
+    lightColor: '#4CAF50',
+  });
+
+  await Notifications.setNotificationChannelAsync('eco', {
+    name: 'Eco-Friendly',
     importance: Notifications.AndroidImportance.DEFAULT,
     vibrationPattern: [0, 250],
-    lightColor: '#2196F3',
-    sound: 'default',
-    enableVibrate: true,
-    showBadge: false,
+    lightColor: '#8BC34A',
   });
-
-  console.log('✅ Canales de Android configurados');
 }
 
-/**
- * Obtiene una notificación aleatoria del pool de 30 mensajes
- * @returns {Object} Notificación aleatoria
- */
+// Programar notificaciones diarias
+export async function scheduleDailyNotifications() {
+  // Cancelar notificaciones previas
+  await Notifications.cancelAllScheduledNotificationsAsync();
+
+  // Programar notificación de desayuno (8:00 AM)
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '☕ Buenos días',
+      body: 'Empieza el día con un desayuno delicioso',
+      data: { type: 'morning' },
+      sound: 'default',
+    },
+    trigger: {
+      hour: 8,
+      minute: 0,
+      repeats: true,
+    },
+  });
+
+  // Programar notificación de almuerzo (1:00 PM)
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🌅 Hora del almuerzo',
+      body: 'Menús ejecutivos con entrega rápida disponibles',
+      data: { type: 'lunch' },
+      sound: 'default',
+    },
+    trigger: {
+      hour: 13,
+      minute: 0,
+      repeats: true,
+    },
+  });
+
+  // Programar notificación de cena (7:00 PM)
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: '🌙 ¿Qué hay de cenar?',
+      body: 'Cena especial con descuento después de las 8pm',
+      data: { type: 'dinner' },
+      sound: 'default',
+    },
+    trigger: {
+      hour: 19,
+      minute: 0,
+      repeats: true,
+    },
+  });
+
+  console.log('Notificaciones diarias programadas');
+}
+
+// Enviar notificación inmediata
+export async function sendImmediateNotification(title, body, data = {}) {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data,
+      sound: 'default',
+    },
+    trigger: null, // null = inmediata
+  });
+}
+
+// Obtener notificación aleatoria creativa
 export function getRandomNotification() {
   const randomIndex = Math.floor(Math.random() * CREATIVE_NOTIFICATIONS.length);
   return CREATIVE_NOTIFICATIONS[randomIndex];
 }
 
-/**
- * Obtiene una notificación por categoría
- * @param {string} category - Categoría: antojo, ahorro, eco, urgencia, diversion, comida
- * @returns {Object} Notificación de la categoría
- */
-export function getNotificationByCategory(category) {
-  const filtered = CREATIVE_NOTIFICATIONS.filter(n => n.category === category);
-  if (filtered.length === 0) return getRandomNotification();
-  const randomIndex = Math.floor(Math.random() * filtered.length);
-  return filtered[randomIndex];
+// Obtener notificaciones por categoría
+export function getNotificationsByCategory(category) {
+  return CREATIVE_NOTIFICATIONS.filter(notif => notif.category === category);
 }
 
-/**
- * Programa una notificación local
- * @param {Object} options - Opciones de la notificación
- * @returns {Promise<string>} ID de la notificación programada
- */
-export async function scheduleLocalNotification(options = {}) {
-  const {
-    title,
-    body,
-    data = {},
-    trigger = null, // null = inmediata
-    channelId = NOTIFICATION_CHANNELS.DEFAULT,
-  } = options;
-
-  const notificationContent = {
-    title,
-    body,
-    data: {
-      ...data,
-      timestamp: new Date().toISOString(),
-    },
-    sound: 'default',
-    priority: 'high',
-  };
-
-  // Agregar channelId para Android
-  if (Platform.OS === 'android') {
-    notificationContent.channelId = channelId;
-  }
-
-  const identifier = await Notifications.scheduleNotificationAsync({
-    content: notificationContent,
-    trigger,
-  });
-
-  console.log('📬 Notificación programada:', identifier);
-  return identifier;
-}
-
-/**
- * Programa una notificación aleatoria
- * @param {Object} trigger - Cuándo mostrar la notificación
- * @returns {Promise<string>} ID de la notificación
- */
-export async function scheduleRandomNotification(trigger = null) {
-  const notification = getRandomNotification();
+// Programar notificación creativa aleatoria
+export async function scheduleRandomCreativeNotification(delayInSeconds = 60) {
+  const randomNotif = getRandomNotification();
   
-  return scheduleLocalNotification({
-    title: notification.title,
-    body: notification.body,
-    data: {
-      notificationId: notification.id,
-      category: notification.category,
-      type: 'random_engagement',
-    },
-    trigger,
-    channelId: NOTIFICATION_CHANNELS.OFFERS,
-  });
-}
-
-/**
- * Programa notificaciones diarias aleatorias
- * Programa 3 notificaciones al día en horarios óptimos
- */
-export async function scheduleDailyNotifications() {
-  // Cancelar notificaciones anteriores
-  await cancelAllScheduledNotifications();
-
-  const notificationTimes = [
-    { hour: 11, minute: 30 }, // Antes del almuerzo
-    { hour: 17, minute: 0 },  // Hora del snack
-    { hour: 19, minute: 30 }, // Antes de la cena
-  ];
-
-  const scheduledIds = [];
-
-  for (const time of notificationTimes) {
-    const notification = getRandomNotification();
-    
-    const trigger = {
-      hour: time.hour,
-      minute: time.minute,
-      repeats: true,
-    };
-
-    const id = await scheduleLocalNotification({
-      title: notification.title,
-      body: notification.body,
-      data: {
-        notificationId: notification.id,
-        category: notification.category,
-        type: 'daily_engagement',
-        scheduledTime: `${time.hour}:${time.minute}`,
-      },
-      trigger,
-      channelId: NOTIFICATION_CHANNELS.OFFERS,
-    });
-
-    scheduledIds.push(id);
-  }
-
-  console.log('📅 Notificaciones diarias programadas:', scheduledIds);
-  
-  // Guardar preferencia
-  await AsyncStorage.setItem(
-    STORAGE_KEYS.NOTIFICATION_PREFERENCES, 
-    JSON.stringify({ dailyEnabled: true, scheduledIds })
-  );
-
-  return scheduledIds;
-}
-
-/**
- * Programa una notificación para recordar al usuario
- * @param {number} delayMinutes - Minutos hasta mostrar la notificación
- */
-export async function scheduleReminderNotification(delayMinutes = 30) {
-  const notification = getNotificationByCategory('urgencia');
-  
-  return scheduleLocalNotification({
-    title: notification.title,
-    body: notification.body,
-    data: {
-      notificationId: notification.id,
-      category: notification.category,
-      type: 'reminder',
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: randomNotif.title,
+      body: randomNotif.body,
+      data: randomNotif.data,
+      sound: 'default',
     },
     trigger: {
-      seconds: delayMinutes * 60,
+      seconds: delayInSeconds,
     },
-    channelId: NOTIFICATION_CHANNELS.REMINDERS,
   });
+
+  return randomNotif;
 }
 
-/**
- * Envía una notificación inmediata
- * @param {string} title - Título
- * @param {string} body - Cuerpo del mensaje
- * @param {Object} data - Datos adicionales
- */
-export async function sendImmediateNotification(title, body, data = {}) {
-  return scheduleLocalNotification({
-    title,
-    body,
-    data,
-    trigger: null, // Inmediata
-  });
+// Obtener todas las notificaciones programadas
+export async function getAllScheduledNotifications() {
+  return await Notifications.getAllScheduledNotificationsAsync();
 }
 
-/**
- * Cancela todas las notificaciones programadas
- */
-export async function cancelAllScheduledNotifications() {
+// Cancelar todas las notificaciones
+export async function cancelAllNotifications() {
   await Notifications.cancelAllScheduledNotificationsAsync();
-  console.log('🗑️ Todas las notificaciones programadas canceladas');
 }
 
-/**
- * Cancela una notificación específica
- * @param {string} identifier - ID de la notificación
- */
-export async function cancelNotification(identifier) {
-  await Notifications.cancelScheduledNotificationAsync(identifier);
-  console.log('🗑️ Notificación cancelada:', identifier);
+// Guardar preferencias de notificaciones
+export async function saveNotificationPreferences(preferences) {
+  try {
+    await AsyncStorage.setItem('notification_preferences', JSON.stringify(preferences));
+  } catch (error) {
+    console.error('Error guardando preferencias:', error);
+  }
 }
 
-/**
- * Obtiene todas las notificaciones programadas
- * @returns {Promise<Array>} Lista de notificaciones programadas
- */
-export async function getScheduledNotifications() {
-  const notifications = await Notifications.getAllScheduledNotificationsAsync();
-  return notifications;
+// Obtener preferencias de notificaciones
+export async function getNotificationPreferences() {
+  try {
+    const preferences = await AsyncStorage.getItem('notification_preferences');
+    return preferences ? JSON.parse(preferences) : null;
+  } catch (error) {
+    console.error('Error obteniendo preferencias:', error);
+    return null;
+  }
 }
 
-/**
- * Verifica si las notificaciones están habilitadas
- * @returns {Promise<boolean>}
- */
-export async function areNotificationsEnabled() {
-  const { status } = await Notifications.getPermissionsAsync();
-  return status === 'granted';
+// Manejar notificación recibida cuando la app está en primer plano
+export function addNotificationReceivedListener(callback) {
+  return Notifications.addNotificationReceivedListener(callback);
 }
 
-/**
- * Obtiene el token de push almacenado
- * @returns {Promise<string|null>}
- */
-export async function getStoredPushToken() {
-  return AsyncStorage.getItem(STORAGE_KEYS.PUSH_TOKEN);
+// Manejar interacción del usuario con la notificación
+export function addNotificationResponseReceivedListener(callback) {
+  return Notifications.addNotificationResponseReceivedListener(callback);
 }
-
-/**
- * Limpia el badge de la app (iOS/Android)
- */
-export async function clearBadge() {
-  await Notifications.setBadgeCountAsync(0);
-}
-
-/**
- * Establece el número del badge
- * @param {number} count - Número a mostrar
- */
-export async function setBadgeCount(count) {
-  await Notifications.setBadgeCountAsync(count);
-}
-
-// ============================================================================
-// LISTENERS Y HANDLERS
-// ============================================================================
-
-/**
- * Configura los listeners para notificaciones
- * @param {Object} handlers - Handlers para diferentes eventos
- */
-export function setupNotificationListeners(handlers = {}) {
-  const {
-    onNotificationReceived,
-    onNotificationResponse,
-  } = handlers;
-
-  // Listener para notificaciones recibidas mientras la app está en primer plano
-  const receivedSubscription = Notifications.addNotificationReceivedListener(
-    notification => {
-      console.log('📥 Notificación recibida:', notification);
-      if (onNotificationReceived) {
-        onNotificationReceived(notification);
-      }
-    }
-  );
-
-  // Listener para cuando el usuario interactúa con la notificación
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener(
-    response => {
-      console.log('👆 Usuario interactuó con notificación:', response);
-      if (onNotificationResponse) {
-        onNotificationResponse(response);
-      }
-    }
-  );
-
-  // Retornar función para limpiar subscripciones
-  return () => {
-    receivedSubscription.remove();
-    responseSubscription.remove();
-  };
-}
-
-/**
- * Obtiene la última notificación que abrió la app
- * @returns {Promise<Object|null>}
- */
-export async function getLastNotificationResponse() {
-  return Notifications.getLastNotificationResponseAsync();
-}
-
-// ============================================================================
-// EXPORT DEFAULT
-// ============================================================================
 
 export default {
-  // Registro
   registerForPushNotifications,
-  getStoredPushToken,
-  areNotificationsEnabled,
-  
-  // Notificaciones
-  CREATIVE_NOTIFICATIONS,
-  getRandomNotification,
-  getNotificationByCategory,
-  
-  // Programación
-  scheduleLocalNotification,
-  scheduleRandomNotification,
   scheduleDailyNotifications,
-  scheduleReminderNotification,
   sendImmediateNotification,
-  
-  // Gestión
-  cancelAllScheduledNotifications,
-  cancelNotification,
-  getScheduledNotifications,
-  
-  // Badge
-  clearBadge,
-  setBadgeCount,
-  
-  // Listeners
-  setupNotificationListeners,
-  getLastNotificationResponse,
+  getRandomNotification,
+  getNotificationsByCategory,
+  scheduleRandomCreativeNotification,
+  getAllScheduledNotifications,
+  cancelAllNotifications,
+  saveNotificationPreferences,
+  getNotificationPreferences,
+  addNotificationReceivedListener,
+  addNotificationResponseReceivedListener,
+  CREATIVE_NOTIFICATIONS,
 };

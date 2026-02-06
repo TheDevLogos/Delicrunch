@@ -246,7 +246,7 @@ const PaymentMethodsScreen = () => {
               <View style={styles.noteContainer}>
                 <Ionicons name="information-circle-outline" size={16} color={COLORS.textSecondary} />
                 <Text style={styles.note}>
-                  Modo demo: Solo se guardan los últimos 4 dígitos y la marca. Los pagos reales requieren integración completa con Stripe.
+                  Los pagos se procesan de forma segura a través de Mercado Pago Checkout Pro.
                 </Text>
               </View>
             </View>

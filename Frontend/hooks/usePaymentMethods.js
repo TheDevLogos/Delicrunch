@@ -1,195 +1,91 @@
 /**
- * usePaymentMethods - Hook personalizado para gestión de métodos de pago
+ * usePaymentMethods - Hook para métodos de pago con Mercado Pago
  * 
- * Proporciona una interfaz completa para:
- * - Cargar tarjetas guardadas de Stripe
- * - Establecer tarjeta por defecto
- * - Eliminar tarjetas
- * - Sincronizar con Stripe
+ * NOTA: Con Mercado Pago Checkout Pro, las tarjetas se gestionan
+ * directamente en la página de Mercado Pago, no en la app.
  * 
- * @example
- * const { cards, defaultCardId, loading, setDefaultCard } = usePaymentMethods();
+ * Este hook ahora proporciona información básica sobre
+ * el estado de pago del usuario.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useStripe } from '@stripe/stripe-react-native';
-import { 
-  createCustomerSession, 
-  getStripeCustomerCards 
-} from '../services/stripeCustomerService';
 import api from '../services/api';
 
 export const usePaymentMethods = () => {
-  const stripe = useStripe();
-  
   // Estados
-  const [cards, setCards] = useState([]);
-  const [defaultCardId, setDefaultCardId] = useState(null);
+  const [savedMethods, setSavedMethods] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [customerId, setCustomerId] = useState(null);
   const [error, setError] = useState(null);
 
   /**
-   * Cargar tarjetas guardadas de Stripe
+   * Cargar métodos de pago guardados (si hay alguno en la BD local)
    */
-  const loadCards = useCallback(async () => {
+  const loadMethods = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      console.log('🔄 Cargando tarjetas guardadas...');
+      console.log('🔄 Cargando métodos de pago...');
       
-      // 1. Obtener Customer Session
-      const { customerId: cid } = await createCustomerSession();
-      setCustomerId(cid);
+      // Con Mercado Pago Checkout Pro, las tarjetas se gestionan en MP
+      // Aquí solo obtenemos métodos guardados localmente si existen
+      const response = await api.get('/payments/methods');
       
-      // 2. Obtener tarjetas de Stripe
-      const stripeCards = await getStripeCustomerCards(cid);
-      setCards(stripeCards);
-      
-      // 3. Obtener tarjeta por defecto del perfil
-      try {
-        const profileResponse = await api.get('/profile');
-        const defaultPM = profileResponse.data.default_payment_method_id;
-        setDefaultCardId(defaultPM);
-        console.log(`✅ Tarjeta por defecto: ${defaultPM || 'ninguna'}`);
-      } catch (err) {
-        console.warn('⚠️ No se pudo obtener tarjeta por defecto:', err.message);
+      if (response.data.success !== false) {
+        const methods = response.data.methods || response.data || [];
+        setSavedMethods(methods);
+        console.log(`✅ Cargados ${methods.length} métodos`);
       }
       
-      console.log(`✅ Cargadas ${stripeCards.length} tarjetas`);
-      
     } catch (err) {
-      console.error('❌ Error al cargar tarjetas:', err);
-      setError(err.message || 'Error al cargar tarjetas');
+      // Si el endpoint no existe o falla, simplemente no hay métodos guardados
+      console.log('ℹ️ No hay métodos de pago guardados:', err.message);
+      setSavedMethods([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   /**
-   * Establecer una tarjeta como predeterminada
-   * @param {string} paymentMethodId - ID del payment method de Stripe
-   * @returns {Promise<boolean>} - true si se estableció correctamente
+   * Eliminar un método de pago guardado
+   * @param {number} methodId - ID del método en la BD
    */
-  const setDefaultCard = useCallback(async (paymentMethodId) => {
+  const deleteMethod = useCallback(async (methodId) => {
     try {
-      console.log(`🔄 Estableciendo tarjeta ${paymentMethodId} como default...`);
-      
-      const response = await api.put('/payments/set-default-payment-method', {
-        paymentMethodId
-      });
-      
-      if (response.data.success) {
-        setDefaultCardId(paymentMethodId);
-        console.log(`✅ Tarjeta establecida como default`);
-        return true;
-      }
-      
-      return false;
-      
+      await api.delete(`/payments/methods/${methodId}`);
+      setSavedMethods(prev => prev.filter(m => m.id !== methodId));
+      console.log(`✅ Método ${methodId} eliminado`);
+      return true;
     } catch (err) {
-      console.error('❌ Error al establecer tarjeta default:', err);
-      setError(err.response?.data?.msg || err.message || 'Error al establecer tarjeta');
+      console.error('❌ Error al eliminar método:', err);
+      setError(err.message);
       return false;
     }
   }, []);
 
-  /**
-   * Eliminar una tarjeta
-   * @param {string} paymentMethodId - ID del payment method de Stripe
-   * @returns {Promise<boolean>} - true si se eliminó correctamente
-   */
-  const deleteCard = useCallback(async (paymentMethodId) => {
-    try {
-      console.log(`🔄 Eliminando tarjeta ${paymentMethodId}...`);
-      
-      const response = await api.delete(`/payments/payment-methods/${paymentMethodId}`);
-      
-      if (response.data.success) {
-        console.log(`✅ Tarjeta eliminada`);
-        // Recargar lista de tarjetas
-        await loadCards();
-        return true;
-      }
-      
-      return false;
-      
-    } catch (err) {
-      console.error('❌ Error al eliminar tarjeta:', err);
-      setError(err.response?.data?.msg || err.message || 'Error al eliminar tarjeta');
-      return false;
-    }
-  }, [loadCards]);
-
-  /**
-   * Sincronizar tarjetas con Stripe
-   * @returns {Promise<boolean>} - true si se sincronizó correctamente
-   */
-  const syncCards = useCallback(async () => {
-    try {
-      console.log('🔄 Sincronizando tarjetas con Stripe...');
-      
-      const response = await api.post('/payments/sync-cards');
-      
-      if (response.data.success) {
-        console.log(`✅ Sincronizadas ${response.data.synced} tarjetas`);
-        // Recargar lista de tarjetas
-        await loadCards();
-        return true;
-      }
-      
-      return false;
-      
-    } catch (err) {
-      console.error('❌ Error al sincronizar tarjetas:', err);
-      setError(err.response?.data?.msg || err.message || 'Error al sincronizar');
-      return false;
-    }
-  }, [loadCards]);
-
-  /**
-   * Obtener la tarjeta por defecto
-   * @returns {object|null} - Objeto de la tarjeta por defecto o null
-   */
-  const getDefaultCard = useCallback(() => {
-    if (!defaultCardId || cards.length === 0) return null;
-    return cards.find(card => card.id === defaultCardId) || null;
-  }, [cards, defaultCardId]);
-
-  /**
-   * Verificar si una tarjeta es la por defecto
-   * @param {string} paymentMethodId - ID del payment method
-   * @returns {boolean}
-   */
-  const isDefaultCard = useCallback((paymentMethodId) => {
-    return defaultCardId === paymentMethodId;
-  }, [defaultCardId]);
-
-  // Cargar tarjetas al montar el componente
+  // Cargar al montar
   useEffect(() => {
-    loadCards();
-  }, [loadCards]);
+    loadMethods();
+  }, [loadMethods]);
 
   return {
     // Estados
-    cards,
-    defaultCardId,
+    cards: savedMethods, // Mantener compatibilidad con código existente
+    savedMethods,
     loading,
-    customerId,
     error,
     
-    // Funciones
-    loadCards,
-    setDefaultCard,
-    deleteCard,
-    syncCards,
-    getDefaultCard,
-    isDefaultCard,
+    // Acciones
+    loadCards: loadMethods, // Alias para compatibilidad
+    loadMethods,
+    deleteMethod,
     
-    // Utilidades
-    hasCards: cards.length > 0,
-    cardsCount: cards.length,
+    // Con Mercado Pago estas funciones no aplican
+    defaultCardId: null,
+    setDefaultCard: async () => false,
+    deleteCard: deleteMethod,
+    customerId: null,
+    refresh: loadMethods,
   };
 };
 

@@ -129,11 +129,16 @@ const ProductDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  const discount = product.precio_original && product.precio_descuento && Number(product.precio_original) > 0
-    ? Math.round(((Number(product.precio_original) - Number(product.precio_descuento)) / Number(product.precio_original)) * 100)
+  // Calcular descuento correctamente
+  const precioOriginal = Number(product.precio_original || 0);
+  const precioDescuento = Number(product.precio_descuento || 0);
+  const discount = precioOriginal > 0 && precioDescuento > 0
+    ? Math.round(((precioOriginal - precioDescuento) / precioOriginal) * 100)
     : 0;
-  const savings = formatPrice(Number(product.precio_original || 0) - Number(product.precio_descuento || 0));
+  const savings = precioOriginal - precioDescuento;
   const stockLeft = product.cantidad_disponible || 0;
+  
+  console.log('💰 Descuento calculado:', { precioOriginal, precioDescuento, discount, savings });
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
@@ -161,10 +166,12 @@ const ProductDetailScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Discount badge */}
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>-{discount}%</Text>
-        </View>
+        {/* Discount badge - solo mostrar si hay descuento real */}
+        {discount > 0 && (
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountText}>-{discount}%</Text>
+          </View>
+        )}
 
         {/* Stock badge */}
         {stockLeft <= 5 && stockLeft > 0 && (
@@ -256,7 +263,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
           <View style={styles.impactContent}>
             <Text style={styles.impactTitle}>Tu impacto</Text>
             <Text style={styles.impactText}>
-              Al comprar este pack, ahorras ${savings} MXN y evitas ~2.5 kg de CO₂
+              Al comprar este pack, ahorras ${formatPrice(savings)} MXN y evitas ~2.5 kg de CO₂
             </Text>
           </View>
         </View>
@@ -293,8 +300,23 @@ const ProductDetailScreen = ({ route, navigation }) => {
       {/* Bottom purchase bar */}
       <View style={styles.purchaseBar}>
         <View style={styles.priceSection}>
-          <Text style={styles.originalPrice}>${formatPrice(product.precio_original)}</Text>
-          <Text style={styles.discountPrice}>${formatPrice(product.precio_descuento)}</Text>
+          <View style={styles.priceLabels}>
+            <Text style={styles.priceLabelText}>Precio Original</Text>
+            <Text style={styles.originalPrice}>${formatPrice(precioOriginal)}</Text>
+          </View>
+          <View style={styles.priceLabels}>
+            <Text style={styles.priceLabelDelicrunch}>Precio Delicrunch</Text>
+            <View style={styles.discountPriceRow}>
+              <Text style={styles.discountPrice}>${formatPrice(precioDescuento)}</Text>
+              {discount > 0 && (
+                <View style={styles.savingsBadgeSmall}>
+                  <Text style={styles.savingsBadgeSmallText}>
+                    Ahorras ${formatPrice(savings)}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
 
         {stockLeft > 1 && (
@@ -322,8 +344,9 @@ const ProductDetailScreen = ({ route, navigation }) => {
           onPress={handlePurchase}
           disabled={stockLeft === 0}
         >
+          <Ionicons name="cart" size={20} color="#FFF" />
           <Text style={styles.purchaseButtonText}>
-            {stockLeft === 0 ? 'Agotado' : 'Reservar • $' + formatPrice((Number(product.precio_descuento || 0) * quantity))}
+            {stockLeft === 0 ? 'Agotado' : 'Reservar • $' + formatPrice((precioDescuento * quantity))}
           </Text>
         </TouchableOpacity>
       </View>
@@ -408,15 +431,87 @@ const styles = StyleSheet.create({
   noReviewsText: { marginTop: SPACING.sm, fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textTertiary, textAlign: 'center' },
 
   // Purchase bar
-  purchaseBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border, ...SHADOWS.lg },
-  priceSection: { marginRight: SPACING.md },
-  originalPrice: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textTertiary, textDecorationLine: 'line-through' },
-  discountPrice: { fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.primary },
-  quantitySelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surfaceSecondary, borderRadius: BORDERS.radius.md, marginRight: SPACING.md },
+  purchaseBar: { 
+    position: 'absolute', 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    flexDirection: 'column',
+    backgroundColor: COLORS.surface, 
+    paddingHorizontal: SPACING.md, 
+    paddingTop: SPACING.md,
+    paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md, 
+    borderTopWidth: 1, 
+    borderTopColor: COLORS.border, 
+    ...SHADOWS.lg 
+  },
+  priceSection: { 
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+    width: '100%',
+  },
+  priceLabels: {
+    flex: 1,
+  },
+  priceLabelText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.textTertiary,
+    marginBottom: 2,
+  },
+  priceLabelDelicrunch: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.primary,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    marginBottom: 2,
+  },
+  originalPrice: { 
+    fontSize: TYPOGRAPHY.fontSize.base, 
+    color: COLORS.textTertiary, 
+    textDecorationLine: 'line-through' 
+  },
+  discountPrice: { 
+    fontSize: TYPOGRAPHY.fontSize.xxl, 
+    fontWeight: TYPOGRAPHY.fontWeight.bold, 
+    color: COLORS.primary 
+  },
+  discountPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  savingsBadgeSmall: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: SPACING.xs,
+    paddingVertical: 2,
+    borderRadius: BORDERS.radius.sm,
+  },
+  savingsBadgeSmallText: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.success,
+  },
+  quantitySelector: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: COLORS.surfaceSecondary, 
+    borderRadius: BORDERS.radius.md, 
+    alignSelf: 'flex-start',
+    marginBottom: SPACING.md,
+  },
   qtyBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   qtyBtnDisabled: { opacity: 0.5 },
   qtyText: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.text, minWidth: 24, textAlign: 'center' },
-  purchaseButton: { flex: 1, backgroundColor: COLORS.primary, paddingVertical: SPACING.md, borderRadius: BORDERS.radius.md, alignItems: 'center' },
+  purchaseButton: { 
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    width: '100%',
+    backgroundColor: COLORS.primary, 
+    paddingVertical: SPACING.md, 
+    borderRadius: BORDERS.radius.md, 
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   purchaseButtonDisabled: { backgroundColor: COLORS.textTertiary },
   purchaseButtonText: { color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.bold },
 });

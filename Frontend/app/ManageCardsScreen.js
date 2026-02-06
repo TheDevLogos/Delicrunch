@@ -1,12 +1,8 @@
 /**
- * ManageCardsScreen - Gestión completa de tarjetas con Stripe
+ * ManageCardsScreen - Información sobre métodos de pago
  * 
- * Permite a los usuarios:
- * - Ver tarjetas guardadas en Stripe
- * - Agregar nuevas tarjetas
- * - Establecer tarjeta por defecto
- * - Eliminar tarjetas
- * - Sincronizar con Stripe
+ * Con Mercado Pago Checkout Pro, los métodos de pago se gestionan
+ * directamente en la plataforma de Mercado Pago.
  */
 
 import React from 'react';
@@ -14,266 +10,106 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-  Platform,
+  ScrollView,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { usePaymentMethods } from '../hooks/usePaymentMethods';
-import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
-
-// Iconos por marca de tarjeta
-const CARD_BRAND_COLORS = {
-  visa: '#1A1F71',
-  mastercard: '#EB001B',
-  amex: '#006FCF',
-  discover: '#FF6000',
-  default: COLORS.primary,
-};
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
 
 const ManageCardsScreen = ({ navigation }) => {
-  const {
-    cards,
-    defaultCardId,
-    loading,
-    error,
-    hasCards,
-    cardsCount,
-    loadCards,
-    setDefaultCard,
-    deleteCard,
-    syncCards,
-    isDefaultCard,
-  } = usePaymentMethods();
-
-  /**
-   * Navegar a pantalla de agregar tarjeta
-   */
-  const handleAddCard = () => {
-    navigation.navigate('SaveCard');
+  const openMercadoPago = () => {
+    Linking.openURL('https://www.mercadopago.com.mx/');
   };
-
-  /**
-   * Establecer tarjeta como predeterminada
-   */
-  const handleSetDefault = async (paymentMethodId, cardInfo) => {
-    const success = await setDefaultCard(paymentMethodId);
-    
-    if (success) {
-      Alert.alert(
-        '✅ Tarjeta actualizada',
-        `${cardInfo.brand.toUpperCase()} •••• ${cardInfo.last4} es ahora tu tarjeta predeterminada`
-      );
-    } else {
-      Alert.alert(
-        '❌ Error',
-        'No se pudo establecer la tarjeta como predeterminada. Intenta de nuevo.'
-      );
-    }
-  };
-
-  /**
-   * Eliminar tarjeta con confirmación
-   */
-  const handleDelete = (paymentMethodId, cardInfo) => {
-    Alert.alert(
-      'Eliminar tarjeta',
-      `¿Estás seguro de eliminar la tarjeta ${cardInfo.brand.toUpperCase()} •••• ${cardInfo.last4}?`,
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await deleteCard(paymentMethodId);
-            
-            if (success) {
-              Alert.alert('✅', 'Tarjeta eliminada correctamente');
-            } else {
-              Alert.alert('❌', 'No se pudo eliminar la tarjeta');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  /**
-   * Sincronizar tarjetas manualmente
-   */
-  const handleSync = async () => {
-    const success = await syncCards();
-    
-    if (success) {
-      Alert.alert('✅ Sincronizado', 'Tarjetas actualizadas desde Stripe');
-    } else {
-      Alert.alert('❌ Error', 'No se pudo sincronizar con Stripe');
-    }
-  };
-
-  /**
-   * Renderizar item de tarjeta
-   */
-  const renderCard = ({ item }) => {
-    const isDefault = isDefaultCard(item.id);
-    const brandColor = CARD_BRAND_COLORS[item.brand?.toLowerCase()] || CARD_BRAND_COLORS.default;
-
-    return (
-      <View style={[styles.cardItem, isDefault && styles.cardItemDefault]}>
-        {/* Icono de marca */}
-        <View style={[styles.cardIconContainer, { backgroundColor: `${brandColor}20` }]}>
-          <Ionicons name="card" size={28} color={brandColor} />
-        </View>
-
-        {/* Información de la tarjeta */}
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardBrand}>
-            {item.brand?.toUpperCase() || 'TARJETA'} •••• {item.last4}
-          </Text>
-          <Text style={styles.cardExpiry}>
-            Vence: {String(item.exp_month).padStart(2, '0')}/{item.exp_year}
-          </Text>
-          {item.funding && (
-            <Text style={styles.cardFunding}>
-              {item.funding === 'credit' ? 'Crédito' : item.funding === 'debit' ? 'Débito' : item.funding}
-            </Text>
-          )}
-        </View>
-
-        {/* Badge de predeterminada */}
-        {isDefault && (
-          <View style={styles.defaultBadge}>
-            <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
-            <Text style={styles.defaultBadgeText}>Predeterminada</Text>
-          </View>
-        )}
-
-        {/* Acciones */}
-        <View style={styles.cardActions}>
-          {/* Botón establecer como default */}
-          <TouchableOpacity
-            style={[styles.actionButton, isDefault && styles.actionButtonDisabled]}
-            onPress={() => handleSetDefault(item.id, item)}
-            disabled={isDefault}
-          >
-            <Ionicons
-              name={isDefault ? 'star' : 'star-outline'}
-              size={22}
-              color={isDefault ? '#FFC107' : COLORS.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {/* Botón eliminar */}
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleDelete(item.id, item)}
-          >
-            <Ionicons name="trash-outline" size={22} color={COLORS.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
-  /**
-   * Estado vacío
-   */
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="card-outline" size={80} color={COLORS.textTertiary} />
-      <Text style={styles.emptyTitle}>No tienes tarjetas guardadas</Text>
-      <Text style={styles.emptySubtitle}>
-        Agrega una tarjeta para realizar pagos más rápidos y seguros
-      </Text>
-      <TouchableOpacity style={styles.emptyButton} onPress={handleAddCard}>
-        <Ionicons name="add-circle-outline" size={20} color={COLORS.white} />
-        <Text style={styles.emptyButtonText}>Agregar primera tarjeta</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  /**
-   * Header de la lista
-   */
-  const renderHeader = () => (
-    <View style={styles.listHeader}>
-      <Text style={styles.listHeaderText}>
-        {cardsCount} {cardsCount === 1 ? 'tarjeta guardada' : 'tarjetas guardadas'}
-      </Text>
-      
-      {hasCards && (
-        <TouchableOpacity onPress={handleSync} style={styles.syncButton}>
-          <Ionicons name="sync" size={16} color={COLORS.primary} />
-          <Text style={styles.syncButtonText}>Sincronizar</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>Mis Tarjetas</Text>
-
-        <TouchableOpacity style={styles.addButton} onPress={handleAddCard}>
-          <Ionicons name="add-circle" size={28} color={COLORS.primary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Mensaje de error */}
-      {error && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={20} color={COLORS.error} />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      {/* Lista de tarjetas */}
-      <FlatList
-        data={cards}
-        keyExtractor={(item) => item.id}
-        renderItem={renderCard}
-        ListHeaderComponent={hasCards ? renderHeader : null}
-        ListEmptyComponent={!loading ? renderEmptyState : null}
-        contentContainerStyle={[
-          styles.listContent,
-          !hasCards && !loading && styles.listContentEmpty,
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={loadCards}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      />
-
-      {/* Footer con información */}
-      {hasCards && (
-        <View style={styles.footer}>
-          <Ionicons name="shield-checkmark" size={16} color={COLORS.success} />
-          <Text style={styles.footerText}>
-            Tus tarjetas están protegidas con encriptación de nivel bancario
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Header con icono */}
+        <View style={styles.header}>
+          <View style={styles.iconContainer}>
+            <MaterialCommunityIcons name="credit-card-check" size={64} color={COLORS.primary} />
+          </View>
+          <Text style={styles.title}>Métodos de Pago</Text>
+          <Text style={styles.subtitle}>
+            Tus pagos son procesados de forma segura por Mercado Pago
           </Text>
         </View>
-      )}
+
+        {/* Información */}
+        <View style={styles.infoSection}>
+          <View style={styles.infoItem}>
+            <View style={styles.infoIcon}>
+              <Ionicons name="shield-checkmark" size={24} color={COLORS.success} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>Pagos Seguros</Text>
+              <Text style={styles.infoText}>
+                Todas las transacciones están protegidas con encriptación SSL y los más altos estándares de seguridad.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoItem}>
+            <View style={styles.infoIcon}>
+              <Ionicons name="card" size={24} color={COLORS.primary} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>Múltiples Métodos</Text>
+              <Text style={styles.infoText}>
+                Acepta tarjetas de crédito, débito, OXXO, SPEI y más métodos de pago.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.infoItem}>
+            <View style={styles.infoIcon}>
+              <Ionicons name="time" size={24} color={COLORS.warning} />
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>Sin Guardar Datos</Text>
+              <Text style={styles.infoText}>
+                No almacenamos datos de tarjetas. Cada pago se procesa directamente en Mercado Pago.
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Métodos de pago aceptados */}
+        <View style={styles.methodsSection}>
+          <Text style={styles.sectionTitle}>Métodos Aceptados</Text>
+          <View style={styles.methodsGrid}>
+            <View style={styles.methodItem}>
+              <Ionicons name="card" size={32} color="#1A1F71" />
+              <Text style={styles.methodName}>Visa</Text>
+            </View>
+            <View style={styles.methodItem}>
+              <Ionicons name="card" size={32} color="#EB001B" />
+              <Text style={styles.methodName}>Mastercard</Text>
+            </View>
+            <View style={styles.methodItem}>
+              <Ionicons name="card" size={32} color="#006FCF" />
+              <Text style={styles.methodName}>AMEX</Text>
+            </View>
+            <View style={styles.methodItem}>
+              <MaterialCommunityIcons name="store" size={32} color="#F44336" />
+              <Text style={styles.methodName}>OXXO</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Botón para ir a Mercado Pago */}
+        <TouchableOpacity style={styles.mpButton} onPress={openMercadoPago}>
+          <MaterialCommunityIcons name="open-in-new" size={20} color={COLORS.white} />
+          <Text style={styles.mpButtonText}>Administrar en Mercado Pago</Text>
+        </TouchableOpacity>
+
+        {/* Nota */}
+        <Text style={styles.note}>
+          Si tienes una cuenta de Mercado Pago, puedes guardar tus tarjetas directamente en su plataforma para pagos más rápidos.
+        </Text>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -283,214 +119,118 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-
-  // Header
+  content: {
+    padding: SPACING.lg,
+  },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surface,
+    marginBottom: SPACING.xl,
+  },
+  iconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: `${COLORS.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  infoSection: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: SPACING.md,
+    ...SHADOWS.sm,
+    marginBottom: SPACING.lg,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    paddingVertical: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  infoIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: SPACING.md,
   },
-  headerTitle: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  // Error
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.errorLight,
-    margin: SPACING.md,
-    padding: SPACING.sm,
-    borderRadius: BORDERS.radius.md,
-    gap: 8,
-  },
-  errorText: {
+  infoContent: {
     flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.error,
   },
-
-  // Lista
-  listContent: {
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  methodsSection: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
     padding: SPACING.md,
+    ...SHADOWS.sm,
+    marginBottom: SPACING.lg,
   },
-  listContentEmpty: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
     marginBottom: SPACING.md,
   },
-  listHeaderText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.textSecondary,
-  },
-  syncButton: {
+  methodsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+  },
+  methodItem: {
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: COLORS.primarySoft,
-    borderRadius: BORDERS.radius.sm,
-  },
-  syncButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    fontWeight: TYPOGRAPHY.fontWeight.medium,
-    color: COLORS.primary,
-  },
-
-  // Card item
-  cardItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: BORDERS.radius.lg,
-    marginBottom: SPACING.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.sm,
-  },
-  cardItemDefault: {
-    borderColor: COLORS.success,
-    borderWidth: 2,
-    backgroundColor: `${COLORS.success}08`,
-  },
-  cardIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.sm,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  cardBrand: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text,
-    letterSpacing: 0.5,
-  },
-  cardExpiry: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  cardFunding: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    color: COLORS.textTertiary,
-    marginTop: 2,
-    textTransform: 'capitalize',
-  },
-  defaultBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.successLight,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: SPACING.sm,
-  },
-  defaultBadgeText: {
-    fontSize: TYPOGRAPHY.fontSize.xs,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.success,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: COLORS.surfaceSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionButtonDisabled: {
-    opacity: 0.5,
-  },
-
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
-    fontWeight: TYPOGRAPHY.fontWeight.bold,
-    color: COLORS.text,
-    marginTop: SPACING.lg,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: BORDERS.radius.md,
-    marginTop: SPACING.lg,
-  },
-  emptyButtonText: {
-    fontSize: TYPOGRAPHY.fontSize.base,
-    fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.white,
-  },
-
-  // Footer
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.successLight,
-    paddingHorizontal: SPACING.md,
+    width: '25%',
     paddingVertical: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
   },
-  footerText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.fontSize.sm,
+  methodName: {
+    fontSize: 12,
     color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  mpButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#009EE3',
+    paddingVertical: SPACING.md,
+    borderRadius: 12,
+    marginBottom: SPACING.md,
+  },
+  mpButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: SPACING.sm,
+  },
+  note: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 

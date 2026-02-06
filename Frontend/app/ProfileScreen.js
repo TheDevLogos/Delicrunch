@@ -21,7 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ReadOnlyStarRating from '../components/ReadOnlyStarRating';
-import StripeOnboarding from '../components/StripeOnboarding';
+import MercadoPagoOnboarding from '../components/MercadoPagoOnboarding';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
 import { getAvatarById } from '../src/constants/profileAvatars';
 import { formatNumber } from '../src/utils/format';
@@ -131,9 +131,11 @@ const ProfileScreen = () => {
     return <Text style={styles.errorText}>No se pudo cargar el perfil.</Text>;
   }
 
-  const isComprador = profile.rol === 'comprador';
-  const isComercio = profile.rol === 'comercio';
-  const isAdmin = profile.rol === 'admin';
+  // Normalizar rol - el backend envía 'buyer', 'seller', 'admin'
+  const userRole = (profile.rol || profile.role || '').toLowerCase();
+  const isComprador = userRole === 'buyer' || userRole === 'comprador';
+  const isComercio = userRole === 'seller' || userRole === 'comercio';
+  const isAdmin = userRole === 'admin';
 
   // Menú dinámico según rol
   const getMenuOptions = () => {
@@ -158,7 +160,7 @@ const ProfileScreen = () => {
       options.push({
         icon: 'card-outline',
         label: 'Métodos de Pago',
-        subtitle: 'Gestiona tus tarjetas',
+        subtitle: 'Gestiona tus tarjetas y MercadoPago',
         onPress: () => navigation.navigate('ManageCards'),
         color: COLORS.primary,
       });
@@ -190,7 +192,7 @@ const ProfileScreen = () => {
       options.push({
         icon: 'wallet-outline',
         label: 'Cuentas para Cobrar',
-        subtitle: 'Configura Stripe Connect',
+        subtitle: 'Configura Mercado Pago',
         onPress: () => navigation.navigate('MerchantPaymentSettings'),
         color: COLORS.primary,
       });
@@ -229,7 +231,7 @@ const ProfileScreen = () => {
       options.push({
         icon: 'wallet-outline',
         label: 'Cuentas para Cobrar',
-        subtitle: 'Configura Stripe Connect',
+        subtitle: 'Configura Mercado Pago',
         onPress: () => navigation.navigate('MerchantPaymentSettings'),
         color: COLORS.primary,
       });
@@ -243,6 +245,7 @@ const ProfileScreen = () => {
       onPress: () => setShowSettings(true),
       color: COLORS.primary, // Cambiado a verde activo
     });
+    /* DESACTIVADO: expo-notifications removido
     options.push({
       icon: 'notifications-outline',
       label: 'Notificaciones',
@@ -250,6 +253,7 @@ const ProfileScreen = () => {
       onPress: () => navigation.navigate('NotificationSettings'),
       color: COLORS.primary,
     });
+    */
     options.push({
       icon: 'help-circle-outline',
       label: 'Ayuda y Soporte',
@@ -319,7 +323,7 @@ const ProfileScreen = () => {
               color={COLORS.white} 
             />
             <Text style={styles.rolText}>
-              {profile.rol.charAt(0).toUpperCase() + profile.rol.slice(1)}
+              {isComercio ? 'Comercio' : isAdmin ? 'Admin' : 'Comprador'}
             </Text>
           </View>
           
@@ -381,10 +385,48 @@ const ProfileScreen = () => {
           <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
         </TouchableOpacity>
 
-        {/* Stripe para comercios */}
+        {/* Mercado Pago Onboarding - para comercios */}
         {isComercio && (
           <View style={styles.stripeSection}>
-            <StripeOnboarding />
+            <View style={styles.mercadoPagoHeader}>
+              <MaterialCommunityIcons name="cash-multiple" size={24} color={COLORS.primary} />
+              <Text style={styles.mercadoPagoTitle}>Configuración de Cobros</Text>
+            </View>
+            <MercadoPagoOnboarding />
+          </View>
+        )}
+
+        {/* Información de pagos para compradores */}
+        {isComprador && (
+          <View style={styles.infoSection}>
+            <View style={styles.infoHeader}>
+              <MaterialCommunityIcons name="credit-card-outline" size={24} color={COLORS.primary} />
+              <Text style={styles.infoTitle}>Métodos de Pago</Text>
+            </View>
+            <Text style={styles.infoText}>
+              Puedes gestionar tus métodos de pago en la sección "Métodos de Pago" del menú.
+              Aceptamos Mercado Pago y tarjetas de crédito/débito.
+            </Text>
+          </View>
+        )}
+
+        {/* Panel de administración para admins */}
+        {isAdmin && (
+          <View style={styles.adminSection}>
+            <View style={styles.adminHeader}>
+              <Ionicons name="shield-checkmark" size={24} color={COLORS.secondary} />
+              <Text style={styles.adminTitle}>Panel de Administración</Text>
+            </View>
+            <Text style={styles.adminText}>
+              Tienes acceso completo a todas las funciones de la plataforma.
+            </Text>
+            <TouchableOpacity 
+              style={styles.adminButton}
+              onPress={() => navigation.navigate('MerchantPaymentSettings')}
+            >
+              <MaterialCommunityIcons name="cog" size={20} color={COLORS.white} />
+              <Text style={styles.adminButtonText}>Configurar MercadoPago</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -646,7 +688,7 @@ const ProfileScreen = () => {
                 },
                 {
                   question: '¿Cómo puedo pagar mi pedido?',
-                  answer: 'Puedes pagar con tarjeta de crédito o débito directamente en la app. Todos los pagos son procesados de forma segura a través de Stripe.'
+                  answer: 'Puedes pagar con tarjeta de crédito, débito, OXXO y más métodos directamente desde la app. Todos los pagos son procesados de forma segura a través de Mercado Pago.'
                 },
                 {
                   question: '¿Puedo cancelar mi pedido?',
@@ -1082,6 +1124,87 @@ const styles = StyleSheet.create({
   stripeSection: {
     marginHorizontal: SPACING.md,
     marginBottom: SPACING.md,
+  },
+  mercadoPagoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
+  },
+  mercadoPagoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginLeft: SPACING.sm,
+  },
+
+  // Info section para compradores
+  infoSection: {
+    backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: 16,
+    ...SHADOWS.sm,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginLeft: SPACING.sm,
+  },
+  infoText: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    lineHeight: 20,
+  },
+
+  // Admin section
+  adminSection: {
+    backgroundColor: COLORS.secondary + '15',
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.secondary + '30',
+  },
+  adminHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  adminTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.secondary,
+    marginLeft: SPACING.sm,
+  },
+  adminText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
+    marginBottom: SPACING.md,
+  },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 12,
+  },
+  adminButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+    marginLeft: SPACING.xs,
   },
 
   // Menu

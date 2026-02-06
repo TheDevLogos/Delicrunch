@@ -502,7 +502,7 @@ const MerchantOrdersScreen = ({ navigation }) => {
                 <View style={styles.paymentMethodBadge}>
                   <Ionicons name="card-outline" size={20} color={COLORS.primary} />
                   <Text style={styles.paymentMethodText}>
-                    {selectedOrder.metodo_pago === 'stripe' ? 'Tarjeta (Stripe)' : selectedOrder.metodo_pago || 'No especificado'}
+                    {selectedOrder.metodo_pago === 'mercadopago' ? 'Mercado Pago' : selectedOrder.metodo_pago || 'No especificado'}
                   </Text>
                 </View>
               </View>

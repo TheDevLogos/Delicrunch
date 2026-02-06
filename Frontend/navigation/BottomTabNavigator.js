@@ -370,6 +370,15 @@ const BottomTabNavigator = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Mapear roles de inglés a español para compatibilidad
+  const roleMap = {
+    'buyer': 'comprador',
+    'seller': 'comercio',
+    'admin': 'admin'
+  };
+  
+  const mappedRole = roleMap[effectiveRole] || effectiveRole;
+
   // Pantalla de transición al cambiar de perfil
   if (isTransitioning) {
     return (
@@ -378,7 +387,7 @@ const BottomTabNavigator = () => {
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.transitionTitle}>🔄 Cambiando de Perfil</Text>
           <Text style={styles.transitionSubtitle}>
-            Cargando vista de {effectiveRole === 'comprador' ? 'Comprador' : effectiveRole === 'comercio' ? 'Comercio' : 'Admin'}...
+            Cargando vista de {mappedRole === 'comprador' ? 'Comprador' : mappedRole === 'comercio' ? 'Comercio' : 'Admin'}...
           </Text>
         </View>
       </View>
@@ -394,12 +403,12 @@ const BottomTabNavigator = () => {
     );
   }
 
-  // Mostrar tabs según rol efectivo (simulado o real)
-  if (effectiveRole === 'admin') {
+  // Mostrar tabs según rol efectivo (simulado o real) - usar rol mapeado
+  if (mappedRole === 'admin') {
     return <AdminTabs />;
   }
 
-  if (effectiveRole === 'comercio') {
+  if (mappedRole === 'comercio') {
     return <ComercioTabs isAdmin={isAdmin} />;
   }
 

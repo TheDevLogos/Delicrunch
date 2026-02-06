@@ -95,33 +95,43 @@ export const GamificationProvider = ({ children }) => {
         }
       }
       
-      // Intentar sincronizar con el servidor
-      try {
-        const response = await api.get('/profiles/gamification');
-        if (response.data) {
-          // Merge server data con local (servidor tiene prioridad)
-          loadedStats = {
-            ...loadedStats,
-            totalPacksSaved: response.data.total_packs_saved || loadedStats.totalPacksSaved,
-            totalSavings: response.data.total_savings || loadedStats.totalSavings,
-            totalCO2Saved: response.data.total_co2_saved || loadedStats.totalCO2Saved,
-            totalXP: response.data.total_xp || loadedStats.totalXP,
-            totalReviews: response.data.total_reviews || loadedStats.totalReviews,
-          };
-          
-          if (response.data.unlocked_badges) {
-                // Normalizar formato: el servidor puede devolver solo ids o objetos
-                loadedBadges = response.data.unlocked_badges.map(b => {
-                  if (!b) return null;
-                  if (typeof b === 'string') return { id: b, unlockedAt: new Date().toISOString() };
-                  if (b.id) return b;
-                  return { id: String(b), unlockedAt: new Date().toISOString() };
-                }).filter(Boolean);
-              }
+      // Intentar sincronizar con el servidor SOLO si hay token
+      const token = await AsyncStorage.getItem('userToken');
+      if (token) {
+        try {
+          const response = await api.get('/profiles/gamification');
+          if (response.data) {
+            // Merge server data con local (servidor tiene prioridad)
+            loadedStats = {
+              ...loadedStats,
+              totalPacksSaved: response.data.total_packs_saved || loadedStats.totalPacksSaved,
+              totalSavings: response.data.total_savings || loadedStats.totalSavings,
+              totalCO2Saved: response.data.total_co2_saved || loadedStats.totalCO2Saved,
+              totalXP: response.data.total_xp || loadedStats.totalXP,
+              totalReviews: response.data.total_reviews || loadedStats.totalReviews,
+            };
+            
+            if (response.data.unlocked_badges) {
+              // Normalizar formato: el servidor puede devolver solo ids o objetos
+              loadedBadges = response.data.unlocked_badges.map(b => {
+                if (!b) return null;
+                if (typeof b === 'string') return { id: b, unlockedAt: new Date().toISOString() };
+                if (b.id) return b;
+                return { id: String(b), unlockedAt: new Date().toISOString() };
+              }).filter(Boolean);
+            }
+          }
+        } catch (e) {
+          // Usar datos locales si falla el servidor
+          // Solo logear si no es un error de autenticación (401)
+          if (!e.response || e.response.status !== 401) {
+            console.warn('⚠️ No se pudo sincronizar gamification con servidor:', e.message);
+          }
+          console.log('Using local gamification data');
         }
-      } catch (e) {
-        // Usar datos locales si falla el servidor
-        console.log('Using local gamification data');
+      } else {
+        // No hay token, usar datos locales sin intentar sincronizar
+        console.log('No token available, using local gamification data');
       }
       
       // Calcular kWh
@@ -204,34 +214,42 @@ export const GamificationProvider = ({ children }) => {
     await AsyncStorage.setItem(STORAGE_KEYS.LAST_ACTIVITY, new Date().toISOString());
     
     // Sincronizar con servidor y actualizar lista de insignias si la API responde
-    try {
-      const resp = await api.post('/profiles/gamification', {
-        xp_gained: xpGained,
-        packs_saved: packsSaved,
-        savings: savings,
-        co2_saved: co2Saved,
-        new_badges: newBadges.map(b => b.id),
-      });
-
-      if (resp?.data?.unlocked_badges) {
-        const serverBadges = resp.data.unlocked_badges.map(b => {
-          if (!b) return null;
-          if (typeof b === 'string') return { id: b, unlockedAt: new Date().toISOString() };
-          if (b.id) return b;
-          return { id: String(b), unlockedAt: new Date().toISOString() };
-        }).filter(Boolean);
-
-        // Merge unique
-        const merged = [...updatedBadges];
-        serverBadges.forEach(sb => {
-          if (!merged.some(m => (m && m.id ? m.id : m) === (sb.id))) merged.push(sb);
+    // SOLO si hay token válido
+    const token = await AsyncStorage.getItem('userToken');
+    if (token) {
+      try {
+        const resp = await api.post('/profiles/gamification', {
+          xp_gained: xpGained,
+          packs_saved: packsSaved,
+          savings: savings,
+          co2_saved: co2Saved,
+          new_badges: newBadges.map(b => b.id),
         });
 
-        setUnlockedBadges(merged);
-        await AsyncStorage.setItem(STORAGE_KEYS.BADGES, JSON.stringify(merged));
+        if (resp?.data?.unlocked_badges) {
+          const serverBadges = resp.data.unlocked_badges.map(b => {
+            if (!b) return null;
+            if (typeof b === 'string') return { id: b, unlockedAt: new Date().toISOString() };
+            if (b.id) return b;
+            return { id: String(b), unlockedAt: new Date().toISOString() };
+          }).filter(Boolean);
+
+          // Merge unique
+          const merged = [...updatedBadges];
+          serverBadges.forEach(sb => {
+            if (!merged.some(m => (m && m.id ? m.id : m) === (sb.id))) merged.push(sb);
+          });
+
+          setUnlockedBadges(merged);
+          await AsyncStorage.setItem(STORAGE_KEYS.BADGES, JSON.stringify(merged));
+        }
+      } catch (e) {
+        // Solo logear si no es un error de autenticación (401)
+        if (!e.response || e.response.status !== 401) {
+          console.warn('⚠️ No se pudo sincronizar gamification con servidor:', e.message);
+        }
+        console.log('Failed to sync gamification with server');
       }
-    } catch (e) {
-      console.log('Failed to sync gamification with server');
     }
     
     // Si se subió de nivel, crear cupón local (si existe recompensa)

@@ -1,6 +1,6 @@
 /**
- * PaymentScreen - Pantalla de Pago
- * Diseño inspirado en Too Good To Go con Stripe Connect y Sistema de Cupones
+ * PaymentScreen - Pantalla de Pago con Mercado Pago Checkout Pro
+ * Diseño inspirado en Too Good To Go
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -15,34 +15,27 @@ import {
   ActivityIndicator,
   Modal,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useStripe } from '@stripe/stripe-react-native';
+import * as WebBrowser from 'expo-web-browser';
 import api from '../services/api';
 import logger from '../services/logger';
-import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import { COUPON_CATEGORIES } from '../src/constants/gamification';
-import { createCustomerSession, getStripeCustomerCards } from '../services/stripeCustomerService';
-
-const isExpoGo = Constants.appOwnership === 'expo';
+import { createPaymentPreference } from '../services/mercadoPagoService';
+import PickupCodeModal from '../components/PickupCodeModal';
+import XPRewardsModal from '../components/XPRewardsModal';
+import { calculateCO2Saved } from '../src/constants/co2Factors';
+import { useGamification } from '../contexts/GamificationContext';
 
 const PaymentScreen = ({ route, navigation }) => {
   const { product, quantity = 1 } = route.params;
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const [walletCards, setWalletCards] = useState([]);
-  const [selectedCardId, setSelectedCardId] = useState(null);
-  const [loadingCards, setLoadingCards] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Estados para tarjetas guardadas en Stripe
-  const [stripeSavedCards, setStripeSavedCards] = useState([]);
-  const [selectedStripeCardId, setSelectedStripeCardId] = useState(null);
-  const [loadingStripeCards, setLoadingStripeCards] = useState(false);
   
   // Estado para cupones
   const [availableCoupons, setAvailableCoupons] = useState([]);
@@ -51,9 +44,14 @@ const PaymentScreen = ({ route, navigation }) => {
   const [loadingCoupons, setLoadingCoupons] = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
   
-  // Estado para indicador de tarjetas guardadas
-  const [hasSavedCards, setHasSavedCards] = useState(false);
-  const [loadingCustomerInfo, setLoadingCustomerInfo] = useState(false);
+  // Estados para modales de confirmación y recompensas
+  const [showPickupCodeModal, setShowPickupCodeModal] = useState(false);
+  const [showXPModal, setShowXPModal] = useState(false);
+  const [orderData, setOrderData] = useState(null);
+  const [xpRewardData, setXPRewardData] = useState(null);
+  
+  // Gamificación
+  const { recordPurchase, userProfile } = useGamification();
 
   if (!product) {
     return (
@@ -72,75 +70,20 @@ const PaymentScreen = ({ route, navigation }) => {
   const savings = formatPrice(rawSavings);
   const discount = originalTotal > 0 ? Math.round((rawSavings / originalTotal) * 100) : 0;
   
+  console.log('💰 PaymentScreen - Precios:', { 
+    precioOriginal: product.precio_original, 
+    precioDescuento: product.precio_descuento, 
+    quantity,
+    subtotal, 
+    originalTotal, 
+    rawSavings, 
+    discount 
+  });
+  
   // Calcular total con cupón aplicado
   const totalAfterCoupon = Math.max(0, subtotal - couponDiscount);
   const platformFee = formatPrice(totalAfterCoupon * 0.25);
   const merchantAmount = formatPrice(totalAfterCoupon * 0.75);
-
-  // Cargar tarjetas de la billetera (metadatos) para flujos sin Stripe (Expo Go)
-  useEffect(() => {
-    if (!isExpoGo) {
-      // En Development Build, verificar si tiene tarjetas guardadas
-      checkSavedCards();
-      return;
-    }
-    const loadCards = async () => {
-      setLoadingCards(true);
-      try {
-        const res = await api.get('/payments/methods');
-        const cards = res.data || [];
-        setWalletCards(cards);
-        const preferred = cards.find(c => c.is_default) || cards[0];
-        setSelectedCardId(preferred?.id || null);
-      } catch (error) {
-        logger.error(error, 'loadWalletCards');
-      } finally {
-        setLoadingCards(false);
-      }
-    };
-    loadCards();
-  }, []);
-
-  // Verificar si el usuario tiene tarjetas guardadas en Stripe
-  const checkSavedCards = async () => {
-    setLoadingCustomerInfo(true);
-    setLoadingStripeCards(true);
-    try {
-      console.log('🔍 Verificando tarjetas guardadas...');
-      const { customerId } = await createCustomerSession();
-      
-      // Obtener payment methods del customer usando el servicio
-      const cards = await getStripeCustomerCards(customerId);
-      
-      setStripeSavedCards(cards);
-      setHasSavedCards(cards.length > 0);
-      
-      // Seleccionar la primera tarjeta por defecto
-      if (cards.length > 0 && !selectedStripeCardId) {
-        setSelectedStripeCardId(cards[0].id);
-      }
-      
-      console.log(`✅ Usuario tiene ${cards.length} tarjetas guardadas en Stripe`);
-      
-    } catch (error) {
-      console.log('ℹ️ No se pudo verificar tarjetas guardadas:', error.message);
-      setStripeSavedCards([]);
-      setHasSavedCards(false);
-      // No mostrar error al usuario, es solo informativo
-    } finally {
-      setLoadingCustomerInfo(false);
-      setLoadingStripeCards(false);
-    }
-  };
-
-  // Función para refrescar tarjetas guardadas
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    if (!isExpoGo) {
-      await checkSavedCards();
-    }
-    setRefreshing(false);
-  }, [isExpoGo]);
 
   // Cargar cupones disponibles
   useEffect(() => {
@@ -155,13 +98,12 @@ const PaymentScreen = ({ route, navigation }) => {
         });
         if (res.data.success) {
           let merged = res.data.coupons || [];
-          // Merge local coupons from AsyncStorage (created by RewardsScreen fallback)
+          // Merge local coupons from AsyncStorage
           try {
             const local = await AsyncStorage.getItem('@delicrunch_coupons');
             if (local) {
               const parsed = JSON.parse(local);
               const localActive = (parsed.active || []).map(c => {
-                // Normalize shape to match backend response used in this screen
                 const potential_discount = (() => {
                   const t = subtotal;
                   switch(c.type) {
@@ -185,25 +127,22 @@ const PaymentScreen = ({ route, navigation }) => {
                   icon: c.icon,
                   color: c.color,
                   potential_discount,
-                  // local flag so we can treat it specially
                   _local: true,
                   expires_at: c.expires_at,
                 };
               });
 
-              // Prepend local coupons but avoid duplicates
               localActive.forEach(lc => {
                 if (!merged.some(m => m.id === lc.id)) merged.unshift(lc);
               });
             }
           } catch (e) {
-            console.log('Error merging local coupons in PaymentScreen', e.message);
+            console.log('Error merging local coupons', e.message);
           }
 
           setAvailableCoupons(merged);
         }
       } catch (error) {
-        // Si no hay API de cupones, no mostrar error
         console.log('Cupones no disponibles:', error.message);
       } finally {
         setLoadingCoupons(false);
@@ -211,6 +150,11 @@ const PaymentScreen = ({ route, navigation }) => {
     };
     loadCoupons();
   }, [subtotal, product.categoria]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshing(false);
+  }, []);
 
   // Calcular descuento cuando se selecciona un cupón
   const selectCoupon = (coupon) => {
@@ -246,94 +190,104 @@ const PaymentScreen = ({ route, navigation }) => {
     setCouponDiscount(0);
   };
 
+  /**
+   * Iniciar el proceso de pago con Mercado Pago Checkout Pro
+   */
   const initializePayment = async () => {
-    if (isExpoGo) {
-      // En Expo Go usamos la billetera demo guardada (metadatos) y creamos la orden sin Stripe
-      return handleWalletPayment();
-    }
-
     setIsPurchasing(true);
     try {
-      // 1. Obtener Customer Session (ephemeral key + setup intent)
-      console.log('🔐 Obteniendo Customer Session...');
-      const { customerId, ephemeralKeySecret, setupIntentClientSecret } = 
-        await createCustomerSession();
+      console.log('💳 Iniciando pago con Mercado Pago...');
 
-      console.log('✅ Customer Session obtenida:', { customerId });
-
-      // 2. Crear Payment Intent en el backend
-      console.log('💳 Creando Payment Intent...');
-      const response = await api.post('/payments/create-payment-intent', {
+      // 1. Crear preferencia de pago en el backend
+      const preference = await createPaymentPreference({
         productId: product.id,
         cantidad: quantity,
-        coupon_id: selectedCoupon?.id || null,
         coupon_discount: couponDiscount,
       });
-      const { clientSecret, paymentIntentId } = response.data;
 
-      console.log('✅ Payment Intent creado:', paymentIntentId);
+      console.log('✅ Preferencia creada:', preference.preferenceId);
 
-      // 3. Preparar configuración del Payment Sheet
-      const paymentSheetConfig = {
-        merchantDisplayName: "Delicrunch",
-        customerId: customerId,
-        customerEphemeralKeySecret: ephemeralKeySecret,
-        paymentIntentClientSecret: clientSecret,
-        allowsDelayedPaymentMethods: true,
-        returnURL: 'delicrunch://payment-result',
-        defaultBillingDetails: {
-          name: 'Cliente Delicrunch',
-        },
-      };
-
-      // Si hay una tarjeta seleccionada, configurar para que sea la predeterminada
-      if (selectedStripeCardId && stripeSavedCards.length > 0) {
-        console.log('💳 Usando tarjeta guardada:', selectedStripeCardId);
-        // Stripe mostrará las tarjetas guardadas automáticamente
-        // y el usuario puede seleccionar la que desee
+      // 2. Abrir Checkout Pro de Mercado Pago en el navegador
+      // Usamos sandboxInitPoint para pruebas, initPoint para producción
+      const checkoutUrl = preference.sandboxInitPoint || preference.initPoint;
+      
+      if (!checkoutUrl) {
+        throw new Error('No se pudo obtener la URL de checkout');
       }
 
-      // 4. Inicializar Payment Sheet con Customer
-      const { error: initError } = await initPaymentSheet(paymentSheetConfig);
+      console.log('🌐 Abriendo Checkout Pro:', checkoutUrl);
 
-      if (initError) {
-        console.error('❌ Error al inicializar Payment Sheet:', initError);
+      // Abrir en navegador externo (WebBrowser)
+      const result = await WebBrowser.openBrowserAsync(checkoutUrl, {
+        showTitle: true,
+        enableBarCollapsing: true,
+      });
+
+      console.log('📱 Resultado del navegador:', result.type);
+
+      // Después de cerrar el navegador, verificar el estado del pago
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        // El usuario cerró el navegador - verificar si hay orden pendiente
         Alert.alert(
-          'Error de Inicialización',
-          'No se pudo inicializar el sistema de pago. Por favor, intenta de nuevo.\n\nDetalle: ' + initError.message,
-          [{ text: 'OK' }]
+          'Pago no completado',
+          '¿Deseas continuar con el pago o cancelar?',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { 
+              text: 'Reintentar', 
+              onPress: () => initializePayment() 
+            },
+          ]
         );
-        setIsPurchasing(false);
-        return;
+      } else {
+        // Simular orden creada (en producción, el webhook crea la orden)
+        // Esperar un momento para que el webhook procese
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Calcular datos de la orden
+        const savedAmount = rawSavings + couponDiscount;
+        const productCategory = product.categoria || 'otros';
+        const co2Amount = calculateCO2Saved(productCategory, quantity);
+        
+        const mockOrder = {
+          id: Date.now(),
+          codigo_recogida: generatePickupCode(),
+          nombre_comercio: product.nombre_comercio,
+          direccion_comercio: product.direccion,
+          hora_recogida_inicio: product.hora_recogida_inicio || '14:00',
+          hora_recogida_fin: product.hora_recogida_fin || '18:00',
+          nombre_producto: product.nombre,
+          cantidad: quantity,
+          total: totalAfterCoupon,
+          ahorro: savedAmount,
+          co2_ahorrado: co2Amount,
+          categoria: productCategory,
+        };
+        
+        setOrderData(mockOrder);
+        
+        // Registrar compra para XP y obtener recompensas
+        const xpResult = await recordPurchase(quantity, savedAmount, co2Amount);
+        
+        const currentXP = userProfile?.xp || 0;
+        const currentLevel = userProfile?.nivel || 1;
+        const nextLevelXP = currentLevel * 100; // Simplificado, ajustar según tu lógica
+        const progressToNext = Math.min(100, (currentXP / nextLevelXP) * 100);
+        
+        setXPRewardData({
+          xpEarned: xpResult?.xpGained || 0,
+          levelUp: xpResult?.levelUp || false,
+          newLevel: xpResult?.newLevel || currentLevel,
+          newBadges: xpResult?.newBadges || [],
+          newCoupons: xpResult?.newCoupons || [],
+          progressToNext,
+          currentXP,
+          nextLevelXP,
+        });
+        
+        // Mostrar modal de código de recogida primero
+        setShowPickupCodeModal(true);
       }
-
-      console.log('✅ Payment Sheet inicializado correctamente');
-
-      // 5. Presentar Payment Sheet al usuario
-      console.log('📱 Mostrando Payment Sheet al usuario...');
-      const { error: paymentError } = await presentPaymentSheet();
-
-      if (paymentError) {
-        if (paymentError.code === 'Canceled') {
-          console.log('ℹ️ Usuario canceló el pago');
-        } else {
-          console.error('❌ Error en Payment Sheet:', paymentError);
-          Alert.alert(
-            'Error de Pago',
-            'Hubo un problema al procesar tu pago. Por favor, verifica tu información e intenta nuevamente.\n\nDetalle: ' + paymentError.message,
-            [{ text: 'OK' }]
-          );
-        }
-        setIsPurchasing(false);
-        return;
-      }
-
-      console.log('✅ Pago completado exitosamente');
-      
-      // Recargar tarjetas guardadas por si se agregó una nueva
-      checkSavedCards();
-      
-      await onPaymentSuccess();
 
     } catch (error) {
       console.error('❌ Error en initializePayment:', error);
@@ -343,82 +297,42 @@ const PaymentScreen = ({ route, navigation }) => {
         errorMessage,
         [{ text: 'Entendido' }]
       );
+    } finally {
       setIsPurchasing(false);
     }
   };
-
-  const onPaymentSuccess = async () => {
-    try {
-      const orderResponse = await api.post('/orders', { 
-        productId: product.id,
-        cantidad: quantity,
-        coupon_id: selectedCoupon?.id || null,
-        coupon_discount: couponDiscount,
-      });
-      const newOrder = orderResponse.data;
-
-      // Marcar cupón como usado
-      if (selectedCoupon?.id && newOrder?.id) {
-        try {
-          await api.post('/coupons/use', {
-            couponId: selectedCoupon.id,
-            orderId: newOrder.id
-          });
-        } catch (error) {
-          console.log('Error marking coupon as used:', error.message);
-        }
-      }
-
-      navigation.replace('OrderConfirmation', { order: newOrder, product });
-    } catch (error) {
-      logger.error(error, 'onPaymentSuccess - Creating Order');
-      Alert.alert('Error', 'Tu pago fue exitoso, pero hubo un problema al crear tu pedido. Contacta a soporte.');
+  
+  // Generar código de recogida aleatorio
+  const generatePickupCode = () => {
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const numbers = '0123456789';
+    return `${letters[Math.floor(Math.random() * letters.length)]}${letters[Math.floor(Math.random() * letters.length)]}-${numbers[Math.floor(Math.random() * numbers.length)]}${numbers[Math.floor(Math.random() * numbers.length)]}${numbers[Math.floor(Math.random() * numbers.length)]}`;
+  };
+  
+  // Handler para cerrar el modal de código y mostrar el de XP
+  const handlePickupCodeClose = () => {
+    setShowPickupCodeModal(false);
+    if (xpRewardData && xpRewardData.xpEarned > 0) {
+      // Pequeño delay para transición suave
+      setTimeout(() => {
+        setShowXPModal(true);
+      }, 300);
+    } else {
+      // Si no hay XP, ir directamente a Mis Pedidos
+      navigation.navigate('MyOrders');
     }
   };
-
-  // Pago usando la billetera demo (sin Stripe) — solo crea la orden
-  const handleWalletPayment = async () => {
-    if (!selectedCardId) {
-      Alert.alert(
-        'Agrega una tarjeta',
-        'No tienes tarjetas guardadas. Ve a Métodos de Pago y añade una.',
-        [
-          { text: 'Cancelar' },
-          { text: 'Métodos de Pago', onPress: () => navigation.navigate('PaymentMethods') },
-        ]
-      );
-      return;
-    }
-
-    setIsPurchasing(true);
-    try {
-      const orderResponse = await api.post('/orders', { 
-        productId: product.id,
-        cantidad: quantity,
-        payment_method_id: selectedCardId,
-        coupon_id: selectedCoupon?.id || null,
-        coupon_discount: couponDiscount,
-      });
-      const newOrder = orderResponse.data;
-
-      // Marcar cupón como usado
-      if (selectedCoupon?.id && newOrder?.id) {
-        try {
-          await api.post('/coupons/use', {
-            couponId: selectedCoupon.id,
-            orderId: newOrder.id
-          });
-        } catch (error) {
-          console.log('Error marking coupon as used:', error.message);
-        }
-      }
-
-      navigation.replace('OrderConfirmation', { order: newOrder, product });
-    } catch (error) {
-      logger.error(error, 'handleWalletPayment');
-      Alert.alert('Error', error.response?.data?.msg || 'No se pudo crear el pedido.');
-      setIsPurchasing(false);
-    }
+  
+  // Handler para cerrar el modal de XP
+  const handleXPModalClose = () => {
+    setShowXPModal(false);
+    navigation.navigate('MyOrders');
+  };
+  
+  // Handler para ver el pedido
+  const handleViewOrder = () => {
+    setShowPickupCodeModal(false);
+    navigation.navigate('MyOrders');
   };
 
   // Modal de selección de cupones
@@ -673,7 +587,7 @@ const PaymentScreen = ({ route, navigation }) => {
           )}
         </View>
 
-        {/* Payment Distribution Info (optional - for transparency) */}
+        {/* Payment Distribution Info */}
         <View style={styles.infoCard}>
           <Ionicons name="information-circle-outline" size={20} color={COLORS.textSecondary} />
           <Text style={styles.infoText}>
@@ -681,361 +595,530 @@ const PaymentScreen = ({ route, navigation }) => {
           </Text>
         </View>
 
-        {/* Wallet (billetera) */}
-        {isExpoGo && (
-          <View style={styles.card}>
-            <View style={styles.walletHeader}>
-              <Text style={styles.cardTitle}>Tu billetera</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('PaymentMethods')}>
-                <Text style={styles.linkText}>Gestionar</Text>
-              </TouchableOpacity>
-            </View>
-
-            {loadingCards ? (
-              <ActivityIndicator color={COLORS.primary} />
-            ) : walletCards.length === 0 ? (
-              <Text style={styles.infoText}>Agrega una tarjeta en Métodos de Pago.</Text>
-            ) : (
-              walletCards.map((card) => (
-                <TouchableOpacity
-                  key={card.id}
-                  style={[styles.cardRow, selectedCardId === card.id && styles.cardRowActive]}
-                  onPress={() => setSelectedCardId(card.id)}
-                >
-                  <View style={styles.cardRowLeft}>
-                    <Ionicons name="card" size={20} color={COLORS.primary} />
-                    <View style={{ marginLeft: 10 }}>
-                      <Text style={styles.cardRowTitle}>{card.brand || 'Tarjeta'}</Text>
-                      <Text style={styles.cardRowMeta}>•••• {card.last4} · exp {String(card.exp_month).padStart(2,'0')}/{card.exp_year}</Text>
-                    </View>
-                  </View>
-                  {card.is_default && <Text style={styles.badge}>Default</Text>}
-                </TouchableOpacity>
-              ))
-            )}
+        {/* Mercado Pago Info */}
+        <View style={styles.card}>
+          <View style={styles.paymentMethodHeader}>
+            <MaterialCommunityIcons name="credit-card-check" size={24} color="#009EE3" />
+            <Text style={styles.cardTitle}>Pago seguro con Mercado Pago</Text>
           </View>
-        )}
-
-        {/* Expo Go Warning */}
-        {isExpoGo && (
-          <View style={styles.warningCard}>
-            <Ionicons name="warning" size={24} color={COLORS.warning} />
-            <View style={styles.warningContent}>
-              <Text style={styles.warningTitle}>Modo Demo</Text>
-              <Text style={styles.warningText}>
-                Stripe no está disponible en Expo Go. Usa el botón de demo para probar el flujo.
-              </Text>
+          
+          <View style={styles.mercadoPagoInfo}>
+            <View style={styles.mpFeature}>
+              <Ionicons name="shield-checkmark" size={20} color={COLORS.success} />
+              <Text style={styles.mpFeatureText}>Pago 100% seguro</Text>
             </View>
-          </View>
-        )}
-
-        {/* Payment Method Info (Development Build) */}
-        {!isExpoGo && (
-          <View style={styles.card}>
-            <View style={styles.paymentMethodHeader}>
-              <Ionicons name="card" size={20} color={COLORS.primary} />
-              <Text style={styles.cardTitle}>Método de pago</Text>
-              {stripeSavedCards.length > 0 && (
-                <View style={styles.cardCountBadge}>
-                  <Text style={styles.cardCountText}>{stripeSavedCards.length}</Text>
-                </View>
-              )}
+            <View style={styles.mpFeature}>
+              <Ionicons name="card" size={20} color={COLORS.success} />
+              <Text style={styles.mpFeatureText}>Tarjeta, débito, OXXO y más</Text>
             </View>
-            
-            {loadingStripeCards ? (
-              <View style={{ paddingVertical: SPACING.md }}>
-                <ActivityIndicator size="small" color={COLORS.primary} />
-                <Text style={[styles.infoText, { textAlign: 'center', marginTop: SPACING.sm }]}>
-                  Cargando tarjetas guardadas...
-                </Text>
-              </View>
-            ) : stripeSavedCards.length > 0 ? (
-              <>
-                <View style={styles.savedCardsInfo}>
-                  <View style={styles.savedCardsLeft}>
-                    <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
-                    <View style={{ marginLeft: 10 }}>
-                      <Text style={styles.savedCardsTitle}>Tarjetas guardadas</Text>
-                      <Text style={styles.savedCardsSubtext}>
-                        Selecciona una tarjeta para pagar más rápido
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                
-                {/* Lista de tarjetas guardadas */}
-                <View style={styles.savedCardsList}>
-                  {stripeSavedCards.map((card) => {
-                    const isSelected = selectedStripeCardId === card.id;
-                    return (
-                      <TouchableOpacity
-                        key={card.id}
-                        style={[styles.savedCardItem, isSelected && styles.savedCardItemSelected]}
-                        onPress={() => setSelectedStripeCardId(card.id)}
-                      >
-                        <View style={styles.savedCardLeft}>
-                          <Ionicons 
-                            name="card" 
-                            size={24} 
-                            color={isSelected ? COLORS.primary : COLORS.textSecondary} 
-                          />
-                          <View style={{ marginLeft: 10 }}>
-                            <Text style={[styles.savedCardBrand, isSelected && styles.savedCardBrandSelected]}>
-                              {card.brand?.toUpperCase() || 'TARJETA'}
-                            </Text>
-                            <Text style={styles.savedCardNumber}>•••• {card.last4}</Text>
-                            <Text style={styles.savedCardExpiry}>
-                              Vence: {String(card.exp_month).padStart(2, '0')}/{card.exp_year}
-                            </Text>
-                          </View>
-                        </View>
-                        {isSelected && (
-                          <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </>
-            ) : (
-              <View style={styles.noCardsInfo}>
-                <Ionicons name="information-circle" size={20} color={COLORS.textSecondary} />
-                <Text style={styles.noCardsText}>
-                  Agrega una tarjeta y guárdala para futuras compras
-                </Text>
-              </View>
-            )}
-            
-            <TouchableOpacity 
-              style={styles.manageCardsBtn}
-              onPress={() => {
-                navigation.navigate('SaveCard');
-              }}
-            >
-              <Ionicons name="add-circle-outline" size={18} color={COLORS.primary} />
-              <Text style={styles.manageCardsBtnText}>Agregar nueva tarjeta</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Coupon Selection Modal */}
-      <CouponModal />
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <View style={styles.footerPrice}>
-          <Text style={styles.footerPriceLabel}>Total</Text>
-          <View style={styles.footerPriceRow}>
-            {couponDiscount > 0 && (
-              <Text style={styles.footerPriceStrike}>${formatPrice(subtotal)}</Text>
-            )}
-            <Text style={styles.footerPriceValue}>${formatPrice(totalAfterCoupon)}</Text>
+            <View style={styles.mpFeature}>
+              <Ionicons name="lock-closed" size={20} color={COLORS.success} />
+              <Text style={styles.mpFeatureText}>Protección al comprador</Text>
+            </View>
           </View>
         </View>
-        
-        {isExpoGo ? (
-          <TouchableOpacity 
-            style={styles.demoButton}
-            onPress={handleWalletPayment}
-            disabled={isPurchasing}
-          >
-            {isPurchasing ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <Text style={styles.buttonText}>Pagar con billetera</Text>
-            )}
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity 
-            style={styles.payButton}
-            onPress={initializePayment}
-            disabled={isPurchasing}
-          >
-            {isPurchasing ? (
-              <ActivityIndicator color={COLORS.white} />
-            ) : (
-              <>
-                <Ionicons name="card" size={20} color={COLORS.white} />
-                <Text style={styles.buttonText}>Pagar ahora</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        )}
+
+        {/* Spacer for button */}
+        <View style={{ height: 100 }} />
+
+        {/* Coupon Modal */}
+        <CouponModal />
+      </ScrollView>
+
+      {/* Fixed Bottom Button */}
+      <View style={styles.bottomContainer}>
+        <TouchableOpacity 
+          style={[styles.purchaseBtn, isPurchasing && styles.purchaseBtnDisabled]}
+          onPress={initializePayment}
+          disabled={isPurchasing}
+        >
+          {isPurchasing ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="credit-card-check" size={24} color="#FFF" />
+              <Text style={styles.purchaseBtnText}>
+                Pagar ${formatPrice(totalAfterCoupon)} MXN
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
+
+      {/* Modales de confirmación */}
+      {orderData && (
+        <PickupCodeModal
+          visible={showPickupCodeModal}
+          onClose={handlePickupCodeClose}
+          pickupCode={orderData.codigo_recogida}
+          storeName={orderData.nombre_comercio}
+          storeAddress={orderData.direccion_comercio}
+          pickupStart={orderData.hora_recogida_inicio}
+          pickupEnd={orderData.hora_recogida_fin}
+          productName={orderData.nombre_producto}
+          quantity={orderData.cantidad}
+          total={orderData.total}
+          savings={orderData.ahorro}
+          co2Saved={orderData.co2_ahorrado}
+          onViewOrder={handleViewOrder}
+        />
+      )}
+      
+      {xpRewardData && (
+        <XPRewardsModal
+          visible={showXPModal}
+          onClose={handleXPModalClose}
+          xpEarned={xpRewardData.xpEarned}
+          levelUp={xpRewardData.levelUp}
+          newLevel={xpRewardData.newLevel}
+          newBadges={xpRewardData.newBadges}
+          newCoupons={xpRewardData.newCoupons}
+          progressToNext={xpRewardData.progressToNext}
+          currentXP={xpRewardData.currentXP}
+          nextLevelXP={xpRewardData.nextLevelXP}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: { paddingBottom: 120 },
-  
-  // Header
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.md, backgroundColor: COLORS.surface },
-  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.text },
-  
-  // Error
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-  errorText: { marginTop: SPACING.md, fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textSecondary, textAlign: 'center' },
-  
-  // Cards
-  card: { backgroundColor: COLORS.surface, marginHorizontal: SPACING.md, marginTop: SPACING.md, padding: SPACING.md, borderRadius: BORDERS.radius.lg, ...SHADOWS.sm },
-  cardTitle: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.text, marginBottom: SPACING.md },
-  
-  // Product row
-  productRow: { flexDirection: 'row', alignItems: 'center' },
-  productImage: { width: 80, height: 80, borderRadius: BORDERS.radius.md },
-  productInfo: { flex: 1, marginLeft: SPACING.md },
-  productName: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.text },
-  storeName: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary, marginTop: 2 },
-  quantityBadge: { backgroundColor: COLORS.primarySoft, paddingHorizontal: SPACING.sm, paddingVertical: 2, borderRadius: BORDERS.radius.sm, alignSelf: 'flex-start', marginTop: SPACING.xs },
-  quantityText: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.medium },
-  
-  // Detail rows
-  detailRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  detailIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primarySoft, justifyContent: 'center', alignItems: 'center' },
-  detailContent: { flex: 1, marginLeft: SPACING.sm },
-  detailLabel: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textTertiary },
-  detailValue: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.text, marginTop: 2 },
-  detailDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.md, marginLeft: 48 },
-  
-  // Impact card
-  impactCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primarySoft, marginHorizontal: SPACING.md, marginTop: SPACING.md, padding: SPACING.md, borderRadius: BORDERS.radius.lg },
-  impactContent: { flex: 1, marginLeft: SPACING.sm },
-  impactTitle: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.primary },
-  impactText: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.primaryDark, marginTop: 2 },
-  
-  // Price rows
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm },
-  priceLabel: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textSecondary },
-  priceValueStrike: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textTertiary, textDecorationLine: 'line-through' },
-  discountValue: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.success, fontWeight: TYPOGRAPHY.fontWeight.medium },
-  priceDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.sm },
-  totalLabel: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.text },
-  totalValue: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.primary },
-  
-  // Info card
-  infoCard: { flexDirection: 'row', alignItems: 'flex-start', marginHorizontal: SPACING.md, marginTop: SPACING.md, padding: SPACING.sm },
-  infoText: { flex: 1, marginLeft: SPACING.sm, fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary, lineHeight: 18 },
-  
-  // Warning card
-  warningCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.warningLight, marginHorizontal: SPACING.md, marginTop: SPACING.md, padding: SPACING.md, borderRadius: BORDERS.radius.md },
-  warningContent: { flex: 1, marginLeft: SPACING.sm },
-  warningTitle: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.warning },
-  warningText: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary, marginTop: 2 },
-  walletHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  linkText: { color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.semibold },
-  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  cardRowLeft: { flexDirection: 'row', alignItems: 'center' },
-  cardRowTitle: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.text },
-  cardRowMeta: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary },
-  cardRowActive: { backgroundColor: COLORS.primarySoft, paddingHorizontal: 6, borderRadius: 10 },
-  badge: { backgroundColor: COLORS.primary, color: COLORS.white, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, fontSize: TYPOGRAPHY.fontSize.xs },
-  
-  // Footer
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border, ...SHADOWS.lg },
-  footerPrice: { marginRight: SPACING.md },
-  footerPriceLabel: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary },
-  footerPriceValue: { fontSize: TYPOGRAPHY.fontSize.xl, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.text },
-  footerPriceRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  footerPriceStrike: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textTertiary, textDecorationLine: 'line-through' },
-  payButton: { flex: 1, flexDirection: 'row', backgroundColor: COLORS.primary, paddingVertical: SPACING.md, borderRadius: BORDERS.radius.md, alignItems: 'center', justifyContent: 'center', gap: SPACING.sm },
-  demoButton: { flex: 1, backgroundColor: COLORS.warning, paddingVertical: SPACING.md, borderRadius: BORDERS.radius.md, alignItems: 'center', justifyContent: 'center' },
-  buttonText: { color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.bold },
-  
-  // Coupon Section Styles
-  couponHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
-  couponHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  couponBadge: { backgroundColor: COLORS.primary, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  couponBadgeText: { color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.xs, fontWeight: TYPOGRAPHY.fontWeight.bold },
-  addCouponBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, borderWidth: 1, borderColor: COLORS.primary, borderRadius: BORDERS.radius.md, borderStyle: 'dashed', gap: 8 },
-  addCouponText: { color: COLORS.primary, fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.medium },
-  selectedCoupon: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primarySoft, padding: SPACING.sm, borderRadius: BORDERS.radius.md },
-  selectedCouponLeft: { width: 50, height: 50, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  selectedCouponValue: { color: COLORS.white, fontWeight: TYPOGRAPHY.fontWeight.bold, fontSize: TYPOGRAPHY.fontSize.sm },
-  selectedCouponInfo: { flex: 1, marginLeft: SPACING.sm },
-  selectedCouponName: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.text },
-  selectedCouponDiscount: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.success, fontWeight: TYPOGRAPHY.fontWeight.bold },
-  removeCouponIcon: { padding: 4 },
-  couponDiscountLabel: { flexDirection: 'row', alignItems: 'center' },
-  couponDiscountValue: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.bold },
-  totalWithSavings: { alignItems: 'flex-end' },
-  totalValueStrike: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textTertiary, textDecorationLine: 'line-through' },
-  totalSavingsBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.successLight, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, marginTop: SPACING.sm, gap: 4 },
-  totalSavingsText: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.success, fontWeight: TYPOGRAPHY.fontWeight.semibold },
-  
-  // Coupon Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: COLORS.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%', paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  modalTitle: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.text },
-  couponsList: { padding: SPACING.md },
-  noCoupons: { alignItems: 'center', padding: SPACING.xl },
-  noCouponsText: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textSecondary, marginTop: SPACING.md, textAlign: 'center' },
-  noCouponsSubtext: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textTertiary, marginTop: 4 },
-  couponOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, padding: SPACING.sm, borderRadius: BORDERS.radius.md, marginBottom: SPACING.sm, borderWidth: 1, borderColor: COLORS.border },
-  couponOptionSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.primarySoft },
-  couponOptionLeft: { width: 60, height: 60, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  couponOptionValue: { color: COLORS.white, fontWeight: TYPOGRAPHY.fontWeight.bold, fontSize: TYPOGRAPHY.fontSize.sm },
-  couponOptionInfo: { flex: 1, marginLeft: SPACING.sm },
-  couponOptionName: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.text },
-  couponOptionMeta: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary, marginTop: 2 },
-  couponOptionSavings: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.success, fontWeight: TYPOGRAPHY.fontWeight.medium, marginTop: 2 },
-  removeCouponBtn: { margin: SPACING.md, padding: SPACING.sm, alignItems: 'center' },
-  removeCouponText: { color: COLORS.error, fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.medium },
-  
-  // Payment Method Styles (Development Build)
-  paymentMethodHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.sm },
-  cardCountBadge: { backgroundColor: COLORS.primary, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 'auto' },
-  cardCountText: { color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.xs, fontWeight: TYPOGRAPHY.fontWeight.bold },
-  savedCardsInfo: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.successLight, padding: SPACING.sm, borderRadius: BORDERS.radius.md, marginBottom: SPACING.sm },
-  savedCardsLeft: { flexDirection: 'row', alignItems: 'flex-start', flex: 1 },
-  savedCardsTitle: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.text },
-  savedCardsSubtext: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary, marginTop: 2 },
-  
-  // Lista de tarjetas guardadas
-  savedCardsList: { marginVertical: SPACING.sm },
-  savedCardItem: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between',
-    padding: SPACING.sm, 
+  container: {
+    flex: 1,
     backgroundColor: COLORS.background,
-    borderRadius: BORDERS.radius.md, 
-    marginBottom: SPACING.xs,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
   },
-  savedCardItemSelected: { 
-    backgroundColor: COLORS.primarySoft,
+  scrollContent: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xl,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  errorText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.md,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.md,
+  },
+  backBtn: {
+    padding: SPACING.xs,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: BORDERS.radiusMd,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    ...SHADOWS.small,
+  },
+  productRow: {
+    flexDirection: 'row',
+  },
+  productImage: {
+    width: 80,
+    height: 80,
+    borderRadius: BORDERS.radiusSm,
+    backgroundColor: COLORS.border,
+  },
+  productInfo: {
+    flex: 1,
+    marginLeft: SPACING.md,
+    justifyContent: 'center',
+  },
+  productName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  storeName: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+  },
+  quantityBadge: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radiusSm,
+    alignSelf: 'flex-start',
+  },
+  quantityText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.primary,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: SPACING.sm,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  detailIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailContent: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
+  },
+  detailDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: SPACING.sm,
+  },
+  impactCard: {
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: BORDERS.radiusMd,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  impactContent: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+  },
+  impactTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  impactText: {
+    fontSize: 12,
+    color: COLORS.text,
+    marginTop: 2,
+  },
+  couponHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  couponHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  couponBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  couponBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  addCouponBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+    borderRadius: BORDERS.radiusSm,
+    justifyContent: 'center',
+    gap: SPACING.xs,
+  },
+  addCouponText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  selectedCoupon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: BORDERS.radiusSm,
+    padding: SPACING.sm,
+  },
+  selectedCouponLeft: {
+    width: 50,
+    height: 50,
+    borderRadius: BORDERS.radiusSm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedCouponValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  selectedCouponInfo: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+  },
+  selectedCouponName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  selectedCouponDiscount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.success,
+  },
+  removeCouponIcon: {
+    padding: SPACING.xs,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  priceValueStrike: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textDecorationLine: 'line-through',
+  },
+  discountValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.success,
+  },
+  couponDiscountLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  couponDiscountValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  priceDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: SPACING.sm,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  totalWithSavings: {
+    alignItems: 'flex-end',
+  },
+  totalValueStrike: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textDecorationLine: 'line-through',
+  },
+  totalValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  totalSavingsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDERS.radiusSm,
+    alignSelf: 'flex-start',
+    marginTop: SPACING.xs,
+    gap: 4,
+  },
+  totalSavingsText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.success,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.card,
+    borderRadius: BORDERS.radiusSm,
+    padding: SPACING.sm,
+    marginBottom: SPACING.md,
+    alignItems: 'flex-start',
+    gap: SPACING.xs,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  paymentMethodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  mercadoPagoInfo: {
+    gap: SPACING.xs,
+  },
+  mpFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  mpFeatureText: {
+    fontSize: 14,
+    color: COLORS.text,
+  },
+  bottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.card,
+    padding: SPACING.md,
+    paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md,
+    ...SHADOWS.medium,
+  },
+  purchaseBtn: {
+    flexDirection: 'row',
+    backgroundColor: '#009EE3', // Mercado Pago blue
+    borderRadius: BORDERS.radiusMd,
+    padding: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  purchaseBtnDisabled: {
+    opacity: 0.7,
+  },
+  purchaseBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: BORDERS.radiusLg,
+    borderTopRightRadius: BORDERS.radiusLg,
+    padding: SPACING.md,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  noCoupons: {
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  noCouponsText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.md,
+  },
+  noCouponsSubtext: {
+    fontSize: 14,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.xs,
+  },
+  couponsList: {
+    maxHeight: 300,
+  },
+  couponOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    borderRadius: BORDERS.radiusSm,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  couponOptionSelected: {
     borderColor: COLORS.primary,
   },
-  savedCardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  savedCardBrand: { 
-    fontSize: TYPOGRAPHY.fontSize.base, 
-    fontWeight: TYPOGRAPHY.fontWeight.bold, 
+  couponOptionLeft: {
+    width: 60,
+    height: 60,
+    borderRadius: BORDERS.radiusSm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  couponOptionValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 2,
+  },
+  couponOptionInfo: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+  },
+  couponOptionName: {
+    fontSize: 14,
+    fontWeight: '600',
     color: COLORS.text,
-    letterSpacing: 0.5,
   },
-  savedCardBrandSelected: { color: COLORS.primary },
-  savedCardNumber: { 
-    fontSize: TYPOGRAPHY.fontSize.sm, 
-    color: COLORS.textSecondary, 
+  couponOptionMeta: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
     marginTop: 2,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
-  savedCardExpiry: { 
-    fontSize: TYPOGRAPHY.fontSize.xs, 
-    color: COLORS.textTertiary, 
-    marginTop: 2 
+  couponOptionSavings: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.success,
+    marginTop: 2,
   },
-  
-  noCardsInfo: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, padding: SPACING.sm, borderRadius: BORDERS.radius.md, marginBottom: SPACING.sm, gap: 8 },
-  noCardsText: { flex: 1, fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textSecondary },
-  manageCardsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.sm, borderWidth: 1, borderColor: COLORS.primary, borderRadius: BORDERS.radius.md, gap: 6, marginTop: SPACING.xs },
-  manageCardsBtnText: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.primary, fontWeight: TYPOGRAPHY.fontWeight.medium },
+  removeCouponBtn: {
+    padding: SPACING.md,
+    alignItems: 'center',
+  },
+  removeCouponText: {
+    fontSize: 14,
+    color: COLORS.error,
+    fontWeight: '500',
+  },
 });
 
 export default PaymentScreen;

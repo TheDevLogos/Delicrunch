@@ -53,7 +53,7 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
     const storeResult = await pool.query(`
         SELECT s.id, s.user_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
                s.descripcion, s.telefono, s.horario,
-               u.name AS owner_nombre, u.email AS owner_email
+               u.nombre AS owner_nombre, u.email AS owner_email
         FROM stores s
         LEFT JOIN users u ON s.user_id = u.id
         WHERE s.id = $1
@@ -80,14 +80,13 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
         ORDER BY p.created_at DESC
     `, [id]);
 
-    // Reseñas de la tienda (vía productos)
+    // Reseñas de la tienda (directamente por store_id)
     const reviewsResult = await pool.query(`
-        SELECT r.id, r.rating AS calificacion, r.comment AS comentario, r.created_at AS fecha,
-               u.name AS nombre_usuario
+        SELECT r.id, r.calificacion, r.comentario, r.created_at AS fecha,
+               u.nombre AS nombre_usuario
         FROM reviews r
         JOIN users u ON r.user_id = u.id
-        JOIN products p ON r.product_id = p.id
-        JOIN stores s ON s.id = $1 AND s.user_id = p.seller_id
+        WHERE r.store_id = $1
         ORDER BY r.created_at DESC
         LIMIT 20
     `, [id]);

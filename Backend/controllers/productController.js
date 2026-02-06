@@ -110,38 +110,26 @@ exports.getAllAvailableProducts = asyncHandler(async (req, res, next) => {
     const products = await pool.query(
         `SELECT 
             p.id,
-            p.name as nombre,
-            p.description as descripcion,
-            p.price as precio_descuento,
-            p.compare_price as precio_original,
-            p.stock as cantidad_disponible,
-            p.category as categoria,
-            p.image_url as imagen_url,
-            p.images,
-            p.is_active as activo,
-            p.is_featured,
-            p.rating as calificacion_promedio,
-            p.reviews_count as total_resenas,
-            p.sales_count,
-            p.views_count,
-            p.seller_id,
-            p.latitude,
-            p.longitude,
+            p.nombre,
+            p.descripcion,
+            p.precio_descuento,
+            p.precio_original,
+            p.cantidad_disponible,
+            p.categoria,
+            p.imagen_url,
+            p.activo,
+            p.store_id,
             p.created_at,
             p.updated_at,
-            -- Campos del vendedor con aliases para frontend
-            u.name as nombre_comercio,
-            u.city as ciudad,
-            u.street as direccion,
-            u.latitude as latitud,
-            u.longitude as longitud,
-            u.phone as telefono_comercio,
-            -- Agregar store_id para compatibilidad con frontend
-            s.id as store_id
+            -- Campos del comercio
+            s.nombre_comercio,
+            s.direccion,
+            s.latitud,
+            s.longitud,
+            s.telefono
         FROM products p
-        LEFT JOIN users u ON p.seller_id = u.id
-        LEFT JOIN stores s ON s.user_id = u.id
-        WHERE p.stock > 0 AND p.is_active = true
+        LEFT JOIN stores s ON  p.store_id = s.id
+        WHERE p.cantidad_disponible > 0 AND p.activo = true
         ORDER BY p.created_at DESC`
     );
     res.json(products.rows);

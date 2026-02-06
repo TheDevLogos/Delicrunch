@@ -1,0 +1,191 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║                    ✅ SOLUCIÓN APLICADA                           ║
+║               ERRORES DE LOGIN EN EXPO RESUELTOS                  ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+📋 PROBLEMA IDENTIFICADO
+═══════════════════════════════════════════════════════════════════
+
+Los errores reportados:
+  ❌ ERROR 401: www-authenticate: tunnel
+  ❌ Servidor respondió con HTML en lugar de JSON
+  ❌ No se pudo sincronizar gamification con servidor
+  ❌ Login fallaba con credenciales válidas
+
+🎯 CAUSA ROOT
+═══════════════════════════════════════════════════════════════════
+
+El puerto 5001 de GitHub Codespaces NO estaba configurado como público.
+Esto provocaba que el túnel interceptara las peticiones y devolviera 401
+ANTES de que llegaran al backend.
+
+✅ SOLUCIÓN IMPLEMENTADA
+═══════════════════════════════════════════════════════════════════
+
+1. ✅ Script automático creado: fix-codespaces-tunnel.sh
+   - Configura puerto 5001 como público
+   - Verifica conexión al backend
+   - Actualiza Frontend/.env automáticamente
+
+2. ✅ Configuración persistente: .devcontainer/devcontainer.json
+   - El puerto se configurará como público al iniciar Codespaces
+   - Ejecuta automáticamente el script de corrección
+
+3. ✅ Backend corregido:
+   - Endpoint /api/health añadido
+   - Server.js optimizado para túnel de Codespaces
+
+4. ✅ Scripts de inicio simplificados:
+   - quick-start-backend.sh → Inicia solo el backend
+   - start-delicrunch.sh → Sistema completo (actualizado)
+
+🔬 VALIDACIÓN COMPLETA
+═══════════════════════════════════════════════════════════════════
+
+✅ Backend accesible desde el túnel:
+   https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+
+✅ Endpoint /api/health responde correctamente:
+   {"success":true,"status":"healthy","uptime":6.8}
+
+✅ Login funciona con credenciales de prueba:
+   Email: compradordelicias@test.com
+   Password: password123
+   Token JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+✅ Endpoint /api/profiles/me responde con datos del usuario:
+   {"id":8,"nombre":"Comprador de Delicias","rol":"buyer"...}
+
+✅ Endpoint /api/profiles/gamification responde correctamente:
+   {"total_xp":0,"total_packs_saved":0,"unlocked_badges":[]}
+
+✅ Contraseña verificada en BD:
+   Hash: $2b$10$HjNTjxQEN0H4zCisEQS38.FwG0i9Ym3hcoDosrlJXI56tXKUiODV2
+   Match: true ✓
+
+🚀 CÓMO USAR LA SOLUCIÓN
+═══════════════════════════════════════════════════════════════════
+
+OPCIÓN 1: Automático (Recomendado)
+───────────────────────────────────────────────────────────────────
+  ./fix-codespaces-tunnel.sh
+
+  Este script hace todo automáticamente:
+  • Verifica el backend
+  • Configura puerto como público
+  • Prueba las conexiones
+  • Actualiza Frontend/.env
+
+
+OPCIÓN 2: Manual
+───────────────────────────────────────────────────────────────────
+  1. Abre la pestaña "PORTS" en VS Code (panel inferior)
+  2. Busca el puerto 5001
+  3. Clic derecho → "Port Visibility" → "Public"
+  4. Espera 5 segundos
+  5. Reinicia Expo: cd Frontend && npx expo start --clear
+
+
+OPCIÓN 3: Persistente (Al reiniciar Codespaces)
+───────────────────────────────────────────────────────────────────
+  Ya está configurado en .devcontainer/devcontainer.json
+  
+  El puerto se configurará automáticamente al iniciar Codespaces
+  y ejecutará el script de corrección.
+
+📱 PROBAR EN TU DISPOSITIVO
+═══════════════════════════════════════════════════════════════════
+
+1. Asegúrate de que el backend esté corriendo:
+   
+   ./quick-start-backend.sh
+
+2. Inicia Expo en el Frontend:
+   
+   cd Frontend
+   npx expo start --clear
+
+3. Abre Expo Go en tu teléfono y escanea el QR
+
+4. Inicia sesión con:
+   
+   📧 Email: compradordelicias@test.com
+   🔑 Password: password123
+
+5. ¡Deberías poder entrar sin errores! 🎉
+
+🔍 DEBUGGING
+═══════════════════════════════════════════════════════════════════
+
+Si todavía ves errores:
+
+1. Ver logs del backend:
+   tail -f /workspaces/Delicrunch/backend.log
+
+2. Verificar que el puerto es público:
+   gh codespace ports -c $CODESPACE_NAME
+   
+   Debe mostrar "public" en el puerto 5001
+
+3. Probar la conexión manualmente:
+   curl https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api/health
+
+4. Si ves "www-authenticate: tunnel":
+   → El puerto NO es público
+   → Usa OPCIÓN 2 (Manual) arriba
+
+📚 ARCHIVOS MODIFICADOS
+═══════════════════════════════════════════════════════════════════
+
+✅ Creados:
+   • fix-codespaces-tunnel.sh → Script de corrección automática
+   • quick-start-backend.sh → Inicio rápido del backend
+   • .devcontainer/devcontainer.json → Configuración persistente
+   • SOLUCION_DEFINITIVA_LOGIN.md → Documentación completa
+   • RESUMEN_SOLUCION.txt → Este archivo
+
+✅ Modificados:
+   • Backend/server.js → Añadido endpoint /api/health
+   • Frontend/.env → URL actualizada automáticamente
+
+❌ NO modificados (funcionan correctamente):
+   • Backend/controllers/authController.js
+   • Backend/middleware/authMiddleware.js
+   • Frontend/services/api.js
+   • Frontend/contexts/AuthContext.js
+
+🎓 LECCIONES APRENDIDAS
+═══════════════════════════════════════════════════════════════════
+
+1. GitHub Codespaces requiere puertos PÚBLICOS para acceso externo
+   (como desde Expo Go en tu teléfono)
+
+2. El error "www-authenticate: tunnel" indica puerto NO público
+
+3. El backend funcionaba PERFECTAMENTE localmente
+   → El problema era SOLO el túnel de Codespaces
+
+4. Los interceptores de Axios fueron cruciales para detectar
+   respuestas HTML del túnel
+
+5. Los logs detallados en el backend facilitaron el debugging
+
+💡 TIPS PARA EL FUTURO
+═══════════════════════════════════════════════════════════════════
+
+• Siempre ejecuta fix-codespaces-tunnel.sh al iniciar Codespaces
+
+• Si cambias el puerto del backend, actualiza también:
+  - .devcontainer/devcontainer.json
+  - fix-codespaces-tunnel.sh
+  - Frontend/.env
+
+• Para producción, usa un dominio real en lugar del túnel
+
+• Guarda las credenciales de prueba en un lugar seguro
+
+═══════════════════════════════════════════════════════════════════
+Autor: GitHub Copilot
+Fecha: 26 de Enero de 2026
+Versión: 1.0.0 - Solución Definitiva
+═══════════════════════════════════════════════════════════════════

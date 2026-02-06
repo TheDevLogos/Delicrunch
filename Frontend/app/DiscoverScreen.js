@@ -188,15 +188,27 @@ const DiscoverScreen = () => {
   };
 
   const filteredProducts = useMemo(() => {
+    // Primero filtrar por ciudad si tenemos ubicación del usuario
+    let base = products;
+    if (userLocation?.city) {
+      const userCity = userLocation.city.toLowerCase();
+      base = base.filter(p => {
+        const productCity = (p.ciudad || '').toLowerCase();
+        return productCity.includes(userCity) || userCity.includes(productCity) || productCity === '';
+      });
+    }
+    
+    // Luego filtrar por búsqueda
     const term = searchQuery.toLowerCase();
-    const base = products.filter(p =>
+    base = base.filter(p =>
       p.nombre?.toLowerCase().includes(term) ||
       p.nombre_comercio?.toLowerCase().includes(term)
     );
 
+    // Finalmente filtrar por categoría
     if (selectedCategory === 'Todos') return base;
     return base.filter(p => (p.categoria || '').toLowerCase() === selectedCategory.toLowerCase());
-  }, [products, searchQuery, selectedCategory]);
+  }, [products, searchQuery, selectedCategory, userLocation]);
 
   useEffect(() => {
     if (!filteredProducts.length) {
@@ -351,7 +363,7 @@ const DiscoverScreen = () => {
         data={products}
         horizontal
         showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => `discover-${item.id}-${index}`}
         renderItem={({ item }) => <ProductCardHorizontal product={item} />}
         contentContainerStyle={styles.horizontalList}
         snapToInterval={CARD_WIDTH + 12}

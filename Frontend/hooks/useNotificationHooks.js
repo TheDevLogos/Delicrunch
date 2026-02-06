@@ -1,248 +1,166 @@
-/**
- * 🔔 DELICRUNCH - Hook de Notificaciones
- * 
- * Hook personalizado que proporciona acceso fácil al sistema de
- * notificaciones y métodos útiles para diferentes escenarios.
- */
+import { useContext, useCallback } from 'react';
+import { NotificationContext } from '../contexts/NotificationContext';
+import {
+  getRandomNotification,
+  getNotificationsByCategory,
+  scheduleRandomCreativeNotification,
+  sendImmediateNotification,
+} from '../services/notificationService';
 
-import { useCallback } from 'react';
-import { useNotifications } from '../contexts/NotificationContext';
-import notificationService from '../services/notificationService';
+// Hook principal para usar el contexto de notificaciones
+export function useNotifications() {
+  const context = useContext(NotificationContext);
+  if (!context) {
+    throw new Error('useNotifications debe usarse dentro de NotificationProvider');
+  }
+  return context;
+}
 
-/**
- * Hook para enviar notificaciones contextuales basadas en acciones del usuario
- */
+// Hook para notificaciones contextuales basadas en acciones del usuario
 export function useContextualNotifications() {
-  const { isEnabled, sendNotification, scheduleReminder } = useNotifications();
+  const { sendNotification } = useNotifications();
 
-  /**
-   * Notifica cuando hay nuevos packs disponibles cerca
-   */
-  const notifyNewPacksNearby = useCallback(async (count = 1) => {
-    if (!isEnabled) return;
-    
-    const titles = [
-      "🎉 ¡Nuevos packs cerca de ti!",
-      "📍 Hay novedades en tu zona",
-      "🔔 Packs frescos disponibles",
+  // Notificación cuando el usuario agrega al carrito
+  const notifyAddedToCart = useCallback(async (productName) => {
+    const messages = [
+      `¡${productName} agregado! 🛒 ¿Algo más que te provoque?`,
+      `¡Excelente elección! ${productName} está en tu carrito 🎉`,
+      `${productName} te espera en el carrito. ¿Listo para ordenar?`,
     ];
-    
-    const bodies = [
-      `${count} pack${count > 1 ? 's' : ''} nuevo${count > 1 ? 's' : ''} te esper${count > 1 ? 'an' : 'a'}. ¡No te lo${count > 1 ? 's' : ''} pierdas!`,
-      `Encontramos ${count} oferta${count > 1 ? 's' : ''} increíble${count > 1 ? 's' : ''} cerca de ti.`,
-      `${count} comercio${count > 1 ? 's' : ''} cerca acaba${count > 1 ? 'n' : ''} de publicar packs.`,
-    ];
-    
-    const randomIndex = Math.floor(Math.random() * titles.length);
-    
-    await sendNotification(titles[randomIndex], bodies[randomIndex], {
-      type: 'new_packs_nearby',
-      count,
-    });
-  }, [isEnabled, sendNotification]);
+    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+    await sendNotification('Agregado al carrito', randomMessage);
+  }, [sendNotification]);
 
-  /**
-   * Notifica sobre un descuento especial
-   */
-  const notifySpecialDiscount = useCallback(async (discount, storeName) => {
-    if (!isEnabled) return;
-    
+  // Notificación cuando completa una compra
+  const notifyPurchaseComplete = useCallback(async (orderNumber) => {
     await sendNotification(
-      `💰 ¡${discount}% OFF en ${storeName}!`,
-      `Oferta por tiempo limitado. ¡Aprovecha antes de que se acabe!`,
-      {
-        type: 'special_discount',
-        discount,
-        storeName,
-      }
+      '✅ ¡Pedido confirmado!',
+      `Tu orden #${orderNumber} está en camino. ¡Prepárate para disfrutar!`
     );
-  }, [isEnabled, sendNotification]);
+  }, [sendNotification]);
 
-  /**
-   * Notifica cuando el carrito está a punto de expirar
-   */
-  const notifyCartExpiring = useCallback(async (itemName) => {
-    if (!isEnabled) return;
-    
+  // Notificación de logro desbloqueado
+  const notifyAchievementUnlocked = useCallback(async (achievementName, points) => {
     await sendNotification(
-      "⏰ Tu carrito te extraña",
-      `"${itemName}" sigue esperándote. ¡Completa tu pedido!`,
-      {
-        type: 'cart_expiring',
-        itemName,
-      }
+      `🏆 ¡Logro desbloqueado!`,
+      `Has conseguido "${achievementName}" y ganado ${points} puntos`
     );
-  }, [isEnabled, sendNotification]);
+  }, [sendNotification]);
 
-  /**
-   * Notifica sobre una orden lista para recoger
-   */
-  const notifyOrderReady = useCallback(async (orderNumber, storeName) => {
-    if (!isEnabled) return;
-    
+  // Notificación de descuento disponible
+  const notifyDiscountAvailable = useCallback(async (discount, expiresIn) => {
     await sendNotification(
-      "✅ ¡Tu pedido está listo!",
-      `Orden #${orderNumber} lista para recoger en ${storeName}`,
-      {
-        type: 'order_ready',
-        orderNumber,
-        storeName,
-      }
+      `💰 ¡${discount}% de descuento!`,
+      `Aprovecha esta oferta en las próximas ${expiresIn} horas`
     );
-  }, [isEnabled, sendNotification]);
+  }, [sendNotification]);
 
-  /**
-   * Notifica sobre puntos/recompensas ganadas
-   */
-  const notifyRewardEarned = useCallback(async (points, totalPoints) => {
-    if (!isEnabled) return;
-    
+  // Notificación de nuevo restaurante cerca
+  const notifyNewRestaurantNearby = useCallback(async (restaurantName, distance) => {
     await sendNotification(
-      "🌟 ¡Ganaste puntos!",
-      `+${points} puntos eco. Total: ${totalPoints}. ¡Sigue rescatando!`,
-      {
-        type: 'reward_earned',
-        points,
-        totalPoints,
-      }
+      `🆕 Nuevo restaurante cerca`,
+      `${restaurantName} acaba de abrir a ${distance}km de ti. ¡Descúbrelo!`
     );
-  }, [isEnabled, sendNotification]);
+  }, [sendNotification]);
 
-  /**
-   * Notifica sobre un flash deal
-   */
-  const notifyFlashDeal = useCallback(async (storeName, timeLeft) => {
-    if (!isEnabled) return;
-    
+  // Notificación de impacto ambiental
+  const notifyEcoImpact = useCallback(async (co2Saved, trees) => {
     await sendNotification(
-      "⚡ ¡Flash Deal activo!",
-      `${storeName} tiene ofertas relámpago. Quedan ${timeLeft} minutos.`,
-      {
-        type: 'flash_deal',
-        storeName,
-        timeLeft,
-      }
+      `🌱 ¡Impacto positivo!`,
+      `Has ahorrado ${co2Saved}kg de CO2. Equivalente a plantar ${trees} árboles 🌳`
     );
-  }, [isEnabled, sendNotification]);
-
-  /**
-   * Programa un recordatorio para volver a la app
-   */
-  const scheduleReEngagement = useCallback(async (delayHours = 24) => {
-    if (!isEnabled) return;
-    
-    const notification = notificationService.getRandomNotification();
-    
-    await notificationService.scheduleLocalNotification({
-      title: notification.title,
-      body: notification.body,
-      data: {
-        type: 're_engagement',
-        notificationId: notification.id,
-      },
-      trigger: {
-        seconds: delayHours * 60 * 60,
-      },
-    });
-  }, [isEnabled]);
+  }, [sendNotification]);
 
   return {
-    notifyNewPacksNearby,
-    notifySpecialDiscount,
-    notifyCartExpiring,
-    notifyOrderReady,
-    notifyRewardEarned,
+    notifyAddedToCart,
+    notifyPurchaseComplete,
+    notifyAchievementUnlocked,
+    notifyDiscountAvailable,
+    notifyNewRestaurantNearby,
+    notifyEcoImpact,
+  };
+}
+
+// Hook para programar notificaciones creativas aleatorias
+export function useScheduleCreativeNotifications() {
+  const scheduleCreative = useCallback(async (delayInSeconds = 60) => {
+    try {
+      const notification = await scheduleRandomCreativeNotification(delayInSeconds);
+      console.log('Notificación programada:', notification.title);
+      return notification;
+    } catch (error) {
+      console.error('Error programando notificación creativa:', error);
+      throw error;
+    }
+  }, []);
+
+  const scheduleByCategory = useCallback(async (category, delayInSeconds = 60) => {
+    try {
+      const notifications = getNotificationsByCategory(category);
+      if (notifications.length === 0) {
+        throw new Error(`No hay notificaciones para la categoría: ${category}`);
+      }
+
+      const randomNotif = notifications[Math.floor(Math.random() * notifications.length)];
+      
+      await sendImmediateNotification(
+        randomNotif.title,
+        randomNotif.body,
+        randomNotif.data
+      );
+
+      return randomNotif;
+    } catch (error) {
+      console.error('Error programando notificación por categoría:', error);
+      throw error;
+    }
+  }, []);
+
+  return {
+    scheduleCreative,
+    scheduleByCategory,
+  };
+}
+
+// Hook para notificaciones de ofertas urgentes
+export function useUrgentDealsNotifications() {
+  const { sendNotification } = useNotifications();
+
+  const notifyFlashDeal = useCallback(async (dealInfo) => {
+    const { discount, restaurant, timeLeft } = dealInfo;
+    await sendNotification(
+      `⚡ Flash Deal: ${discount}% OFF`,
+      `En ${restaurant}. ¡Solo por ${timeLeft} minutos!`,
+      { type: 'flash_deal', urgent: true }
+    );
+  }, [sendNotification]);
+
+  const notifyLastChance = useCallback(async (couponCode, expiresInMinutes) => {
+    await sendNotification(
+      `⏰ ¡Última oportunidad!`,
+      `Cupón ${couponCode} expira en ${expiresInMinutes} minutos`,
+      { type: 'last_chance', urgent: true }
+    );
+  }, [sendNotification]);
+
+  const notifyLowStock = useCallback(async (productName, unitsLeft) => {
+    await sendNotification(
+      `🔥 ¡Stock limitado!`,
+      `Solo quedan ${unitsLeft} unidades de ${productName}`,
+      { type: 'low_stock', urgent: true }
+    );
+  }, [sendNotification]);
+
+  return {
     notifyFlashDeal,
-    scheduleReEngagement,
+    notifyLastChance,
+    notifyLowStock,
   };
 }
 
-/**
- * Hook para categorías específicas de notificaciones
- */
-export function useCategoryNotifications() {
-  const { isEnabled, sendNotification } = useNotifications();
-
-  /**
-   * Envía una notificación de la categoría "antojo"
-   */
-  const sendCravingNotification = useCallback(async () => {
-    if (!isEnabled) return;
-    const notification = notificationService.getNotificationByCategory('antojo');
-    await sendNotification(notification.title, notification.body, {
-      category: 'antojo',
-      notificationId: notification.id,
-    });
-  }, [isEnabled, sendNotification]);
-
-  /**
-   * Envía una notificación de la categoría "ahorro"
-   */
-  const sendSavingsNotification = useCallback(async () => {
-    if (!isEnabled) return;
-    const notification = notificationService.getNotificationByCategory('ahorro');
-    await sendNotification(notification.title, notification.body, {
-      category: 'ahorro',
-      notificationId: notification.id,
-    });
-  }, [isEnabled, sendNotification]);
-
-  /**
-   * Envía una notificación de la categoría "eco"
-   */
-  const sendEcoNotification = useCallback(async () => {
-    if (!isEnabled) return;
-    const notification = notificationService.getNotificationByCategory('eco');
-    await sendNotification(notification.title, notification.body, {
-      category: 'eco',
-      notificationId: notification.id,
-    });
-  }, [isEnabled, sendNotification]);
-
-  /**
-   * Envía una notificación de la categoría "urgencia"
-   */
-  const sendUrgencyNotification = useCallback(async () => {
-    if (!isEnabled) return;
-    const notification = notificationService.getNotificationByCategory('urgencia');
-    await sendNotification(notification.title, notification.body, {
-      category: 'urgencia',
-      notificationId: notification.id,
-    });
-  }, [isEnabled, sendNotification]);
-
-  /**
-   * Envía una notificación de la categoría "diversión"
-   */
-  const sendFunNotification = useCallback(async () => {
-    if (!isEnabled) return;
-    const notification = notificationService.getNotificationByCategory('diversion');
-    await sendNotification(notification.title, notification.body, {
-      category: 'diversion',
-      notificationId: notification.id,
-    });
-  }, [isEnabled, sendNotification]);
-
-  /**
-   * Envía una notificación de la categoría "comida"
-   */
-  const sendFoodNotification = useCallback(async () => {
-    if (!isEnabled) return;
-    const notification = notificationService.getNotificationByCategory('comida');
-    await sendNotification(notification.title, notification.body, {
-      category: 'comida',
-      notificationId: notification.id,
-    });
-  }, [isEnabled, sendNotification]);
-
-  return {
-    sendCravingNotification,
-    sendSavingsNotification,
-    sendEcoNotification,
-    sendUrgencyNotification,
-    sendFunNotification,
-    sendFoodNotification,
-  };
-}
-
-export default useContextualNotifications;
+export default {
+  useNotifications,
+  useContextualNotifications,
+  useScheduleCreativeNotifications,
+  useUrgentDealsNotifications,
+};

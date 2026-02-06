@@ -17,7 +17,8 @@ import MyReviewsScreen from '../app/MyReviewsScreen';
 import LeaveReviewScreen from '../app/LeaveReviewScreen';
 import PaymentScreen from '../app/PaymentScreen';
 import PaymentMethodsScreen from '../app/PaymentMethodsScreen';
-import SaveCardScreen from '../app/SaveCardScreen';
+import PaymentSuccessScreen from '../app/PaymentSuccessScreen';
+import PaymentErrorScreen from '../app/PaymentErrorScreen';
 import ManageCardsScreen from '../app/ManageCardsScreen';
 import StoreProfileScreen from '../app/StoreProfileScreen';
 import StoreReviewsScreen from '../app/StoreReviewsScreen';
@@ -41,7 +42,7 @@ import BrowseScreen from '../app/BrowseScreen';
 import AdminMetricsScreen from '../app/admin/AdminMetricsScreen';
 
 // Pantalla de notificaciones
-import NotificationSettingsScreen from '../app/NotificationSettingsScreen';
+// import NotificationSettingsScreen from '../app/NotificationSettingsScreen'; // DESACTIVADO: expo-notifications removido
 
 // Importación de los navegadores de pestañas
 import MainTabNavigator from './MainTabNavigator'; // Para Compradores
@@ -74,7 +75,8 @@ const AuthStack = () => (
     <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: true }} />
     <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: true }} />
     <Stack.Screen name="ManageCards" component={ManageCardsScreen} options={{ title: 'Gestionar Tarjetas', headerShown: true }} />
-    <Stack.Screen name="SaveCard" component={SaveCardScreen} options={{ title: 'Agregar Tarjeta', headerShown: true }} />
+    <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} options={{ title: 'Pago Exitoso', headerShown: false }} />
+    <Stack.Screen name="PaymentError" component={PaymentErrorScreen} options={{ title: 'Error de Pago', headerShown: false }} />
     {/* Pantallas exclusivas de comercio */}
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Historial de Pedidos', headerShown: false }} />
     <Stack.Screen name="MerchantRewards" component={MerchantRewardsScreen} options={{ title: 'Mis Premios', headerShown: false }} />
@@ -103,7 +105,9 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
     <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: true }} />
     <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: true }} />
-    <Stack.Screen name="SaveCard" component={SaveCardScreen} options={{ title: 'Agregar Tarjeta', headerShown: true }} />
+    <Stack.Screen name="ManageCards" component={ManageCardsScreen} options={{ title: 'Gestionar Tarjetas', headerShown: true }} />
+    <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} options={{ title: 'Pago Exitoso', headerShown: false }} />
+    <Stack.Screen name="PaymentError" component={PaymentErrorScreen} options={{ title: 'Error de Pago', headerShown: false }} />
     {/* Pantallas exclusivas de comercio */}
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Historial de Pedidos', headerShown: false }} />
     <Stack.Screen name="MerchantRewards" component={MerchantRewardsScreen} options={{ title: 'Mis Premios', headerShown: false }} />
@@ -118,7 +122,7 @@ const AppStack = ({ userRole }) => (
     {/* Pantallas de admin accesibles desde perfil */}
     <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Métricas', headerShown: true }} />
     {/* Pantalla de configuración de notificaciones */}
-    <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ title: 'Notificaciones', headerShown: true }} />
+    {/* <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ title: 'Notificaciones', headerShown: true }} /> */}
   </Stack.Navigator>
 );
 

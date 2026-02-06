@@ -122,11 +122,20 @@ api.interceptors.response.use(
       // Limpiar el token inválido del almacenamiento
       await AsyncStorage.removeItem('userToken');
       console.log('🔐 Token inválido detectado y eliminado automáticamente');
+      // No seguir procesando, retornar el error 401 inmediatamente
+      return Promise.reject(error);
     }
 
-    // Detectar si la respuesta de error es HTML
+    // Detectar si la respuesta de error es HTML (solo para errores que NO sean 401)
     const contentType = error.response?.headers['content-type'] || '';
-    if (contentType.includes('text/html') || error.message?.includes('<!doctype') || error.message?.includes('<!DOCTYPE')) {
+    // Solo verificar HTML si hay una respuesta y el content-type indica HTML
+    if (error.response && contentType.includes('text/html') && !contentType.includes('application/json')) {
+      console.error('⚠️ Servidor respondió con HTML en lugar de JSON:', error.config?.url);
+      return Promise.reject(new Error('El servidor respondió con HTML. Puede ser una página de error o configuración de túnel incorrecta.'));
+    }
+
+    // Para otros errores, verificar si el contenido del mensaje tiene HTML
+    if (error.message && (error.message.includes('<!doctype') || error.message.includes('<!DOCTYPE'))) {
       console.error('⚠️ Error: Servidor respondió con HTML:', error.config?.url);
       return Promise.reject(new Error('El servidor respondió con HTML. Puede ser una página de error o configuración de túnel incorrecta.'));
     }

@@ -1,24 +1,9 @@
-error: column o.product_id does not exist
+nohup: ignoring input
+❌ Error: error: column p.cantidad_disponible does not exist
     at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /workspaces/Delicrunch/Backend/controllers/productController.js:168:19
-error: column o.product_id does not exist
+    at async /workspaces/Delicrunch/Backend/controllers/storeController.js:9:20
+❌ Error: error: column p.cantidad_disponible does not exist
     at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /workspaces/Delicrunch/Backend/controllers/productController.js:168:19
-error: column o.product_id does not exist
-    at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /workspaces/Delicrunch/Backend/controllers/productController.js:168:19
-error: invalid input syntax for type integer: "all"
-    at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /workspaces/Delicrunch/Backend/controllers/orderController.js:181:25
-error: invalid input syntax for type integer: "all"
-    at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /workspaces/Delicrunch/Backend/controllers/orderController.js:181:25
-error: invalid input syntax for type integer: "all"
-    at /workspaces/Delicrunch/Backend/node_modules/pg-pool/index.js:45:11
-    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-    at async /workspaces/Delicrunch/Backend/controllers/orderController.js:181:25
+    at async /workspaces/Delicrunch/Backend/controllers/storeController.js:9:20

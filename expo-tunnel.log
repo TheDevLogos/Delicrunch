@@ -1,0 +1,17 @@
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY EXPO_PUBLIC_APP_SCHEME
+Starting project at /workspaces/Delicrunch/Frontend
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado

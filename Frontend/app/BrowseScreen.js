@@ -184,6 +184,19 @@ const BrowseScreen = () => {
     let filtered = [...products];
     let filteredS = [...stores];
     
+    // Filtrar por ciudad del usuario automáticamente
+    if (userLocation?.city) {
+      const userCity = userLocation.city.toLowerCase();
+      filtered = filtered.filter(p => {
+        const productCity = (p.ciudad || '').toLowerCase();
+        return productCity.includes(userCity) || userCity.includes(productCity);
+      });
+      filteredS = filteredS.filter(s => {
+        const storeCity = (s.ciudad || '').toLowerCase();
+        return storeCity.includes(userCity) || userCity.includes(storeCity);
+      });
+    }
+    
     // Filtrar por búsqueda
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -635,7 +648,7 @@ const BrowseScreen = () => {
   const renderListView = () => (
     <FlatList
       data={filteredProducts}
-      keyExtractor={(item) => item.id.toString()}
+      keyExtractor={(item, index) => `product-${item.id}-${index}`}
       renderItem={({ item }) => <ProductListCard product={item} />}
       contentContainerStyle={styles.listContent}
       showsVerticalScrollIndicator={false}

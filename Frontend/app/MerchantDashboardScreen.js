@@ -43,7 +43,7 @@ const MerchantDashboardScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [showTips, setShowTips] = useState(false);
   const [storeInfo, setStoreInfo] = useState(null);
-  const [stripeStatus, setStripeStatus] = useState(null);
+  const [mercadoPagoStatus, setMercadoPagoStatus] = useState(null);
   const [metrics, setMetrics] = useState({
     totalVentas: 0,
     ventasHoy: 0,
@@ -101,12 +101,12 @@ const MerchantDashboardScreen = () => {
       const profileRes = await api.get('/profiles/me');
       setStoreInfo(profileRes.data);
 
-      // Cargar estado de Stripe Connect
+      // Cargar estado de Mercado Pago
       try {
-        const stripeRes = await api.get('/payments/stripe-account-status');
-        setStripeStatus(stripeRes.data);
+        const mpRes = await api.get('/payments/merchant-status');
+        setMercadoPagoStatus(mpRes.data);
       } catch (e) {
-        console.log('Error loading Stripe status:', e);
+        console.log('Error loading Mercado Pago status:', e);
       }
 
       // Cargar 
@@ -315,26 +315,26 @@ const MerchantDashboardScreen = () => {
           </ImageBackground>
         </View>
 
-        {/* Warning de Stripe - Si no está configurado */}
-        {stripeStatus && !stripeStatus.chargesEnabled && (
+        {/* Warning de Mercado Pago - Si no está configurado */}
+        {mercadoPagoStatus && !mercadoPagoStatus.chargesEnabled && (
           <View style={styles.stripeWarningContainer}>
             <TouchableOpacity
               style={styles.stripeWarning}
-              onPress={() => navigation.navigate('PaymentSettings')}
+              onPress={() => navigation.navigate('MerchantPaymentSettings')}
             >
               <View style={styles.stripeWarningIcon}>
                 <Ionicons name="warning" size={24} color="#FF9500" />
               </View>
               <View style={styles.stripeWarningContent}>
                 <Text style={styles.stripeWarningTitle}>
-                  {stripeStatus.hasStripeAccount 
+                  {mercadoPagoStatus.hasMercadoPagoAccount 
                     ? 'Completa tu configuración de pagos'
                     : 'Configura tu cuenta para recibir pagos'}
                 </Text>
                 <Text style={styles.stripeWarningText}>
-                  {stripeStatus.hasStripeAccount 
+                  {mercadoPagoStatus.hasMercadoPagoAccount 
                     ? 'Falta información para activar tu cuenta'
-                    : 'Conecta tu cuenta bancaria con Stripe'}
+                    : 'Vincula tu cuenta de Mercado Pago'}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />

@@ -1,12 +1,42 @@
 # 🚀 Delicrunch - Expo SDK 54
 
-## 📱 App de Marketplace Local
+## 📱 App de Marketplace Local con Mercado Pago
 
-**Delicrunch** es una aplicación móvil de marketplace que conecta compradores con tiendas locales. Ahora actualizada a **Expo SDK 54** para máxima compatibilidad con Expo Go Android.
+**Delicrunch** es una aplicación móvil de marketplace que conecta compradores con tiendas locales. Ahora actualizada a **Expo SDK 54** con integración completa de Mercado Pago.
 
 ---
 
 ## ⚡ Inicio Rápido
+
+### 🚀 Inicio Automático (Recomendado)
+
+```bash
+# Iniciar todo (Backend + Frontend + PostgreSQL)
+./start-delicrunch.sh
+```
+
+**Este script automáticamente:**
+- ✅ Detecta GitHub Codespaces y configura puertos públicos
+- ✅ Inicia PostgreSQL (Docker o existente)  
+- ✅ Configura la base de datos y ejecuta migraciones
+- ✅ Inicia el Backend API con Mercado Pago
+- ✅ Pobla datos de prueba (comercios, productos, usuarios)
+- ✅ Inicia el Frontend en modo tunnel
+- ✅ Configura URLs públicas automáticamente
+
+### 🔍 Diagnóstico de Problemas
+
+```bash
+# Ver estado del sistema y conectividad
+./diagnose-connectivity.sh
+```
+
+### 🌐 Configurar Puertos Públicos (Solo Codespaces)
+
+```bash
+# Si tienes problemas de conexión desde tu dispositivo
+./configure-public-ports.sh
+```
 
 ### Requisitos Previos
 - Node.js v22.21.1 o superior

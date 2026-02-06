@@ -1,0 +1,33 @@
+🔌 Conectando a PostgreSQL...
+   Database: delicrunch
+🧹 Limpiando datos de prueba...
+📂 Creando categorías...
+   ✅ 6 categorías creadas
+
+👤 Creando usuario Admin...
+   ✅ admin@delicrunch.com / admin123
+
+🏪 Creando comercios...
+   ✅ Tacos El Norteño (Delicias) - comerciotacoselnorteno@test.com
+   ✅ Pizzería La Italiana (Delicias) - comerciopizzerialaitaliana@test.com
+   ✅ Hamburguesas Premium (Delicias) - comerciohamburguesaspremium@test.com
+   ✅ Sushi Express (Delicias) - comerciosushiexpress@test.com
+   ✅ Café Gourmet (Delicias) - comerciocafegourmet@test.com
+   ✅ Postres Delicias (Delicias) - comerciopostresdelicias@test.com
+   📦 18 productos creados
+
+👥 Creando compradores
+   ✅ compradordelicias@test.com
+   ✅ compradormeoqui@test.com
+   ✅ compradorsaucillo@test.com
+
+══════════════════════════════════════════════════
+📊 BASE DE DATOS LISTA PARA MERCADO PAGO
+══════════════════════════════════════════════════
+   👥 Usuarios: 10
+   🏪 Vendedores: 6
+   📦 Productos: 18
+   📂 Categorías: 6
+══════════════════════════════════════════════════
+
+✅ Seed completado exitosamente!

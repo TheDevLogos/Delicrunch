@@ -74,16 +74,23 @@ export function NotificationProvider({ children }) {
       setIsEnabled(enabled);
 
       if (enabled) {
-        // Registrar para push notifications
-        const token = await notificationService.registerForPushNotifications();
-        setPushToken(token);
+        try {
+          // Registrar para push notifications
+          const token = await notificationService.registerForPushNotifications();
+          if (token) {
+            setPushToken(token);
+          }
 
-        // Configurar listeners
-        const cleanup = notificationService.setupNotificationListeners({
-          onNotificationReceived: handleNotificationReceived,
-          onNotificationResponse: handleNotificationResponse,
-        });
-        notificationListener.current = cleanup;
+          // Configurar listeners
+          const cleanup = notificationService.setupNotificationListeners({
+            onNotificationReceived: handleNotificationReceived,
+            onNotificationResponse: handleNotificationResponse,
+          });
+          notificationListener.current = cleanup;
+        } catch (error) {
+          console.log('⚠️ Error al inicializar notificaciones:', error.message);
+          // Continuar sin notificaciones push
+        }
 
         // Verificar si es la primera vez
         const initialized = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATIONS_INITIALIZED);
@@ -193,14 +200,19 @@ export function NotificationProvider({ children }) {
    * Solicita permisos de notificación
    */
   const requestPermissions = useCallback(async () => {
-    const token = await notificationService.registerForPushNotifications();
-    if (token) {
-      setPushToken(token);
-      setIsEnabled(true);
-      await scheduleDailyNotificationsInternal();
-      return true;
+    try {
+      const token = await notificationService.registerForPushNotifications();
+      if (token) {
+        setPushToken(token);
+        setIsEnabled(true);
+        await scheduleDailyNotificationsInternal();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.log('⚠️ Error al solicitar permisos:', error.message);
+      return false;
     }
-    return false;
   }, []);
 
   /**

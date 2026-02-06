@@ -187,7 +187,7 @@ const MyProductsScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <FlatList
         data={products}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => `myproduct-${item.id}-${index}`}
         renderItem={({ item }) => <ProductItem item={item} />}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}

@@ -180,7 +180,7 @@ const MyOrdersScreen = () => {
 
       <FlatList
         data={orders}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => `order-${item.id}-${index}`}
         renderItem={({ item }) => <OrderItem item={item} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}

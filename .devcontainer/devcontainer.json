@@ -1,0 +1,42 @@
+{
+  "forwardPorts": [5001, 5432, 8081],
+  "portsAttributes": {
+    "5001": {
+      "label": "Backend API",
+      "onAutoForward": "notify",
+      "visibility": "public",
+      "protocol": "https"
+    },
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "ignore",
+      "visibility": "private"
+    },
+    "8081": {
+      "label": "Expo Metro",
+      "onAutoForward": "notify",
+      "visibility": "public"
+    }
+  },
+  "postCreateCommand": "chmod +x /workspaces/Delicrunch/*.sh",
+  "postStartCommand": "cd /workspaces/Delicrunch && ./fix-codespaces-tunnel.sh",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "18"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  }
+}

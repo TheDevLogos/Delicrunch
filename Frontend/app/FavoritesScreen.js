@@ -146,7 +146,7 @@ const FavoritesScreen = ({ navigation }) => {
 
       <FlatList
         data={favorites}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={(item, index) => `favorite-${item.id}-${index}`}
         renderItem={({ item }) => <FavoriteCard item={item} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}

@@ -1,0 +1,156 @@
+[0;36m
+╔══════════════════════════════════════════════════════╗
+║       🚀 DELICRUNCH - INICIO COMPLETO                ║
+║   PostgreSQL + Mercado Pago Checkout Pro             ║
+╚══════════════════════════════════════════════════════╝
+[0m
+
+[0;34m🌐 Detectado GitHub Codespace...[0m
+   Configurando puertos como públicos...
+   [0;32m✓ Puertos configurados como públicos[0m
+   Backend URL pública: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+[0;34m🔌 Liberando puertos...[0m
+   ✓ Puertos liberados
+
+[0;34m🧹 Limpiando cache...[0m
+   ✓ Cache del backend limpiado
+   ✓ Cache de Expo limpiado
+   ✓ Cache de npm limpiado
+
+[0;34m🐘 Verificando PostgreSQL...[0m
+   ✓ PostgreSQL conectado
+
+[0;34m📋 Configurando esquema de base de datos...[0m
+   Ejecutando schema.sql...
+   ✓ Esquema aplicado
+
+[0;34m📦 Configurando Backend...[0m
+   ✓ Dependencias listas
+
+[0;34m🚀 Iniciando Backend...[0m
+   ⏳ Esperando backend. [0;32m✓[0m
+   ✓ Backend corriendo en puerto 5001
+
+[0;34m🌱 Poblando base de datos...[0m
+🔌 Conectando a PostgreSQL...
+   Database: delicrunch
+🧹 Limpiando datos de prueba...
+📂 Creando categorías...
+   ✅ 6 categorías creadas
+
+👤 Creando usuario Admin...
+   ✅ admin@delicrunch.com / admin123
+
+🏪 Creando comercios...
+   ✅ Tacos El Norteño (Delicias) - comerciotacoselnorteno@test.com
+   ✅ Pizzería La Italiana (Delicias) - comerciopizzerialaitaliana@test.com
+   ✅ Hamburguesas Premium (Delicias) - comerciohamburguesaspremium@test.com
+   ✅ Sushi Express (Delicias) - comerciosushiexpress@test.com
+   ✅ Café Gourmet (Delicias) - comerciocafegourmet@test.com
+   ✅ Postres Delicias (Delicias) - comerciopostresdelicias@test.com
+   📦 18 productos creados
+
+👥 Creando compradores
+   ✅ compradordelicias@test.com
+   ✅ compradormeoqui@test.com
+   ✅ compradorsaucillo@test.com
+
+══════════════════════════════════════════════════
+📊 BASE DE DATOS LISTA PARA MERCADO PAGO
+══════════════════════════════════════════════════
+   👥 Usuarios: 10
+   🏪 Vendedores: 6
+   📦 Productos: 18
+   📂 Categorías: 6
+══════════════════════════════════════════════════
+
+✅ Seed completado exitosamente!
+
+[0;34m📱 Configurando Frontend...[0m
+   ✓ API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+   ✓ Dependencias listas
+
+[0;34m🌐 Iniciando Frontend en modo TUNNEL...[0m
+[1;33m   (Esto permite acceder desde cualquier dispositivo)[0m
+
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY EXPO_PUBLIC_APP_SCHEME
+Starting project at /workspaces/Delicrunch/Frontend
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado
+Tunnel connected.
+Tunnel ready.
+📱 [app.config.js] API URL: https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api
+📱 [app.config.js] Mercado Pago Key: ✅ Configurada
+📱 [app.config.js] Google Services: ✅ Encontrado
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+
+[0;32m
+╔════════════════════════════════════════════════════════════════╗
+║          ✅ DELICRUNCH LISTO PARA MERCADO PAGO                 ║
+╚════════════════════════════════════════════════════════════════╝
+[0m
+
+[0;36m📍 SERVICIOS:[0m
+   ┌──────────────────────────────────────────────────────────────┐
+   │ 🔹 Backend API:  https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev/api                     │
+   │ 🔹 Modo:         GitHub Codespaces (Puertos Públicos)        │
+   │ 🔹 Frontend:     Escanea el QR con Expo Go                   │
+   │ 🔹 PostgreSQL:   localhost:5432                              │
+   └──────────────────────────────────────────────────────────────┘
+
+[0;36m🔐 CREDENCIALES DE PRUEBA:[0m
+   ┌──────────────────────────────────────────────────────────────┐
+   │ 👨‍💼 ADMIN                                                     │
+   │    Email: admin@delicrunch.com                               │
+   │    Pass:  admin123                                           │
+   ├──────────────────────────────────────────────────────────────┤
+   │ 🏪 COMERCIOS (password: password123)                         │
+   │    comerciotacoselNorteno@test.com                           │
+   │    comerciopizzerialaitailana@test.com                       │
+   │    comerciohamburguesaspremium@test.com                      │
+   │    comerciosushiexpress@test.com                             │
+   │    comerciocafegourmet@test.com                              │
+   │    comerciopostresdelicias@test.com                          │
+   ├──────────────────────────────────────────────────────────────┤
+   │ 👥 COMPRADORES (password: password123)                       │
+   │    compradordelicias@test.com                                │
+   │    compradormeoqui@test.com                                  │
+   │    compradorsaucillo@test.com                                │
+   └──────────────────────────────────────────────────────────────┘
+
+[0;36m💳 MERCADO PAGO - TARJETAS DE PRUEBA:[0m
+   ┌──────────────────────────────────────────────────────────────┐
+   │ ✅ APROBADA:     5474 9254 3267 0366                         │
+   │ ❌ RECHAZADA:    5474 9254 3267 0374                         │
+   │ ⏳ PENDIENTE:    5474 9254 3267 0382                         │
+   │                                                              │
+   │ CVV: 123  |  Vencimiento: 11/25  |  Nombre: APRO/OTHE        │
+   │ DNI: 12345678                                                │
+   └──────────────────────────────────────────────────────────────┘
+
+[0;36m📋 LOGS:[0m
+   tail -f backend.log    # Ver logs del backend
+   tail -f seed.log       # Ver logs del seed
+
+[1;33m🛑 Presiona Ctrl+C para detener todos los servicios[0m
+
+
+[1;33m🛑 Deteniendo servicios...[0m
+[0;32m✅ Servicios detenidos[0m
+
+[1;33m🛑 Deteniendo servicios...[0m
+[0;32m✅ Servicios detenidos[0m

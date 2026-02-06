@@ -1,6 +1,6 @@
 /**
  * MerchantPaymentSettingsScreen - Configuración de Pagos para Comercios
- * Pantalla dedicada para gestionar cuenta de Stripe Connect
+ * Pantalla dedicada para gestionar cuenta de Mercado Pago
  * Diseño inspirado en Too Good To Go
  */
 import React, { useState, useCallback, useEffect } from 'react';
@@ -15,12 +15,12 @@ import {
   Platform,
   StatusBar,
   Alert,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
 import api from '../services/api';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
 import { formatPrice, formatDate } from '../src/utils/format';
@@ -28,12 +28,16 @@ import { formatPrice, formatDate } from '../src/utils/format';
 const MerchantPaymentSettingsScreen = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isCreatingLink, setIsCreatingLink] = useState(false);
+  const [isConfiguring, setIsConfiguring] = useState(false);
   
-  // Estados para cuenta Stripe
+  // Estados para cuenta Mercado Pago
   const [accountStatus, setAccountStatus] = useState(null);
   const [balance, setBalance] = useState({ available: [], pending: [] });
   const [payouts, setPayouts] = useState([]);
+  
+  // Formulario de configuración
+  const [mercadopagoEmail, setMercadopagoEmail] = useState('');
+  const [showConfigForm, setShowConfigForm] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -46,20 +50,20 @@ const MerchantPaymentSettingsScreen = ({ navigation }) => {
       setIsLoading(true);
       
       // Cargar estado de cuenta
-      const statusRes = await api.get('/payments/stripe-account-status');
+      const statusRes = await api.get('/payments/merchant-status');
       setAccountStatus(statusRes.data);
       
       // Si tiene cuenta activa, cargar balance y payouts
-      if (statusRes.data.hasStripeAccount && statusRes.data.chargesEnabled) {
+      if (statusRes.data.hasMercadoPagoAccount) {
         try {
-          const balanceRes = await api.get('/payments/connected-account-balance');
+          const balanceRes = await api.get('/payments/merchant-balance');
           setBalance(balanceRes.data);
         } catch (error) {
           console.log('Error cargando balance:', error);
         }
         
         try {
-          const payoutsRes = await api.get('/payments/upcoming-payouts');
+          const payoutsRes = await api.get('/payments/merchant-payouts');
           setPayouts(payoutsRes.data.payouts || []);
         } catch (error) {
           console.log('Error cargando payouts:', error);
@@ -79,22 +83,32 @@ const MerchantPaymentSettingsScreen = ({ navigation }) => {
     await loadPaymentSettings();
   };
 
-  const handleOpenOnboarding = async () => {
-    setIsCreatingLink(true);
+  const handleConfigureMercadoPago = async () => {
+    if (!mercadopagoEmail || !mercadopagoEmail.includes('@')) {
+      Alert.alert('Error', 'Por favor ingresa un email válido de Mercado Pago');
+      return;
+    }
+
+    setIsConfiguring(true);
     try {
-      const response = await api.post('/payments/create-account-link');
-      const { url } = response.data;
-      await WebBrowser.openBrowserAsync(url);
+      await api.post('/payments/merchant-setup', {
+        mercadopago_email: mercadopagoEmail,
+      });
       
-      // Recargar después de cerrar el navegador
-      setTimeout(() => {
-        loadPaymentSettings();
-      }, 2000);
+      Alert.alert(
+        '✅ ¡Configuración exitosa!',
+        'Tu cuenta de Mercado Pago ha sido vinculada correctamente. Ahora podrás recibir pagos por tus ventas.',
+        [{ text: 'OK' }]
+      );
+      
+      setShowConfigForm(false);
+      setMercadopagoEmail('');
+      loadPaymentSettings();
     } catch (error) {
-      console.error('Error creando enlace:', error);
-      Alert.alert('Error', 'No se pudo generar el enlace de configuración');
+      console.error('Error configurando Mercado Pago:', error);
+      Alert.alert('Error', error.response?.data?.msg || 'No se pudo configurar Mercado Pago');
     } finally {
-      setIsCreatingLink(false);
+      setIsConfiguring(false);
     }
   };
 
@@ -129,8 +143,8 @@ const MerchantPaymentSettingsScreen = ({ navigation }) => {
   }
 
   // Obtener balance principal
-  const mainBalance = balance.available.find(b => b.currency === 'MXN') || { amount: 0, currency: 'MXN' };
-  const mainPending = balance.pending.find(b => b.currency === 'MXN') || { amount: 0, currency: 'MXN' };
+  const mainBalance = balance.available?.find(b => b.currency === 'MXN') || { amount: 0, currency: 'MXN' };
+  const mainPending = balance.pending?.find(b => b.currency === 'MXN') || { amount: 0, currency: 'MXN' };
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -162,20 +176,66 @@ const MerchantPaymentSettingsScreen = ({ navigation }) => {
         {/* Estado de Cuenta */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="bank" size={24} color={COLORS.primary} />
+            <MaterialCommunityIcons name="bank" size={24} color="#009EE3" />
             <Text style={styles.sectionTitle}>Estado de tu Cuenta</Text>
           </View>
           
           <View style={styles.card}>
-            {!accountStatus?.hasStripeAccount ? (
+            {!accountStatus?.hasMercadoPagoAccount ? (
               <>
                 <View style={styles.statusRow}>
                   <Ionicons name="information-circle" size={20} color={COLORS.textSecondary} />
                   <Text style={styles.statusText}>No has configurado tu cuenta de pagos</Text>
                 </View>
                 <Text style={styles.infoText}>
-                  Para recibir pagos por tus ventas, necesitas conectar una cuenta bancaria con Stripe.
+                  Para recibir pagos por tus ventas, necesitas vincular tu cuenta de Mercado Pago.
                 </Text>
+                
+                {!showConfigForm ? (
+                  <TouchableOpacity 
+                    style={styles.configButton}
+                    onPress={() => setShowConfigForm(true)}
+                  >
+                    <MaterialCommunityIcons name="link-variant-plus" size={20} color="#FFF" />
+                    <Text style={styles.configButtonText}>Configurar Mercado Pago</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.configForm}>
+                    <Text style={styles.formLabel}>Email de tu cuenta Mercado Pago:</Text>
+                    <TextInput
+                      style={styles.formInput}
+                      placeholder="tu_email@ejemplo.com"
+                      placeholderTextColor={COLORS.textTertiary}
+                      value={mercadopagoEmail}
+                      onChangeText={setMercadopagoEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <View style={styles.formButtons}>
+                      <TouchableOpacity 
+                        style={styles.cancelButton}
+                        onPress={() => {
+                          setShowConfigForm(false);
+                          setMercadopagoEmail('');
+                        }}
+                      >
+                        <Text style={styles.cancelButtonText}>Cancelar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.saveButton, isConfiguring && styles.saveButtonDisabled]}
+                        onPress={handleConfigureMercadoPago}
+                        disabled={isConfiguring}
+                      >
+                        {isConfiguring ? (
+                          <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                          <Text style={styles.saveButtonText}>Guardar</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </>
             ) : (
               <>
@@ -206,185 +266,130 @@ const MerchantPaymentSettingsScreen = ({ navigation }) => {
                     {accountStatus.payoutsEnabled ? 'Puede recibir transferencias' : 'No puede recibir transferencias aún'}
                   </Text>
                 </View>
-                
-                <View style={styles.statusRow}>
-                  <Ionicons 
-                    name={accountStatus.detailsSubmitted ? "checkmark-circle" : "alert-circle"} 
-                    size={20} 
-                    color={accountStatus.detailsSubmitted ? COLORS.success : COLORS.warning} 
-                  />
-                  <Text style={[
-                    styles.statusText,
-                    { color: accountStatus.detailsSubmitted ? COLORS.success : COLORS.warning }
-                  ]}>
-                    {accountStatus.detailsSubmitted ? 'Información completa' : 'Información incompleta'}
-                  </Text>
-                </View>
 
                 <View style={styles.divider} />
                 
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Tipo:</Text>
-                  <Text style={styles.infoValue}>{accountStatus.type === 'express' ? 'Express' : 'Standard'}</Text>
-                </View>
-                
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>País:</Text>
-                  <Text style={styles.infoValue}>{accountStatus.country || 'No especificado'}</Text>
-                </View>
-                
-                {accountStatus.email && (
+                {accountStatus.mercadopagoEmail && (
                   <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Email:</Text>
-                    <Text style={styles.infoValue}>{accountStatus.email}</Text>
+                    <Text style={styles.infoLabel}>Email vinculado:</Text>
+                    <Text style={styles.infoValue}>{accountStatus.mercadopagoEmail}</Text>
                   </View>
                 )}
+                
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Comisión plataforma:</Text>
+                  <Text style={styles.infoValue}>{accountStatus.comisionPlataforma || 25}%</Text>
+                </View>
               </>
             )}
           </View>
         </View>
 
         {/* Balance - Solo si tiene cuenta activa */}
-        {accountStatus?.hasStripeAccount && accountStatus?.chargesEnabled && (
+        {accountStatus?.hasMercadoPagoAccount && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="cash" size={24} color={COLORS.success} />
+              <Ionicons name="wallet" size={24} color="#009EE3" />
               <Text style={styles.sectionTitle}>Balance</Text>
             </View>
             
-            <View style={[styles.card, styles.balanceCard]}>
+            <View style={styles.balanceCards}>
               <LinearGradient
-                colors={[COLORS.primary, COLORS.primaryDark]}
-                style={styles.balanceGradient}
+                colors={['#009EE3', '#00B1EA']}
+                style={styles.balanceCard}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={styles.balanceSection}>
-                  <Text style={styles.balanceLabel}>Disponible</Text>
-                  <Text style={styles.balanceAmount}>
-                    ${formatPrice(mainBalance.amount)} {mainBalance.currency}
-                  </Text>
-                </View>
-                
-                <View style={styles.balanceDivider} />
-                
-                <View style={styles.balanceSection}>
-                  <Text style={styles.balanceLabel}>Pendiente</Text>
-                  <Text style={styles.balanceAmount}>
-                    ${formatPrice(mainPending.amount)} {mainPending.currency}
-                  </Text>
-                </View>
+                <Text style={styles.balanceLabel}>Disponible</Text>
+                <Text style={styles.balanceAmount}>
+                  ${formatPrice(mainBalance.amount)} MXN
+                </Text>
+                <Text style={styles.balanceNote}>Listo para transferir</Text>
               </LinearGradient>
+              
+              <View style={styles.pendingCard}>
+                <Text style={styles.pendingLabel}>En tránsito</Text>
+                <Text style={styles.pendingAmount}>
+                  ${formatPrice(mainPending.amount)} MXN
+                </Text>
+                <Text style={styles.pendingNote}>Llegará pronto</Text>
+              </View>
             </View>
           </View>
         )}
 
-        {/* Comisiones */}
+        {/* Historial de Pagos */}
+        {accountStatus?.hasMercadoPagoAccount && payouts.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="receipt" size={24} color="#009EE3" />
+              <Text style={styles.sectionTitle}>Últimos Pagos</Text>
+            </View>
+            
+            <View style={styles.card}>
+              {payouts.map((payout, index) => {
+                const statusInfo = getStatusIcon(payout.status);
+                return (
+                  <View key={payout.id || index}>
+                    <View style={styles.payoutRow}>
+                      <View style={styles.payoutLeft}>
+                        <View style={[styles.payoutIcon, { backgroundColor: statusInfo.color + '20' }]}>
+                          <Ionicons name={statusInfo.icon} size={20} color={statusInfo.color} />
+                        </View>
+                        <View style={styles.payoutInfo}>
+                          <Text style={styles.payoutDescription}>{payout.description || `Pago #${payout.id}`}</Text>
+                          <Text style={styles.payoutDate}>
+                            {payout.created ? new Date(payout.created * 1000 || payout.created).toLocaleDateString('es-MX') : 'Reciente'}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.payoutRight}>
+                        <Text style={styles.payoutAmount}>
+                          ${formatPrice(payout.amount)} {payout.currency}
+                        </Text>
+                        <Text style={[styles.payoutStatus, { color: statusInfo.color }]}>
+                          {getStatusLabel(payout.status)}
+                        </Text>
+                      </View>
+                    </View>
+                    {index < payouts.length - 1 && <View style={styles.payoutDivider} />}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* Info sobre Mercado Pago */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="chart-pie" size={24} color={COLORS.info} />
-            <Text style={styles.sectionTitle}>Comisiones</Text>
+            <Ionicons name="information-circle" size={24} color={COLORS.textSecondary} />
+            <Text style={styles.sectionTitle}>Información</Text>
           </View>
           
           <View style={styles.card}>
-            <View style={styles.commissionRow}>
-              <View style={styles.commissionInfo}>
-                <Text style={styles.commissionLabel}>Comercio recibe</Text>
-                <Text style={styles.commissionPercentage}>75%</Text>
-              </View>
-              <View style={[styles.commissionBar, { flex: 3, backgroundColor: COLORS.success }]} />
+            <View style={styles.infoItem}>
+              <Ionicons name="shield-checkmark" size={20} color={COLORS.success} />
+              <Text style={styles.infoItemText}>
+                Mercado Pago protege todas tus transacciones con cifrado de grado bancario
+              </Text>
             </View>
-            
-            <View style={styles.commissionRow}>
-              <View style={styles.commissionInfo}>
-                <Text style={styles.commissionLabel}>Plataforma cobra</Text>
-                <Text style={styles.commissionPercentage}>25%</Text>
-              </View>
-              <View style={[styles.commissionBar, { flex: 1, backgroundColor: COLORS.primary }]} />
+            <View style={styles.infoItem}>
+              <Ionicons name="time" size={20} color={COLORS.info} />
+              <Text style={styles.infoItemText}>
+                Los pagos se acreditan automáticamente según los tiempos de Mercado Pago
+              </Text>
             </View>
-            
-            <Text style={styles.commissionNote}>
-              Las comisiones se aplican automáticamente en cada venta
-            </Text>
+            <View style={styles.infoItem}>
+              <Ionicons name="cash" size={20} color={COLORS.primary} />
+              <Text style={styles.infoItemText}>
+                Recibirás el {100 - (accountStatus?.comisionPlataforma || 25)}% del valor de cada venta
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Próximos Pagos */}
-        {payouts.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="calendar" size={24} color={COLORS.warning} />
-              <Text style={styles.sectionTitle}>Próximos Pagos</Text>
-            </View>
-            
-            {payouts.slice(0, 5).map((payout) => {
-              const statusInfo = getStatusIcon(payout.status);
-              return (
-                <View key={payout.id} style={styles.payoutCard}>
-                  <View style={styles.payoutHeader}>
-                    <Ionicons name={statusInfo.icon} size={20} color={statusInfo.color} />
-                    <Text style={[styles.payoutStatus, { color: statusInfo.color }]}>
-                      {getStatusLabel(payout.status)}
-                    </Text>
-                  </View>
-                  
-                  <Text style={styles.payoutAmount}>
-                    ${formatPrice(payout.amount)} {payout.currency}
-                  </Text>
-                  
-                  <View style={styles.payoutFooter}>
-                    <Text style={styles.payoutDate}>
-                      Llegada: {formatDate(payout.arrivalDate * 1000)}
-                    </Text>
-                    <Text style={styles.payoutMethod}>
-                      {payout.method === 'standard' ? 'Transferencia' : payout.method}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Botón de Acción Principal */}
-        <View style={styles.section}>
-          <TouchableOpacity 
-            style={[
-              styles.actionButton,
-              isCreatingLink && styles.actionButtonDisabled
-            ]}
-            onPress={handleOpenOnboarding}
-            disabled={isCreatingLink}
-          >
-            <LinearGradient
-              colors={[COLORS.primary, COLORS.primaryDark]}
-              style={styles.actionButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {isCreatingLink ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <>
-                  <Ionicons name="card" size={24} color={COLORS.white} />
-                  <Text style={styles.actionButtonText}>
-                    {!accountStatus?.hasStripeAccount 
-                      ? 'Conectar con Stripe'
-                      : accountStatus.chargesEnabled 
-                        ? 'Gestionar Cuenta'
-                        : 'Continuar Configuración'}
-                  </Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-          
-          <Text style={styles.disclaimer}>
-            Serás redirigido a Stripe para completar o gestionar tu cuenta de forma segura
-          </Text>
-        </View>
-
-        <View style={{ height: 40 }} />
+        <View style={{ height: SPACING.xl * 2 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -402,89 +407,142 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   loadingText: {
-    marginTop: 12,
+    marginTop: SPACING.md,
     fontSize: 16,
     color: COLORS.textSecondary,
   },
-  scrollView: {
-    flex: 1,
-  },
-  
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    ...SHADOWS.sm,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.card,
+    ...SHADOWS.small,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: SPACING.xs,
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600',
     color: COLORS.text,
   },
-  
-  // Section
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: SPACING.md,
+  },
   section: {
     marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.md,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SPACING.sm,
+    gap: SPACING.sm,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600',
     color: COLORS.text,
-    marginLeft: SPACING.sm,
   },
-  
-  // Card
   card: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: SPACING.md,
-    ...SHADOWS.md,
+    ...SHADOWS.small,
   },
-  
-  // Status
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SPACING.sm,
+    gap: SPACING.sm,
   },
   statusText: {
-    fontSize: 15,
-    marginLeft: SPACING.sm,
+    fontSize: 14,
+    color: COLORS.text,
     flex: 1,
   },
   infoText: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
     lineHeight: 20,
+    marginBottom: SPACING.md,
+  },
+  configButton: {
+    flexDirection: 'row',
+    backgroundColor: '#009EE3',
+    borderRadius: 8,
+    padding: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+  },
+  configButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
+  },
+  configForm: {
+    marginTop: SPACING.sm,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  formInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    padding: SPACING.md,
+    fontSize: 16,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  formButtons: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  cancelButton: {
+    flex: 1,
+    padding: SPACING.md,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
+  saveButton: {
+    flex: 1,
+    padding: SPACING.md,
+    borderRadius: 8,
+    backgroundColor: '#009EE3',
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
   },
   divider: {
     height: 1,
     backgroundColor: COLORS.border,
-    marginVertical: SPACING.md,
+    marginVertical: SPACING.sm,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
+    alignItems: 'center',
+    paddingVertical: SPACING.xs,
   },
   infoLabel: {
     fontSize: 14,
@@ -492,138 +550,111 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: COLORS.text,
   },
-  
-  // Balance
+  balanceCards: {
+    gap: SPACING.sm,
+  },
   balanceCard: {
-    padding: 0,
-    overflow: 'hidden',
-  },
-  balanceGradient: {
+    borderRadius: 12,
     padding: SPACING.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  balanceSection: {
-    flex: 1,
   },
   balanceLabel: {
     fontSize: 14,
-    color: COLORS.white,
-    opacity: 0.9,
-    marginBottom: 4,
-  },
-  balanceAmount: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  balanceDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: COLORS.white,
-    opacity: 0.3,
-    marginHorizontal: SPACING.md,
-  },
-  
-  // Commission
-  commissionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  commissionInfo: {
-    width: 140,
-  },
-  commissionLabel: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  commissionPercentage: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  commissionBar: {
-    height: 8,
-    borderRadius: 4,
-    marginLeft: SPACING.sm,
-  },
-  commissionNote: {
-    fontSize: 12,
-    color: COLORS.textLight,
-    fontStyle: 'italic',
-    marginTop: SPACING.xs,
-  },
-  
-  // Payouts
-  payoutCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-    ...SHADOWS.sm,
-  },
-  payoutHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    color: 'rgba(255,255,255,0.8)',
     marginBottom: SPACING.xs,
   },
-  payoutStatus: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: SPACING.xs,
-  },
-  payoutAmount: {
-    fontSize: 22,
+  balanceAmount: {
+    fontSize: 28,
     fontWeight: '700',
-    color: COLORS.text,
-    marginVertical: SPACING.xs,
+    color: '#FFF',
+    marginBottom: SPACING.xs,
   },
-  payoutFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  balanceNote: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  pendingCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    padding: SPACING.md,
+    ...SHADOWS.small,
+  },
+  pendingLabel: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  pendingAmount: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: COLORS.text,
     marginTop: SPACING.xs,
   },
-  payoutDate: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+  pendingNote: {
+    fontSize: 12,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.xs,
   },
-  payoutMethod: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
+  payoutRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
   },
-  
-  // Action Button
-  actionButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    ...SHADOWS.md,
-  },
-  actionButtonDisabled: {
-    opacity: 0.7,
-  },
-  actionButtonGradient: {
+  payoutLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  payoutIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
+    alignItems: 'center',
   },
-  actionButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.white,
+  payoutInfo: {
     marginLeft: SPACING.sm,
+    flex: 1,
   },
-  disclaimer: {
+  payoutDescription: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.text,
+  },
+  payoutDate: {
     fontSize: 12,
-    color: COLORS.textLight,
-    textAlign: 'center',
-    marginTop: SPACING.sm,
-    lineHeight: 16,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  payoutRight: {
+    alignItems: 'flex-end',
+  },
+  payoutAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  payoutStatus: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  payoutDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  infoItemText: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
   },
 });
 

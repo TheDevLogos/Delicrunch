@@ -72,9 +72,9 @@ const LoginScreen = ({ navigation }) => {
   // Quick login helpers (solo visibles en desarrollo)
   const quickLogin = async (preset) => {
     const presets = {
-      comprador: { email: 'comprador@delicrunch.com', password: 'Comprador123' },
-      comercio: { email: 'taqueria.lasdelicias@delicrunch.com', password: 'Comercio123' },
-      admin: { email: 'admindeli@delicrunch.com', password: 'Admin1234' },
+      comprador: { email: 'comprador@delicrunch.com', password: 'Password123' },
+      comercio: { email: 'comercio@delicrunch.com', password: 'Password123' },
+      admin: { email: 'admin@delicrunch.com', password: 'Password123' },
     };
     const creds = presets[preset];
     if (!creds) return;
@@ -139,18 +139,24 @@ const LoginScreen = ({ navigation }) => {
             {/* Quick Login Buttons (dev only) */}
             {__DEV__ && (
               <View style={styles.quickLoginContainer}>
-                <Text style={styles.devNote}>Modo desarrollo: Inicia sesión rápido:</Text>
+                <Text style={styles.devNote}>🧪 Modo desarrollo: Inicia sesión rápido</Text>
                 <View style={styles.quickButtonsRow}>
-                  <TouchableOpacity onPress={() => quickLogin('comprador')} style={styles.quickButton}>
+                  <TouchableOpacity onPress={() => quickLogin('comprador')} style={[styles.quickButton, styles.quickButtonBuyer]}>
+                    <Ionicons name="cart" size={16} color="#FFF" style={{marginBottom: 2}} />
                     <Text style={styles.quickButtonText}>Comprador</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => quickLogin('comercio')} style={styles.quickButton}>
-                    <Text style={styles.quickButtonText}>Comercio</Text>
+                  <TouchableOpacity onPress={() => quickLogin('comercio')} style={[styles.quickButton, styles.quickButtonSeller]}>
+                    <Ionicons name="storefront" size={16} color="#FFF" style={{marginBottom: 2}} />
+                    <Text style={styles.quickButtonText}>🌮 Taquería</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => quickLogin('admin')} style={styles.quickButton}>
+                  <TouchableOpacity onPress={() => quickLogin('admin')} style={[styles.quickButton, styles.quickButtonAdmin]}>
+                    <Ionicons name="shield-checkmark" size={16} color="#FFF" style={{marginBottom: 2}} />
                     <Text style={styles.quickButtonText}>Admin</Text>
                   </TouchableOpacity>
                 </View>
+                <Text style={styles.devCredentials}>
+                  🔐 Password: Password123
+                </Text>
               </View>
             )}
 
@@ -291,14 +297,24 @@ const styles = StyleSheet.create({
   quickLoginContainer: {
     marginTop: 0,
     marginBottom: SPACING.xs,
-    padding: SPACING.xs,
+    padding: SPACING.sm,
     borderRadius: BORDERS.radius.small,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#F0F8FF',
+    borderWidth: 1,
+    borderColor: '#E0E8F0',
+    borderStyle: 'dashed',
   },
   devNote: {
-    color: COLORS.muted,
+    color: COLORS.text,
     fontSize: 12,
+    fontWeight: '600',
     marginBottom: SPACING.sm,
+    textAlign: 'center',
+  },
+  devCredentials: {
+    color: COLORS.muted,
+    fontSize: 11,
+    marginTop: SPACING.xs,
     textAlign: 'center',
   },
   quickButtonsRow: {
@@ -309,13 +325,23 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 4,
     paddingVertical: 10,
-    backgroundColor: COLORS.primary,
     borderRadius: BORDERS.radius.small,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickButtonBuyer: {
+    backgroundColor: '#4CAF50', // Verde para comprador
+  },
+  quickButtonSeller: {
+    backgroundColor: '#FF9800', // Naranja para taquería
+  },
+  quickButtonAdmin: {
+    backgroundColor: '#2196F3', // Azul para admin
   },
   quickButtonText: {
     color: COLORS.white,
     fontWeight: '700',
+    fontSize: 12,
   },
 
   // FORM SECTION

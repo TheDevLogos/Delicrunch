@@ -1,0 +1,110 @@
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║   🚨 SOLUCIÓN RÁPIDA: "Failed to open app"                    ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────┐
+│  ¿QUÉ PASÓ?                                                     │
+└─────────────────────────────────────────────────────────────────┘
+
+Tu app está configurada con "expo-dev-client", por lo que Expo
+automáticamente inicia en modo "Development Build". Este modo
+requiere una app personalizada instalada en tu teléfono.
+
+Expo Go es una app diferente y necesitas cambiar al modo correcto.
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│  ✅ SOLUCIÓN EN 3 PASOS                                         │
+└─────────────────────────────────────────────────────────────────┘
+
+Tu app YA ESTÁ CORRIENDO. Solo necesitas cambiar el modo:
+
+
+  PASO 1: Ve a la terminal donde está corriendo Expo
+  ─────────────────────────────────────────────────────
+  
+  Verás algo como:
+  
+    › Using development build
+    › Press s │ switch to Expo Go  ← ¡AQUÍ!
+    
+
+  PASO 2: Presiona la tecla 's'
+  ─────────────────────────────────────────────────────
+  
+  Solo presiona:  s  [Enter]
+  
+  
+  PASO 3: Escanea el NUEVO QR que aparece
+  ─────────────────────────────────────────────────────
+  
+  Después de presionar 's', verás:
+  
+    › Using Expo Go
+    › Scan the QR code above with Expo Go (Android)
+  
+  Escanea ese QR con la app Expo Go (NO con la cámara)
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│  📱 DESCARGA EXPO GO                                            │
+└─────────────────────────────────────────────────────────────────┘
+
+Si no tienes Expo Go instalada:
+
+  Android: https://play.google.com/store/apps/details?id=host.exp.exponent
+  iOS:     https://apps.apple.com/app/expo-go/id982107779
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│  🔄 ¿NECESITAS REINICIAR EXPO?                                  │
+└─────────────────────────────────────────────────────────────────┘
+
+Si cerraste la terminal, ejecuta:
+
+  cd /workspaces/Delicrunch/Frontend
+  pkill -f "expo start"
+  npx expo start --go
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│  ❓ ¿SIGO TENIENDO EL ERROR?                                    │
+└─────────────────────────────────────────────────────────────────┘
+
+Si después de cambiar a Expo Go sigues viendo el error:
+
+1. Verifica que estás usando la app EXPO GO (icono morado)
+2. NO uses la app que dice "development build"
+3. Borra Expo Go y reinstálala
+4. Asegúrate de escanear el QR que dice "Using Expo Go"
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│  📊 ESTADO ACTUAL DE TU APP                                     │
+└─────────────────────────────────────────────────────────────────┘
+
+  ✅ Backend:       Corriendo (puerto 5001)
+  ✅ PostgreSQL:    Activo y conectado
+  ✅ Metro Bundler: Corriendo (puerto 8081)
+  ✅ Expo:          Esperando cambio a modo Expo Go
+  
+  Backend URL:  https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│  🎯 RESUMEN                                                      │
+└─────────────────────────────────────────────────────────────────┘
+
+  1. Tu app está CORRIENDO ✅
+  2. Solo presiona 's' en la terminal ⌨️
+  3. Escanea el nuevo QR con Expo Go 📱
+  4. ¡Listo! 🎉
+
+
+╔════════════════════════════════════════════════════════════════╗
+║                                                                ║
+║  💡 TIP: Guarda este archivo para referencia futura           ║
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
