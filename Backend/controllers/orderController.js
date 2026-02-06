@@ -242,26 +242,30 @@ exports.getMyOrders = asyncHandler(async (req, res, next) => {
 // @desc    Obtener los pedidos recibidos por la tienda del comercio logueado
 // @acceso  Privado (Comercio)
 exports.getStoreOrders = asyncHandler(async (req, res, next) => {
-    // El middleware getStoreId se encargará de esto en las rutas.
-    const storeId = req.storeId || req.user.id; // Usar el ID del seller (usuario actual si es seller)
+    // El middleware getStoreId proporciona req.storeId
+    const storeId = req.storeId;
+    
+    if (!storeId) {
+        return res.status(400).json({ msg: 'Store ID no disponible' });
+    }
     
     console.log('🏪 getStoreOrders - storeId:', storeId, 'userId:', req.user.id, 'role:', req.user.rol);
     
-    // Obtener todos los pedidos de esa tienda con información completa
+    // Obtener todos los pedidos de esa tienda con información completa (COLUMNAS EN ESPAÑOL)
     const orders = await pool.query(
         `SELECT 
             o.*,
-            u.name AS nombre_comprador, 
+            u.nombre AS nombre_comprador, 
             u.email AS email_comprador,
             oi.quantity as cantidad, 
             oi.unit_price as precio_unitario,
-            p.name AS nombre_producto, 
-            p.image_url as imagen_url
+            p.nombre AS nombre_producto, 
+            p.imagen_url as imagen_url
          FROM orders o
          JOIN users u ON o.user_id = u.id
          JOIN order_items oi ON oi.order_id = o.id
          JOIN products p ON oi.product_id = p.id
-         WHERE o.seller_id = $1
+         WHERE o.store_id = $1
          ORDER BY o.created_at DESC`,
         [storeId]
     );
@@ -291,9 +295,9 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
     try {
         await client.query('BEGIN');
 
-        // Obtener la orden
+        // Obtener la orden con store_id
         const orderResult = await client.query(
-            'SELECT o.*, o.seller_id FROM orders o WHERE o.id = $1',
+            'SELECT o.*, o.store_id FROM orders o WHERE o.id = $1',
             [id]
         );
 
@@ -303,9 +307,17 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
 
         const order = orderResult.rows[0];
 
-        // Verificar permisos: solo el comercio dueño o admin pueden actualizar
-        if (!['admin', 'administrador'].includes(userRole) && order.seller_id !== userId) {
-            return res.status(403).json({ msg: 'No tienes permisos para actualizar este pedido.' });
+        // Verificar permisos: solo el comercio dueño de la tienda o admin pueden actualizar
+        if (!['admin', 'administrador'].includes(userRole)) {
+            // Verificar que el usuario sea dueño de la tienda
+            const storeOwner = await client.query(
+                'SELECT user_id FROM stores WHERE id = $1',
+                [order.store_id]
+            );
+            
+            if (storeOwner.rows.length === 0 || storeOwner.rows[0].user_id !== userId) {
+                return res.status(403).json({ msg: 'No tienes permisos para actualizar este pedido.' });
+            }
         }
 
         // Si se marca como delivered, registrar fecha

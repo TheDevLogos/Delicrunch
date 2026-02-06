@@ -21,8 +21,8 @@ const getStoreId = asyncHandler(async (req, res, next) => {
     // 2. Buscar la tienda asociada al ID del usuario
     let storeResult = await pool.query(`
         SELECT s.id, 
-               (SELECT COUNT(*) FROM products WHERE seller_id = s.user_id) as productos,
-               (SELECT COUNT(*) FROM orders WHERE seller_id = s.user_id) as pedidos
+               (SELECT COUNT(*) FROM products WHERE store_id = s.id) as productos,
+               (SELECT COUNT(*) FROM orders WHERE store_id = s.id) as pedidos
         FROM stores s 
         WHERE s.user_id = $1 
         ORDER BY pedidos DESC, productos DESC, s.id DESC

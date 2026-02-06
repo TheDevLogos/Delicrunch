@@ -86,20 +86,12 @@ exports.createProduct = asyncHandler(async (req, res, next) => {
 // @desc    Obtener todos los productos de la tienda del comercio logueado
 // @acceso  Privado (solo para rol 'comercio')
 exports.getStoreProducts = asyncHandler(async (req, res, next) => {
-    // El vendedor es el usuario actual - obtener store_id
-    const userId = req.user.id;
+    // El storeId viene del middleware getStoreId
+    const storeId = req.storeId;
     
-    // Obtener store_id del usuario
-    const storeResult = await pool.query(
-        'SELECT id FROM stores WHERE user_id = $1',
-        [userId]
-    );
-    
-    if (storeResult.rows.length === 0) {
-        return res.status(404).json({ msg: 'No tienes una tienda asociada' });
+    if (!storeId) {
+        return res.status(400).json({ msg: 'Store ID no disponible' });
     }
-    
-    const storeId = storeResult.rows[0].id;
 
     const products = await pool.query(
         `SELECT 
@@ -348,19 +340,12 @@ exports.getProductById = asyncHandler(async (req, res, next) => {
 // @desc    Obtener estadísticas de productos para la tienda del comercio
 // @acceso  Privado (solo para rol 'comercio')
 exports.getProductStats = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
+    // El storeId viene del middleware getStoreId
+    const storeId = req.storeId;
     
-    // Obtener store_id del usuario
-    const storeResult = await pool.query(
-        'SELECT id FROM stores WHERE user_id = $1',
-        [userId]
-    );
-    
-    if (storeResult.rows.length === 0) {
-        return res.status(404).json({ msg: 'No tienes una tienda asociada' });
+    if (!storeId) {
+        return res.status(400).json({ msg: 'Store ID no disponible' });
     }
-    
-    const storeId = storeResult.rows[0].id;
 
     const stats = await pool.query(
         `SELECT 
