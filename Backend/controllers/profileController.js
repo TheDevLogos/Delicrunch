@@ -9,13 +9,9 @@ exports.getLoggedInUserProfile = asyncHandler(async (req, res, next) => {
     const profileData = await pool.query(
         `SELECT 
             u.id,
-            u.name as nombre,
+            u.nombre,
             u.email,
-            u.role as rol,
-            u.phone as telefono_usuario,
-            u.street as direccion_usuario,
-            u.city as ciudad_usuario,
-            u.avatar_url,
+            u.rol,
             u.created_at,
             -- Datos del perfil extendido
             p.telefono,
@@ -53,35 +49,26 @@ exports.getLoggedInUserProfile = asyncHandler(async (req, res, next) => {
 exports.updateLoggedInUserProfile = asyncHandler(async (req, res, next) => {
     const userId = req.user.id;
 
-    const { nombre, name, telefono, phone, direccion, street, ciudad, city } = req.body;
+    const { nombre, telefono, direccion, ciudad } = req.body;
     const fotoFile = req.file;
-
-    // Mapear campos (aceptar español o inglés)
-    const finalName = nombre || name;
-    const finalPhone = telefono || phone;
-    const finalStreet = direccion || street;
-    const finalCity = ciudad || city;
 
     await pool.query('BEGIN');
     try {
-        // 1) Actualizar datos del usuario si vienen
-        if (finalName || finalPhone || finalStreet || finalCity) {
+        // 1) Actualizar nombre del usuario si viene (users.nombre)
+        if (nombre) {
             await pool.query(
                 `UPDATE users SET 
-                    name = COALESCE($1, name), 
-                    phone = COALESCE($2, phone),
-                    street = COALESCE($3, street),
-                    city = COALESCE($4, city),
+                    nombre = $1,
                     updated_at = NOW() 
-                 WHERE id = $5`, 
-                [finalName || null, finalPhone || null, finalStreet || null, finalCity || null, userId]
+                 WHERE id = $2`, 
+                [nombre, userId]
             );
         }
 
         // 2) Preparar valores de perfil
         const foto_perfil = fotoFile ? `/uploads/${fotoFile.filename}` : null;
 
-        // 3) Hacer upsert en profiles
+        // 3) Hacer upsert en profiles (telefono, direccion, ciudad están en profiles, NO en users)
         const upsertResult = await pool.query(
             `INSERT INTO profiles (user_id, telefono, direccion, ciudad, foto_perfil, updated_at)
              VALUES ($1, $2, $3, $4, $5, NOW())
@@ -93,7 +80,7 @@ exports.updateLoggedInUserProfile = asyncHandler(async (req, res, next) => {
                 foto_perfil = COALESCE(EXCLUDED.foto_perfil, profiles.foto_perfil),
                 updated_at = NOW()
              RETURNING *`,
-            [userId, finalPhone || null, finalStreet || null, finalCity || null, foto_perfil]
+            [userId, telefono || null, direccion || null, ciudad || null, foto_perfil]
         );
 
         await pool.query('COMMIT');

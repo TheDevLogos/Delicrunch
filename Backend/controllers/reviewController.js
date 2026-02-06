@@ -161,8 +161,8 @@ exports.getProductReviews = asyncHandler(async (req, res, next) => {
     const { productId } = req.params;
     
     const reviews = await pool.query(
-        `SELECT r.id, r.rating, r.comment, r.created_at, r.is_verified,
-                u.name as nombre_usuario,
+        `SELECT r.id, r.calificacion as rating, r.comentario as comment, r.created_at, r.is_verified,
+                u.nombre as nombre_usuario,
                 p.foto_perfil as user_avatar
          FROM reviews r 
          JOIN users u ON r.user_id = u.id 
@@ -193,15 +193,15 @@ exports.getStoreReviews = asyncHandler(async (req, res, next) => {
     
     // Obtener reseñas de todos los productos de este vendedor
     const reviews = await pool.query(
-        `SELECT r.id, r.rating, r.comment, r.created_at, r.is_verified,
-                u.name as nombre_usuario,
+        `SELECT r.id, r.calificacion as rating, r.comentario as comment, r.created_at, r.is_verified,
+                u.nombre as nombre_usuario,
                 prof.foto_perfil as user_avatar,
-                p.name as nombre_producto
+                p.nombre as nombre_producto
          FROM reviews r 
          JOIN users u ON r.user_id = u.id 
          LEFT JOIN profiles prof ON r.user_id = prof.user_id
          LEFT JOIN products p ON r.product_id = p.id
-         WHERE p.seller_id = $1
+         WHERE p.store_id = (SELECT id FROM stores WHERE user_id = $1 LIMIT 1)
          ORDER BY r.created_at DESC`,
         [sellerId]
     );
@@ -214,13 +214,12 @@ exports.getUserReviews = asyncHandler(async (req, res, next) => {
     const userId = req.user.id;
     const reviews = await pool.query(
         `SELECT r.*, 
-                seller.name as nombre_comercio, 
-                seller.avatar_url as store_logo,
-                p.name as nombre_producto, 
-                p.image_url as product_image
+                s.nombre_comercio, 
+                p.nombre as nombre_producto, 
+                p.imagen_url as product_image
          FROM reviews r
          LEFT JOIN products p ON r.product_id = p.id
-         LEFT JOIN users seller ON p.seller_id = seller.id
+         LEFT JOIN stores s ON (p.store_id = s.id OR r.store_id = s.id)
          WHERE r.user_id = $1
          ORDER BY r.created_at DESC`,
         [userId]
@@ -243,10 +242,10 @@ exports.getMyStoreReviews = asyncHandler(async (req, res, next) => {
                 r.valor_precio,
                 r.experiencia_recogida,
                 r.visible,
-                u.name as nombre_usuario, 
+                u.nombre as nombre_usuario, 
                 u.email as user_email,
                 s.nombre_comercio,
-                COALESCE(r.nombre_producto, p.name) as nombre_producto
+                COALESCE(p.nombre, 'Producto eliminado') as nombre_producto
          FROM reviews r
          JOIN users u ON r.user_id = u.id
          JOIN stores s ON r.store_id = s.id
