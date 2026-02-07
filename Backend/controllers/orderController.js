@@ -151,7 +151,6 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
              WHERE o.id = $1`,
             [newOrder.id]
         );
-        );
 
         res.status(201).json({
             ...orderComplete.rows[0],
