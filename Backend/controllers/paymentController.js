@@ -305,10 +305,12 @@ exports.handleWebhook = asyncHandler(async (req, res, next) => {
                     [
                         orderData.user_id,
                         storeId,
-                        `DC${Math.floor(1000 + Math.random() * 9000)}`otal,
+                        `DC${Math.floor(1000 + Math.random() * 9000)}`,
+                        orderData.total,
                         orderData.subtotal || orderData.total,
                         'confirmado',
-                        'mercadoadod.toString()
+                        'mercadopago',
+                        payment.id.toString()
                     ]
                 );
 
@@ -317,21 +319,20 @@ exports.handleWebhook = asyncHandler(async (req, res, next) => {
                     const productRes = await pool.query(
                         'SELECT nombre, precio_descuento, imagen_url FROM products WHERE id = $1',
                         [orderData.product_id]
-                    );ombre, precio_descuento, imagen_url FROM products WHERE id = $1',
-                        [orderData.product_id]
                     );
                     const prod = productRes.rows[0];
                     
                     await pool.query(
                         `INSERT INTO order_items (
-                            order_id, product_id, product_name, quantity, unit_price, subtotal
-                        ) VALUES ($1, $2, $3, $4, $5, $6)`,
+                            order_id, product_id, cantidad, precio_unitario, subtotal
+                        ) VALUES ($1, $2, $3, $4, $5)`,
                         [
                             orderResult.rows[0].id,
                             orderData.product_id,
-                            prod?.nombre || 'Producto',
                             orderData.cantidad || 1,
-                            prod?.precio_descuento || 0
+                            prod?.precio_descuento || 0,
+                            (orderData.cantidad || 1) * (prod?.precio_descuento || 0)
+                        ]
                     );
                 }
 
@@ -465,9 +466,9 @@ exports.getMerchantStatus = asyncHandler(async (req, res, next) => {
 
     try {
         const result = await pool.query(
-            `SELECT id, nombre_comercio, mercadopago_email, mercadopago_configured,
+            `SELECT id, nombre_comercio, mercadopago_user_id, mercadopago_onboarding_complete,
                     comision_plataforma
-             FROM stores WHERE user_id = $1`,user_id, mercadopago_onboarding_complete
+             FROM stores WHERE user_id = $1`,
             [userId]
         );
 
@@ -486,13 +487,13 @@ exports.getMerchantStatus = asyncHandler(async (req, res, next) => {
         const store = result.rows[0];
 
         res.json({
-            hasMercadoPagoAccount: !!store.mercadopago_configured,
-            mercadopagoEmail: store.mercadopago_email,
-            chargesEnabled: store.mercadopago_configureonboarding_complete,
+            hasMercadoPagoAccount: !!store.mercadopago_user_id,
             mercadopagoEmail: store.mercadopago_user_id,
             chargesEnabled: store.mercadopago_onboarding_complete || false,
             payoutsEnabled: store.mercadopago_onboarding_complete || false,
-            detailsSubmitted: store.mercadopago_onboarding_complete
+            detailsSubmitted: store.mercadopago_onboarding_complete || false,
+            comisionPlataforma: store.comision_plataforma || 25
+        });
     } catch (error) {
         console.error('❌ Error getting merchant status:', error);
         res.status(500).json({ msg: 'Error al obtener estado del comercio.' });
@@ -533,9 +534,8 @@ exports.getMerchantBalance = asyncHandler(async (req, res, next) => {
             available: [{ amount: parseFloat(balance.available) || 0, currency: 'MXN' }],
             pending: [{ amount: parseFloat(balance.pending) || 0, currency: 'MXN' }]
         });
-                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN total * 0.75 ELSE 0 END), 0) as pending
-             FROM orders 
-             WHERE storeError getting merchant balance:', error);
+    } catch (error) {
+        console.error('❌ Error getting merchant balance:', error);
         res.status(500).json({ msg: 'Error al obtener balance.' });
     }
 });
