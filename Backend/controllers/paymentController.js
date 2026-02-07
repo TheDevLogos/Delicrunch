@@ -48,15 +48,16 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
         const productResult = await pool.query(
             `SELECT 
                 p.id, 
-                p.name as nombre, 
-                p.price as precio_descuento, 
-                p.seller_id, 
-                p.is_active as activo, 
-                p.image_url as imagen_url,
-                u.name as nombre_comercio,
+                p.nombre, 
+                p.precio_descuento, 
+                p.store_id, 
+                p.activo, 
+                p.imagen_url,
+                s.nombre as nombre_comercio,
                 u.email as seller_email
              FROM products p
-             LEFT JOIN users u ON p.seller_id = u.id
+             LEFT JOIN stores s ON p.store_id = s.id
+             LEFT JOIN users u ON s.user_id = u.id
              WHERE p.id = $1`,
             [productId]
         );
@@ -110,7 +111,7 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
 
         // 3. Obtener email del comprador
         const userResult = await pool.query(
-            'SELECT email, name as nombre FROM users WHERE id = $1',
+            'SELECT email, nombre FROM users WHERE id = $1',
             [userId]
         );
         const userEmail = userResult.rows[0]?.email || '';
@@ -153,7 +154,7 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
             external_reference: JSON.stringify({
                 user_id: userId,
                 product_id: productId,
-                seller_id: product.seller_id,
+                store_id: product.store_id,
                 cantidad: cantidad,
                 coupon_discount: coupon_discount,
                 subtotal: subtotal,
@@ -164,7 +165,7 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
             metadata: {
                 user_id: userId,
                 product_id: productId,
-                seller_id: product.seller_id,
+                store_id: product.store_id,
                 product_name: product.nombre,
                 store_name: product.nombre_comercio,
                 cantidad: cantidad,
@@ -182,6 +183,8 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
         if (product.seller_email) {
             preferenceData.marketplace_fee = platformFeeAmount;
         }
+
+        console.log('📝 Preference data to send:', JSON.stringify(preferenceData, null, 2));
 
         const preference = await preferenceClient.create({ body: preferenceData });
 
@@ -202,7 +205,7 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
                     preference.id,
                     userId,
                     productId,
-                    product.seller_id,
+                    product.store_id,
                     totalAfterCoupon,
                     'MXN',
                     'pending',
@@ -228,12 +231,15 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
         console.error('❌ Error creating Mercado Pago Preference', {
             userId,
             productId,
-            error: error.message,
+            errorMessage: error.message,
+            errorStack: error.stack,
+            errorResponse: error.response?.data || error.response,
         });
 
         return res.status(500).json({
             msg: 'Error al crear la preferencia de pago.',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            details: process.env.NODE_ENV === 'development' ? error.response?.data : undefined,
         });
     }
 });
@@ -279,41 +285,39 @@ exports.handleWebhook = asyncHandler(async (req, res, next) => {
                 // Generar número de orden único
                 const orderNumber = `DC-${Date.now().toString(36).toUpperCase()}`;
                 
-                // Obtener seller_id del producto
-                let sellerId = orderData.seller_id;
-                if (!sellerId && orderData.product_id) {
+                // Obtener store_id del producto
+                let storeId = orderData.store_id;
+                if (!storeId && orderData.product_id) {
                     const productRes = await pool.query(
-                        'SELECT seller_id FROM products WHERE id = $1',
+                        'SELECT store_id FROM products WHERE id = $1',
                         [orderData.product_id]
                     );
-                    sellerId = productRes.rows[0]?.seller_id;
+                    storeId = productRes.rows[0]?.store_id;
                 }
 
                 // Crear orden exitosa con campos correctos de la tabla orders
                 const orderResult = await pool.query(
                     `INSERT INTO orders (
-                        user_id, seller_id, order_number, total, subtotal,
-                        status, payment_status, payment_method, mp_payment_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                    ON CONFLICT (order_number) DO NOTHING
+                        user_id, store_id, codigo_recogida, total, subtotal,
+                        estado, metodo_pago, mercadopago_payment_id
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     RETURNING id`,
                     [
                         orderData.user_id,
-                        sellerId,
-                        orderNumber,
-                        orderData.total,
+                        storeId,
+                        `DC${Math.floor(1000 + Math.random() * 9000)}`otal,
                         orderData.subtotal || orderData.total,
-                        'confirmed',
-                        'approved',
-                        'mercadopago',
-                        payment.id.toString()
+                        'confirmado',
+                        'mercadoadod.toString()
                     ]
                 );
 
                 // Crear order_item si se creó la orden
                 if (orderResult.rows.length > 0 && orderData.product_id) {
                     const productRes = await pool.query(
-                        'SELECT name, price, image_url FROM products WHERE id = $1',
+                        'SELECT nombre, precio_descuento, imagen_url FROM products WHERE id = $1',
+                        [orderData.product_id]
+                    );ombre, precio_descuento, imagen_url FROM products WHERE id = $1',
                         [orderData.product_id]
                     );
                     const prod = productRes.rows[0];
@@ -325,11 +329,9 @@ exports.handleWebhook = asyncHandler(async (req, res, next) => {
                         [
                             orderResult.rows[0].id,
                             orderData.product_id,
-                            prod?.name || 'Producto',
+                            prod?.nombre || 'Producto',
                             orderData.cantidad || 1,
-                            prod?.price || orderData.total,
-                            orderData.total
-                        ]
+                            prod?.precio_descuento || 0
                     );
                 }
 
@@ -408,16 +410,16 @@ exports.merchantSetup = asyncHandler(async (req, res, next) => {
         if (storeResult.rows.length === 0) {
             // Crear entrada en stores
             const userInfo = await pool.query(
-                'SELECT name, street, phone FROM users WHERE id = $1',
+                'SELECT nombre, email FROM users WHERE id = $1',
                 [userId]
             );
             const user = userInfo.rows[0];
             
             storeResult = await pool.query(
-                `INSERT INTO stores (user_id, nombre_comercio, direccion, telefono, activo, mercadopago_email, mercadopago_configured)
-                 VALUES ($1, $2, $3, $4, true, $5, true)
+                `INSERT INTO stores (user_id, nombre_comercio, direccion, telefono, activo, mercadopago_user_id)
+                 VALUES ($1, $2, $3, $4, true, $5)
                  RETURNING id, nombre_comercio`,
-                [userId, user?.name || 'Mi Tienda', user?.street || '', user?.phone || '', mercadopago_email]
+                [userId, user?.nombre || 'Mi Tienda', '', '', mercadopago_email]
             );
         } else {
             // Actualizar tienda existente
@@ -425,8 +427,8 @@ exports.merchantSetup = asyncHandler(async (req, res, next) => {
                 `UPDATE stores 
                  SET mercadopago_email = $1, 
                      mercadopago_configured = true,
-                     updated_at = NOW()
-                 WHERE user_id = $2
+                     updated_at =user_id = $1, 
+                     mercadopago_onboarding_complete
                  RETURNING id, nombre_comercio`,
                 [mercadopago_email, userId]
             );
@@ -465,7 +467,7 @@ exports.getMerchantStatus = asyncHandler(async (req, res, next) => {
         const result = await pool.query(
             `SELECT id, nombre_comercio, mercadopago_email, mercadopago_configured,
                     comision_plataforma
-             FROM stores WHERE user_id = $1`,
+             FROM stores WHERE user_id = $1`,user_id, mercadopago_onboarding_complete
             [userId]
         );
 
@@ -486,11 +488,11 @@ exports.getMerchantStatus = asyncHandler(async (req, res, next) => {
         res.json({
             hasMercadoPagoAccount: !!store.mercadopago_configured,
             mercadopagoEmail: store.mercadopago_email,
-            chargesEnabled: store.mercadopago_configured || false,
-            payoutsEnabled: store.mercadopago_configured || false,
-            detailsSubmitted: store.mercadopago_configured || false,
-            comisionPlataforma: store.comision_plataforma || 25,
-        });
+            chargesEnabled: store.mercadopago_configureonboarding_complete,
+            mercadopagoEmail: store.mercadopago_user_id,
+            chargesEnabled: store.mercadopago_onboarding_complete || false,
+            payoutsEnabled: store.mercadopago_onboarding_complete || false,
+            detailsSubmitted: store.mercadopago_onboarding_complete
     } catch (error) {
         console.error('❌ Error getting merchant status:', error);
         res.status(500).json({ msg: 'Error al obtener estado del comercio.' });
@@ -508,27 +510,32 @@ exports.getMerchantBalance = asyncHandler(async (req, res, next) => {
         return res.status(403).json({ msg: 'Acción no autorizada.' });
     }
 
-    const userId = req.user.id;
+    const storeId = req.storeId; // Proporcionado por middleware getStoreId
+
+    if (!storeId) {
+        return res.status(400).json({ msg: 'Store ID no disponible' });
+    }
 
     try {
-        // Calcular balance basado en órdenes del vendedor
+        // Calcular balance basado en órdenes de la tienda
         const balanceResult = await pool.query(
             `SELECT 
-                COALESCE(SUM(CASE WHEN payment_status = 'approved' THEN total * 0.75 ELSE 0 END), 0) as available,
-                COALESCE(SUM(CASE WHEN payment_status = 'pending' THEN total * 0.75 ELSE 0 END), 0) as pending
+                COALESCE(SUM(CASE WHEN estado = 'entregado' THEN total * 0.75 ELSE 0 END), 0) as available,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN total * 0.75 ELSE 0 END), 0) as pending
              FROM orders 
-             WHERE seller_id = $1`,
-            [userId]
+             WHERE store_id = $1`,
+            [storeId]
         );
 
         const balance = balanceResult.rows[0];
 
         res.json({
             available: [{ amount: parseFloat(balance.available) || 0, currency: 'MXN' }],
-            pending: [{ amount: parseFloat(balance.pending) || 0, currency: 'MXN' }],
+            pending: [{ amount: parseFloat(balance.pending) || 0, currency: 'MXN' }]
         });
-    } catch (error) {
-        console.error('❌ Error getting merchant balance:', error);
+                COALESCE(SUM(CASE WHEN estado = 'pendiente' THEN total * 0.75 ELSE 0 END), 0) as pending
+             FROM orders 
+             WHERE storeError getting merchant balance:', error);
         res.status(500).json({ msg: 'Error al obtener balance.' });
     }
 });
@@ -544,26 +551,29 @@ exports.getMerchantPayouts = asyncHandler(async (req, res, next) => {
         return res.status(403).json({ msg: 'Acción no autorizada.' });
     }
 
-    const userId = req.user.id;
+    const storeId = req.storeId; // Proporcionado por middleware getStoreId
+
+    if (!storeId) {
+        return res.status(400).json({ msg: 'Store ID no disponible' });
+    }
 
     try {
         // Obtener últimas órdenes pagadas como "payouts"
         const payoutsResult = await pool.query(
-            `SELECT id, total * 0.75 as amount, payment_status as status, 
-                    created_at, mp_payment_id as payment_id
+            `SELECT id, total * 0.75 as amount, estado as status, 
+                    created_at, mercadopago_payment_id as payment_id
              FROM orders 
-             WHERE seller_id = $1 AND payment_status = 'approved'
+             WHERE store_id = $1 AND estado = 'entregado'
              ORDER BY created_at DESC
              LIMIT 10`,
-            [userId]
+            [storeId]
         );
 
         const payouts = payoutsResult.rows.map(p => ({
             id: p.id,
             amount: parseFloat(p.amount) || 0,
             currency: 'MXN',
-            status: 'paid',
-            arrivalDate: p.created_at,
+            status: p.status,
             created: p.created_at,
             description: `Venta #${p.id}`,
             method: 'mercadopago',
@@ -762,4 +772,39 @@ exports.paymentCallback = asyncHandler(async (req, res) => {
 </html>`;
 
     res.send(html);
+});
+/**
+ * @desc    Obtener estado de pagos del usuario
+ * @route   GET /api/payments/user-status
+ * @access  Privado (Usuario)
+ */
+exports.getUserPaymentStatus = asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+
+    try {
+        // Obtener historial de pagos completados del usuario
+        const paymentsResult = await pool.query(
+            `SELECT COUNT(*) as total_payments, MAX(created_at) as last_payment
+             FROM orders
+             WHERE user_id = $1 AND payment_status = 'completed'`,
+            [userId]
+        );
+
+        const stats = paymentsResult.rows[0];
+
+        res.json({
+            success: true,
+            data: {
+                totalPayments: parseInt(stats.total_payments) || 0,
+                lastPayment: stats.last_payment || null,
+                hasCompletedPayment: parseInt(stats.total_payments) > 0,
+            }
+        });
+    } catch (error) {
+        console.error('Error getting user payment status:', error);
+        res.status(500).json({
+            success: false,
+            msg: 'Error al obtener el estado de pagos',
+        });
+    }
 });
