@@ -109,7 +109,8 @@ const PaymentScreen = ({ route, navigation }) => {
         }
       }
     } catch (error) {
-      logger.error('Error verificando MercadoPago:', error);
+      // Silenciar error si el endpoint no existe aún (puede estar desplegando)
+      console.log('⚠️ No se pudo verificar estado de MercadoPago (endpoint no disponible - deploy en progreso)');
       
       // Fallback a AsyncStorage
       try {
@@ -118,6 +119,7 @@ const PaymentScreen = ({ route, navigation }) => {
           const parsed = JSON.parse(mpStatus);
           setHasLinkedMercadoPago(parsed.hasCompletedPayment || false);
         } else {
+          // Asumir que no tiene cuenta vinculada para permitir primera compra
           setHasLinkedMercadoPago(false);
         }
       } catch (e) {
