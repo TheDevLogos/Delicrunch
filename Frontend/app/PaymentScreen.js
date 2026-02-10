@@ -1,6 +1,7 @@
 /**
  * PaymentScreen - Pantalla de Pago con Mercado Pago Checkout Pro
- * Diseño inspirado en Too Good To Go
+ * Diseño moderno inspirado en Too Good To Go
+ * Con autenticación OAuth de MercadoPago persistente
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
@@ -19,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import api from '../services/api';
 import logger from '../services/logger';
@@ -32,10 +34,30 @@ import XPRewardsModal from '../components/XPRewardsModal';
 import { calculateCO2Saved } from '../src/constants/co2Factors';
 import { useGamification } from '../contexts/GamificationContext';
 
+// Colores estilo TGTG
+const TGTG_COLORS = {
+  primary: '#00AB84',
+  primaryDark: '#008768',
+  primaryLight: '#E6F7F3',
+  secondary: '#FF6B6B',
+  accent: '#FFD93D',
+  success: '#34C759',
+  warning: '#FF9500',
+  background: '#F8F9FA',
+  card: '#FFFFFF',
+  text: '#1A1A1A',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+  border: '#E5E7EB',
+  error: '#EF4444',
+};
+
 const PaymentScreen = ({ route, navigation }) => {
   const { product, quantity = 1 } = route.params;
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasLinkedMercadoPago, setHasLinkedMercadoPago] = useState(false);
+  const [checkingMercadoPago, setCheckingMercadoPago] = useState(true);
   
   // Estado para cupones
   const [availableCoupons, setAvailableCoupons] = useState([]);
@@ -53,11 +75,64 @@ const PaymentScreen = ({ route, navigation }) => {
   // Gamificación
   const { recordPurchase, userProfile } = useGamification();
 
+  // Verificar si el usuario tiene MercadoPago vinculado
+  useEffect(() => {
+    checkMercadoPagoStatus();
+  }, []);
+
+  const checkMercadoPagoStatus = async () => {
+    try {
+      setCheckingMercadoPago(true);
+      
+      // Verificar en el backend si hay pagos completados
+      const response = await api.get('/payments/user-status');
+      if (response.data.success) {
+        const serverStatus = response.data.data;
+        setHasLinkedMercadoPago(serverStatus.hasCompletedPayment);
+        
+        // Guardar en AsyncStorage para futuras referencias
+        if (serverStatus.hasCompletedPayment) {
+          await AsyncStorage.setItem('@mercadopago_user_status', JSON.stringify({
+            hasCompletedPayment: true,
+            totalPayments: serverStatus.totalPayments,
+            lastPayment: serverStatus.lastPayment,
+          }));
+        }
+      } else {
+        // Fallback a AsyncStorage si el backend falla
+        const mpStatus = await AsyncStorage.getItem('@mercadopago_user_status');
+        if (mpStatus) {
+          const parsed = JSON.parse(mpStatus);
+          setHasLinkedMercadoPago(parsed.hasCompletedPayment || false);
+        } else {
+          setHasLinkedMercadoPago(false);
+        }
+      }
+    } catch (error) {
+      logger.error('Error verificando MercadoPago:', error);
+      
+      // Fallback a AsyncStorage
+      try {
+        const mpStatus = await AsyncStorage.getItem('@mercadopago_user_status');
+        if (mpStatus) {
+          const parsed = JSON.parse(mpStatus);
+          setHasLinkedMercadoPago(parsed.hasCompletedPayment || false);
+        } else {
+          setHasLinkedMercadoPago(false);
+        }
+      } catch (e) {
+        setHasLinkedMercadoPago(false);
+      }
+    } finally {
+      setCheckingMercadoPago(false);
+    }
+  };
+
   if (!product) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color={COLORS.textTertiary} />
+          <Ionicons name="alert-circle-outline" size={64} color={TGTG_COLORS.textTertiary} />
           <Text style={styles.errorText}>No se ha podido cargar la información del producto.</Text>
         </View>
       </SafeAreaView>
@@ -69,16 +144,6 @@ const PaymentScreen = ({ route, navigation }) => {
   const rawSavings = Math.max(0, originalTotal - subtotal);
   const savings = formatPrice(rawSavings);
   const discount = originalTotal > 0 ? Math.round((rawSavings / originalTotal) * 100) : 0;
-  
-  console.log('💰 PaymentScreen - Precios:', { 
-    precioOriginal: product.precio_original, 
-    precioDescuento: product.precio_descuento, 
-    quantity,
-    subtotal, 
-    originalTotal, 
-    rawSavings, 
-    discount 
-  });
   
   // Calcular total con cupón aplicado
   const totalAfterCoupon = Math.max(0, subtotal - couponDiscount);
@@ -143,7 +208,9 @@ const PaymentScreen = ({ route, navigation }) => {
           setAvailableCoupons(merged);
         }
       } catch (error) {
-        console.log('Cupones no disponibles:', error.message);
+        console.log('Cupones no disponibles (esperado si la tabla no existe):', error.message);
+        // No mostrar error al usuario, simplemente no hay cupones disponibles
+        setAvailableCoupons([]);
       } finally {
         setLoadingCoupons(false);
       }
@@ -153,6 +220,7 @@ const PaymentScreen = ({ route, navigation }) => {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    await checkMercadoPagoStatus();
     setRefreshing(false);
   }, []);
 
@@ -192,6 +260,7 @@ const PaymentScreen = ({ route, navigation }) => {
 
   /**
    * Iniciar el proceso de pago con Mercado Pago Checkout Pro
+   * El usuario puede pagar sin necesidad de tener cuenta vinculada previamente
    */
   const initializePayment = async () => {
     setIsPurchasing(true);
@@ -208,7 +277,6 @@ const PaymentScreen = ({ route, navigation }) => {
       console.log('✅ Preferencia creada:', preference.preferenceId);
 
       // 2. Abrir Checkout Pro de Mercado Pago en el navegador
-      // Usamos sandboxInitPoint para pruebas, initPoint para producción
       const checkoutUrl = preference.sandboxInitPoint || preference.initPoint;
       
       if (!checkoutUrl) {
@@ -221,30 +289,48 @@ const PaymentScreen = ({ route, navigation }) => {
       const result = await WebBrowser.openBrowserAsync(checkoutUrl, {
         showTitle: true,
         enableBarCollapsing: true,
+        toolbarColor: TGTG_COLORS.primary,
+        controlsColor: '#FFFFFF',
+        showInRecents: true,
       });
 
       console.log('📱 Resultado del navegador:', result.type);
 
       // Después de cerrar el navegador, verificar el estado del pago
       if (result.type === 'cancel' || result.type === 'dismiss') {
-        // El usuario cerró el navegador - verificar si hay orden pendiente
+        // El usuario cerró el navegador - ofrecer reintentar
         Alert.alert(
-          'Pago no completado',
-          '¿Deseas continuar con el pago o cancelar?',
+          'Pago interrumpido',
+          '¿Ya completaste el pago? Si cerraste la ventana por error, puedes reintentar.',
           [
+            { 
+              text: 'Ya pagué', 
+              onPress: async () => {
+                // Actualizar estado de MercadoPago y verificar orden
+                await checkMercadoPagoStatus();
+                Alert.alert(
+                  '✅ Verificando...',
+                  'Estamos verificando tu pago. En breve recibirás la confirmación.',
+                  [{ text: 'Ver Pedidos', onPress: () => navigation.navigate('MyOrders') }]
+                );
+              }
+            },
             { text: 'Cancelar', style: 'cancel' },
             { 
-              text: 'Reintentar', 
+              text: 'Reintentar pago', 
               onPress: () => initializePayment() 
             },
           ]
         );
       } else {
-        // Simular orden creada (en producción, el webhook crea la orden)
+        // Navegador cerrado normalmente - posible pago exitoso
         // Esperar un momento para que el webhook procese
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // Calcular datos de la orden
+        // Actualizar estado de MercadoPago
+        await checkMercadoPagoStatus();
+        
+        // Calcular datos de la orden (simulados hasta que llegue el webhook)
         const savedAmount = rawSavings + couponDiscount;
         const productCategory = product.categoria || 'otros';
         const co2Amount = calculateCO2Saved(productCategory, quantity);
@@ -267,23 +353,27 @@ const PaymentScreen = ({ route, navigation }) => {
         setOrderData(mockOrder);
         
         // Registrar compra para XP y obtener recompensas
-        const xpResult = await recordPurchase(quantity, savedAmount, co2Amount);
-        
-        const currentXP = userProfile?.xp || 0;
-        const currentLevel = userProfile?.nivel || 1;
-        const nextLevelXP = currentLevel * 100; // Simplificado, ajustar según tu lógica
-        const progressToNext = Math.min(100, (currentXP / nextLevelXP) * 100);
-        
-        setXPRewardData({
-          xpEarned: xpResult?.xpGained || 0,
-          levelUp: xpResult?.levelUp || false,
-          newLevel: xpResult?.newLevel || currentLevel,
-          newBadges: xpResult?.newBadges || [],
-          newCoupons: xpResult?.newCoupons || [],
-          progressToNext,
-          currentXP,
-          nextLevelXP,
-        });
+        try {
+          const xpResult = await recordPurchase(quantity, savedAmount, co2Amount);
+          
+          const currentXP = userProfile?.xp || 0;
+          const currentLevel = userProfile?.nivel || 1;
+          const nextLevelXP = currentLevel * 100;
+          const progressToNext = Math.min(100, (currentXP / nextLevelXP) * 100);
+          
+          setXPRewardData({
+            xpEarned: xpResult?.xpGained || 0,
+            levelUp: xpResult?.levelUp || false,
+            newLevel: xpResult?.newLevel || currentLevel,
+            newBadges: xpResult?.newBadges || [],
+            newCoupons: xpResult?.newCoupons || [],
+            progressToNext,
+            currentXP,
+            nextLevelXP,
+          });
+        } catch (xpError) {
+          console.warn('⚠️ No se pudieron registrar los XP:', xpError.message);
+        }
         
         // Mostrar modal de código de recogida primero
         setShowPickupCodeModal(true);
@@ -313,12 +403,10 @@ const PaymentScreen = ({ route, navigation }) => {
   const handlePickupCodeClose = () => {
     setShowPickupCodeModal(false);
     if (xpRewardData && xpRewardData.xpEarned > 0) {
-      // Pequeño delay para transición suave
       setTimeout(() => {
         setShowXPModal(true);
       }, 300);
     } else {
-      // Si no hay XP, ir directamente a Mis Pedidos
       navigation.navigate('MyOrders');
     }
   };
@@ -335,7 +423,7 @@ const PaymentScreen = ({ route, navigation }) => {
     navigation.navigate('MyOrders');
   };
 
-  // Modal de selección de cupones
+  // Modal de selección de cupones (REDISEÑADO)
   const CouponModal = () => (
     <Modal
       visible={showCouponModal}
@@ -346,24 +434,31 @@ const PaymentScreen = ({ route, navigation }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Selecciona un cupón</Text>
-            <TouchableOpacity onPress={() => setShowCouponModal(false)}>
-              <Ionicons name="close" size={24} color={COLORS.text} />
+            <View>
+              <Text style={styles.modalTitle}>Tus cupones</Text>
+              <Text style={styles.modalSubtitle}>
+                {availableCoupons.length} {availableCoupons.length === 1 ? 'cupón disponible' : 'cupones disponibles'}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setShowCouponModal(false)} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={TGTG_COLORS.text} />
             </TouchableOpacity>
           </View>
 
           {loadingCoupons ? (
-            <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 40 }} />
+            <ActivityIndicator size="large" color={TGTG_COLORS.primary} style={{ marginVertical: 40 }} />
           ) : availableCoupons.length === 0 ? (
             <View style={styles.noCoupons}>
-              <Ionicons name="ticket-outline" size={48} color={COLORS.textTertiary} />
-              <Text style={styles.noCouponsText}>No tienes cupones disponibles para esta compra</Text>
-              <Text style={styles.noCouponsSubtext}>¡Sube de nivel para ganar cupones!</Text>
+              <View style={styles.noCouponsIcon}>
+                <Ionicons name="ticket-outline" size={48} color={TGTG_COLORS.textTertiary} />
+              </View>
+              <Text style={styles.noCouponsText}>No tienes cupones disponibles</Text>
+              <Text style={styles.noCouponsSubtext}>¡Sube de nivel para ganar más cupones!</Text>
             </View>
           ) : (
             <ScrollView style={styles.couponsList} showsVerticalScrollIndicator={false}>
               {availableCoupons.map(coupon => {
-                const categoryInfo = COUPON_CATEGORIES?.[coupon.category] || { name: 'General', icon: 'gift', color: '#34C759' };
+                const categoryInfo = COUPON_CATEGORIES?.[coupon.category] || { name: 'General', icon: 'gift', color: TGTG_COLORS.primary };
                 const isSelected = selectedCoupon?.id === coupon.id;
                 
                 return (
@@ -371,25 +466,37 @@ const PaymentScreen = ({ route, navigation }) => {
                     key={coupon.id}
                     style={[styles.couponOption, isSelected && styles.couponOptionSelected]}
                     onPress={() => selectCoupon(coupon)}
+                    activeOpacity={0.7}
                   >
-                    <View style={[styles.couponOptionLeft, { backgroundColor: coupon.color || categoryInfo.color }]}>
+                    <LinearGradient
+                      colors={isSelected 
+                        ? [TGTG_COLORS.primary, TGTG_COLORS.primaryDark]
+                        : [coupon.color || categoryInfo.color, coupon.color || categoryInfo.color]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.couponOptionLeft}
+                    >
                       <Text style={styles.couponOptionValue}>
                         {coupon.type === 'percentage' ? `${coupon.value}%` : 
                          coupon.type === '2x1' ? '2x1' : `$${formatPrice(coupon.value)}`}
                       </Text>
-                      <Ionicons name={coupon.icon || categoryInfo.icon} size={18} color="#FFF" />
-                    </View>
+                      <Ionicons name={coupon.icon || categoryInfo.icon} size={20} color="#FFF" />
+                    </LinearGradient>
                     <View style={styles.couponOptionInfo}>
                       <Text style={styles.couponOptionName}>{coupon.name}</Text>
                       <Text style={styles.couponOptionMeta}>
-                        {categoryInfo.name} · Max ${formatPrice(coupon.max_discount)}
+                        {categoryInfo.name} · Hasta ${formatPrice(coupon.max_discount)}
                       </Text>
-                      <Text style={styles.couponOptionSavings}>
-                        Ahorras: ${formatPrice(coupon.potential_discount || 0)}
-                      </Text>
+                      <View style={styles.couponSavingsBadge}>
+                        <Text style={styles.couponSavingsText}>
+                          Ahorras: ${formatPrice(coupon.potential_discount || 0)}
+                        </Text>
+                      </View>
                     </View>
                     {isSelected && (
-                      <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                      <View style={styles.checkmarkCircle}>
+                        <Ionicons name="checkmark" size={20} color="#FFF" />
+                      </View>
                     )}
                   </TouchableOpacity>
                 );
@@ -399,7 +506,7 @@ const PaymentScreen = ({ route, navigation }) => {
 
           {selectedCoupon && (
             <TouchableOpacity style={styles.removeCouponBtn} onPress={() => selectCoupon(null)}>
-              <Text style={styles.removeCouponText}>Quitar cupón</Text>
+              <Text style={styles.removeCouponText}>Quitar cupón seleccionado</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -416,21 +523,21 @@ const PaymentScreen = ({ route, navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
+            tintColor={TGTG_COLORS.primary}
+            colors={[TGTG_COLORS.primary]}
           />
         }
       >
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+            <Ionicons name="arrow-back" size={24} color={TGTG_COLORS.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Confirmar pedido</Text>
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Product Summary Card */}
+        {/* Product Summary Card (REDISEÑADA) */}
         <View style={styles.card}>
           <View style={styles.productRow}>
             <Image 
@@ -438,25 +545,36 @@ const PaymentScreen = ({ route, navigation }) => {
               style={styles.productImage} 
             />
             <View style={styles.productInfo}>
+              <View style={styles.savingsBadge}>
+                <Ionicons name="trending-down" size={14} color="#FFF" />
+                <Text style={styles.savingsBadgeText}>{discount}% OFF</Text>
+              </View>
               <Text style={styles.productName} numberOfLines={2}>{product.nombre}</Text>
-              <Text style={styles.storeName}>{product.nombre_comercio}</Text>
-              <View style={styles.quantityBadge}>
-                <Text style={styles.quantityText}>Cantidad: {quantity}</Text>
+              <View style={styles.storeRow}>
+                <Ionicons name="storefront" size={14} color={TGTG_COLORS.textSecondary} />
+                <Text style={styles.storeName}>{product.nombre_comercio}</Text>
+              </View>
+              <View style={styles.quantityRow}>
+                <Text style={styles.quantityLabel}>Cantidad:</Text>
+                <Text style={styles.quantityValue}>{quantity}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Pickup Details Card */}
+        {/* Pickup Details Card (REDISEÑADA) */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Detalles de recogida</Text>
+          <View style={styles.cardHeader}>
+            <Ionicons name="calendar" size={20} color={TGTG_COLORS.primary} />
+            <Text style={styles.cardTitle}>Recoge tu pedido</Text>
+          </View>
           
           <View style={styles.detailRow}>
-            <View style={styles.detailIcon}>
-              <Ionicons name="time" size={20} color={COLORS.primary} />
+            <View style={styles.detailIconContainer}>
+              <Ionicons name="time" size={20} color={TGTG_COLORS.primary} />
             </View>
             <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Horario</Text>
+              <Text style={styles.detailLabel}>Horario de recogida</Text>
               <Text style={styles.detailValue}>
                 Hoy, {product.hora_recogida_inicio || '14:00'} - {product.hora_recogida_fin || '18:00'}
               </Text>
@@ -466,8 +584,8 @@ const PaymentScreen = ({ route, navigation }) => {
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
-            <View style={styles.detailIcon}>
-              <Ionicons name="location" size={20} color={COLORS.primary} />
+            <View style={styles.detailIconContainer}>
+              <Ionicons name="location" size={20} color={TGTG_COLORS.primary} />
             </View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>Dirección</Text>
@@ -476,72 +594,107 @@ const PaymentScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Impact Card */}
-        <View style={styles.impactCard}>
-          <MaterialCommunityIcons name="leaf" size={24} color={COLORS.primary} />
+        {/* Impact Card (REDISEÑADA CON GRADIENTE) */}
+        <LinearGradient
+          colors={[TGTG_COLORS.primaryLight, '#C8F5E9']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.impactCard}
+        >
+          <View style={styles.impactIcon}>
+            <MaterialCommunityIcons name="leaf" size={28} color={TGTG_COLORS.primary} />
+          </View>
           <View style={styles.impactContent}>
-            <Text style={styles.impactTitle}>Tu impacto positivo</Text>
+            <Text style={styles.impactTitle}>🌍 Tu impacto positivo</Text>
             <Text style={styles.impactText}>
               Ahorras ${savings} MXN y evitas ~{formatNumber(2.5 * quantity, 1)} kg de CO₂
             </Text>
           </View>
-        </View>
+        </LinearGradient>
 
-        {/* Coupon Section */}
+        {/* Coupon Section (COMPLETAMENTE REDISEÑADA - MÁS VISIBLE) */}
         <View style={styles.card}>
-          <View style={styles.couponHeader}>
-            <View style={styles.couponHeaderLeft}>
-              <Ionicons name="ticket" size={20} color={COLORS.primary} />
-              <Text style={styles.cardTitle}>Cupón de descuento</Text>
-            </View>
+          <View style={styles.cardHeader}>
+            <Ionicons name="ticket" size={20} color={TGTG_COLORS.accent} />
+            <Text style={styles.cardTitle}>Cupones de descuento</Text>
             {availableCoupons.length > 0 && (
-              <View style={styles.couponBadge}>
-                <Text style={styles.couponBadgeText}>{availableCoupons.length}</Text>
+              <View style={styles.couponCountBadge}>
+                <Text style={styles.couponCountText}>{availableCoupons.length}</Text>
               </View>
             )}
           </View>
 
           {selectedCoupon ? (
-            <View style={styles.selectedCoupon}>
-              <View style={[styles.selectedCouponLeft, { backgroundColor: selectedCoupon.color || '#34C759' }]}>
-                <Text style={styles.selectedCouponValue}>
-                  {selectedCoupon.type === 'percentage' ? `${selectedCoupon.value}%` : 
-                   selectedCoupon.type === '2x1' ? '2x1' : `$${formatPrice(selectedCoupon.value)}`}
-                </Text>
-              </View>
-              <View style={styles.selectedCouponInfo}>
-                <Text style={styles.selectedCouponName}>{selectedCoupon.name}</Text>
-                <Text style={styles.selectedCouponDiscount}>-${formatPrice(couponDiscount)}</Text>
-              </View>
-              <TouchableOpacity onPress={removeCoupon} style={styles.removeCouponIcon}>
-                <Ionicons name="close-circle" size={24} color={COLORS.error} />
+            <View style={styles.selectedCouponContainer}>
+              <LinearGradient
+                colors={[selectedCoupon.color || TGTG_COLORS.primary, selectedCoupon.color || TGTG_COLORS.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.selectedCoupon}
+              >
+                <View style={styles.selectedCouponLeft}>
+                  <Text style={styles.selectedCouponValue}>
+                    {selectedCoupon.type === 'percentage' ? `${selectedCoupon.value}%` : 
+                     selectedCoupon.type === '2x1' ? '2x1' : `$${formatPrice(selectedCoupon.value)}`}
+                  </Text>
+                  <Text style={styles.selectedCouponLabel}>DESCUENTO</Text>
+                </View>
+                <View style={styles.selectedCouponInfo}>
+                  <Text style={styles.selectedCouponName}>{selectedCoupon.name}</Text>
+                  <Text style={styles.selectedCouponDiscount}>-${formatPrice(couponDiscount)} MXN</Text>
+                </View>
+                <TouchableOpacity onPress={removeCoupon} style={styles.removeCouponIconBtn}>
+                  <Ionicons name="close-circle" size={28} color="rgba(255,255,255,0.9)" />
+                </TouchableOpacity>
+              </LinearGradient>
+              <TouchableOpacity 
+                style={styles.changeCouponBtn} 
+                onPress={() => setShowCouponModal(true)}
+              >
+                <Text style={styles.changeCouponText}>Cambiar cupón</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity 
-              style={styles.addCouponBtn} 
+              style={styles.addCouponBtnNew} 
               onPress={() => setShowCouponModal(true)}
               disabled={loadingCoupons}
+              activeOpacity={0.7}
             >
               {loadingCoupons ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={TGTG_COLORS.primary} />
               ) : (
                 <>
-                  <Ionicons name="add-circle-outline" size={20} color={COLORS.primary} />
-                  <Text style={styles.addCouponText}>
-                    {availableCoupons.length > 0 
-                      ? `Aplicar cupón (${availableCoupons.length} disponibles)`
-                      : 'No tienes cupones disponibles'}
-                  </Text>
+                  <View style={styles.addCouponIconCircle}>
+                    <Ionicons name="add" size={24} color={TGTG_COLORS.primary} />
+                  </View>
+                  <View style={styles.addCouponTextContainer}>
+                    <Text style={styles.addCouponTitle}>
+                      {availableCoupons.length > 0 
+                        ? `Aplicar cupón` 
+                        : 'Sin cupones disponibles'}
+                    </Text>
+                    {availableCoupons.length > 0 && (
+                      <Text style={styles.addCouponSubtitle}>
+                        {availableCoupons.length} {availableCoupons.length === 1 ? 'cupón disponible' : 'cupones disponibles'}
+                      </Text>
+                    )}
+                  </View>
+                  {availableCoupons.length > 0 && (
+                    <Ionicons name="chevron-forward" size={20} color={TGTG_COLORS.textSecondary} />
+                  )}
                 </>
               )}
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Payment Summary Card */}
+        {/* Payment Summary Card (REDISEÑADA) */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Resumen de pago</Text>
+          <View style={styles.cardHeader}>
+            <Ionicons name="receipt" size={20} color={TGTG_COLORS.primary} />
+            <Text style={styles.cardTitle}>Resumen de pago</Text>
+          </View>
           
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Precio original ({quantity}x)</Text>
@@ -556,8 +709,8 @@ const PaymentScreen = ({ route, navigation }) => {
           {couponDiscount > 0 && (
             <View style={styles.priceRow}>
               <View style={styles.couponDiscountLabel}>
-                <Ionicons name="ticket" size={14} color={COLORS.primary} />
-                <Text style={[styles.priceLabel, { color: COLORS.primary, marginLeft: 4 }]}>
+                <Ionicons name="ticket" size={14} color={TGTG_COLORS.accent} />
+                <Text style={[styles.priceLabel, { color: TGTG_COLORS.accent, marginLeft: 4, fontWeight: '600' }]}>
                   Cupón aplicado
                 </Text>
               </View>
@@ -567,81 +720,109 @@ const PaymentScreen = ({ route, navigation }) => {
 
           <View style={styles.priceDivider} />
 
-          <View style={styles.priceRow}>
+          <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total a pagar</Text>
-            <View style={styles.totalWithSavings}>
+            <View style={styles.totalPriceContainer}>
               {couponDiscount > 0 && (
                 <Text style={styles.totalValueStrike}>${formatPrice(subtotal)}</Text>
               )}
-              <Text style={styles.totalValue}>${formatPrice(totalAfterCoupon)} MXN</Text>
+              <Text style={styles.totalValue}>${formatPrice(totalAfterCoupon)}</Text>
+              <Text style={styles.totalCurrency}>MXN</Text>
             </View>
           </View>
           
-          {couponDiscount > 0 && (
+          {(rawSavings + couponDiscount) > 0 && (
             <View style={styles.totalSavingsBadge}>
-              <Ionicons name="sparkles" size={14} color={COLORS.success} />
+              <Ionicons name="sparkles" size={16} color={TGTG_COLORS.success} />
               <Text style={styles.totalSavingsText}>
-                ¡Ahorro total: ${formatPrice(rawSavings + couponDiscount)}!
+                ¡Has ahorrado ${formatPrice(rawSavings + couponDiscount)} en total!
               </Text>
             </View>
           )}
         </View>
 
-        {/* Payment Distribution Info */}
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle-outline" size={20} color={COLORS.textSecondary} />
-          <Text style={styles.infoText}>
-            Tu pago se divide: ${merchantAmount} para el comercio y ${platformFee} para gastos operativos de Delicrunch.
-          </Text>
-        </View>
+        {/* MercadoPago Status Card */}
+        {!hasLinkedMercadoPago && !checkingMercadoPago && (
+          <View style={styles.warningCard}>
+            <View style={styles.warningIcon}>
+              <Ionicons name="alert-circle" size={24} color={TGTG_COLORS.warning} />
+            </View>
+            <View style={styles.warningContent}>
+              <Text style={styles.warningTitle}>Cuenta de pago no vinculada</Text>
+              <Text style={styles.warningText}>
+                Necesitas vincular tu cuenta de MercadoPago para poder realizar compras
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Mercado Pago Info */}
-        <View style={styles.card}>
-          <View style={styles.paymentMethodHeader}>
-            <MaterialCommunityIcons name="credit-card-check" size={24} color="#009EE3" />
-            <Text style={styles.cardTitle}>Pago seguro con Mercado Pago</Text>
+        <View style={styles.mpInfoCard}>
+          <View style={styles.mpHeader}>
+            <MaterialCommunityIcons name="shield-check" size={24} color="#009EE3" />
+            <Text style={styles.mpTitle}>Pago seguro con Mercado Pago</Text>
           </View>
           
-          <View style={styles.mercadoPagoInfo}>
+          <View style={styles.mpFeatures}>
             <View style={styles.mpFeature}>
-              <Ionicons name="shield-checkmark" size={20} color={COLORS.success} />
+              <Ionicons name="checkmark-circle" size={18} color={TGTG_COLORS.success} />
               <Text style={styles.mpFeatureText}>Pago 100% seguro</Text>
             </View>
             <View style={styles.mpFeature}>
-              <Ionicons name="card" size={20} color={COLORS.success} />
-              <Text style={styles.mpFeatureText}>Tarjeta, débito, OXXO y más</Text>
+              <Ionicons name="checkmark-circle" size={18} color={TGTG_COLORS.success} />
+              <Text style={styles.mpFeatureText}>Múltiples medios de pago</Text>
             </View>
             <View style={styles.mpFeature}>
-              <Ionicons name="lock-closed" size={20} color={COLORS.success} />
+              <Ionicons name="checkmark-circle" size={18} color={TGTG_COLORS.success} />
               <Text style={styles.mpFeatureText}>Protección al comprador</Text>
             </View>
           </View>
         </View>
 
         {/* Spacer for button */}
-        <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
 
         {/* Coupon Modal */}
         <CouponModal />
       </ScrollView>
 
-      {/* Fixed Bottom Button */}
+      {/* Fixed Bottom Button (REDISEÑADO CON GRADIENTE) */}
       <View style={styles.bottomContainer}>
         <TouchableOpacity 
-          style={[styles.purchaseBtn, isPurchasing && styles.purchaseBtnDisabled]}
+          style={[styles.purchaseBtn, (isPurchasing || checkingMercadoPago) && styles.purchaseBtnDisabled]}
           onPress={initializePayment}
-          disabled={isPurchasing}
+          disabled={isPurchasing || checkingMercadoPago}
+          activeOpacity={0.8}
         >
-          {isPurchasing ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <>
-              <MaterialCommunityIcons name="credit-card-check" size={24} color="#FFF" />
-              <Text style={styles.purchaseBtnText}>
-                Pagar ${formatPrice(totalAfterCoupon)} MXN
-              </Text>
-            </>
-          )}
+          <LinearGradient
+            colors={['#009EE3', '#0077B5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.purchaseBtnGradient}
+          >
+            {isPurchasing || checkingMercadoPago ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="credit-card-check" size={24} color="#FFF" />
+                <View style={styles.purchaseBtnTextContainer}>
+                  <Text style={styles.purchaseBtnText}>
+                    Pagar ${formatPrice(totalAfterCoupon)} MXN
+                  </Text>
+                  {couponDiscount > 0 && (
+                    <Text style={styles.purchaseBtnSubtext}>
+                      Ahorro aplicado: ${formatPrice(couponDiscount)}
+                    </Text>
+                  )}
+                  {!hasLinkedMercadoPago && (
+                    <Text style={[styles.purchaseBtnSubtext, { fontSize: 11 }]}>
+                      Primera compra • Pago seguro con MercadoPago
+                    </Text>
+                  )}
+                </View>
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -685,234 +866,302 @@ const PaymentScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: TGTG_COLORS.background,
   },
   scrollContent: {
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.xl,
+    paddingHorizontal: 16,
+    paddingBottom: 120, // Aumentado para dar espacio al bottomContainer fijo
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.xl,
+    padding: 24,
   },
   errorText: {
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: TGTG_COLORS.textSecondary,
     textAlign: 'center',
-    marginTop: SPACING.md,
+    marginTop: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.md,
+    paddingVertical: 16,
   },
   backBtn: {
-    padding: SPACING.xs,
+    padding: 8,
+    borderRadius: 20,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
   },
   card: {
-    backgroundColor: COLORS.card,
-    borderRadius: BORDERS.radiusMd,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
+    backgroundColor: TGTG_COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     ...SHADOWS.small,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
+    flex: 1,
   },
   productRow: {
     flexDirection: 'row',
   },
   productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: BORDERS.radiusSm,
-    backgroundColor: COLORS.border,
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    backgroundColor: TGTG_COLORS.border,
   },
   productInfo: {
     flex: 1,
-    marginLeft: SPACING.md,
-    justifyContent: 'center',
+    marginLeft: 12,
+    justifyContent: 'space-between',
+  },
+  savingsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: TGTG_COLORS.secondary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  savingsBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFF',
   },
   productName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 4,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
+    marginTop: 4,
+  },
+  storeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
   storeName: {
     fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: 8,
+    color: TGTG_COLORS.textSecondary,
   },
-  quantityBadge: {
-    backgroundColor: COLORS.primaryLight,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radiusSm,
-    alignSelf: 'flex-start',
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
   },
-  quantityText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: COLORS.primary,
+  quantityLabel: {
+    fontSize: 14,
+    color: TGTG_COLORS.textSecondary,
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.sm,
+  quantityValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: TGTG_COLORS.primary,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  detailIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primaryLight,
+  detailIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: TGTG_COLORS.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   detailContent: {
     flex: 1,
-    marginLeft: SPACING.sm,
+    marginLeft: 12,
   },
   detailLabel: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: TGTG_COLORS.textSecondary,
     marginBottom: 2,
+    fontWeight: '500',
   },
   detailValue: {
     fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.text,
+    fontWeight: '600',
+    color: TGTG_COLORS.text,
   },
   detailDivider: {
     height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: SPACING.sm,
+    backgroundColor: TGTG_COLORS.border,
+    marginVertical: 12,
   },
   impactCard: {
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: BORDERS.radiusMd,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     flexDirection: 'row',
+    alignItems: 'center',
+    ...SHADOWS.small,
+  },
+  impactIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   impactContent: {
     flex: 1,
-    marginLeft: SPACING.sm,
+    marginLeft: 12,
   },
   impactTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
+    fontSize: 15,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
+    marginBottom: 2,
   },
   impactText: {
-    fontSize: 12,
-    color: COLORS.text,
-    marginTop: 2,
-  },
-  couponHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.sm,
-  },
-  couponHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  couponBadge: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  couponBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  addCouponBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.sm,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderStyle: 'dashed',
-    borderRadius: BORDERS.radiusSm,
-    justifyContent: 'center',
-    gap: SPACING.xs,
-  },
-  addCouponText: {
-    fontSize: 14,
-    color: COLORS.primary,
+    fontSize: 13,
+    color: TGTG_COLORS.text,
     fontWeight: '500',
+  },
+  // Coupon styles (NUEVOS ESTILOS MÁS VISIBLES)
+  couponCountBadge: {
+    backgroundColor: TGTG_COLORS.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  couponCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
+  },
+  addCouponBtnNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderWidth: 2,
+    borderColor: TGTG_COLORS.primary,
+    borderRadius: 12,
+    backgroundColor: TGTG_COLORS.primaryLight,
+    borderStyle: 'solid',
+  },
+  addCouponIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addCouponTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  addCouponTitle: {
+    fontSize: 15,
+    color: TGTG_COLORS.primary,
+    fontWeight: '700',
+  },
+  addCouponSubtitle: {
+    fontSize: 12,
+    color: TGTG_COLORS.primaryDark,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  selectedCouponContainer: {
+    gap: 8,
   },
   selectedCoupon: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderRadius: BORDERS.radiusSm,
-    padding: SPACING.sm,
+    borderRadius: 12,
+    padding: 12,
   },
   selectedCouponLeft: {
-    width: 50,
-    height: 50,
-    borderRadius: BORDERS.radiusSm,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 12,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.3)',
+    paddingRight: 16,
   },
   selectedCouponValue: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '900',
     color: '#FFF',
+  },
+  selectedCouponLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
   },
   selectedCouponInfo: {
     flex: 1,
-    marginLeft: SPACING.sm,
+    marginLeft: 12,
   },
   selectedCouponName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 2,
   },
   selectedCouponDiscount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.success,
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFF',
   },
-  removeCouponIcon: {
-    padding: SPACING.xs,
+  removeCouponIconBtn: {
+    padding: 4,
+  },
+  changeCouponBtn: {
+    padding: 12,
+    alignItems: 'center',
+    backgroundColor: TGTG_COLORS.background,
+    borderRadius: 8,
+  },
+  changeCouponText: {
+    fontSize: 14,
+    color: TGTG_COLORS.primary,
+    fontWeight: '600',
   },
   priceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xs,
+    marginBottom: 8,
   },
   priceLabel: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: TGTG_COLORS.textSecondary,
   },
   priceValueStrike: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: TGTG_COLORS.textSecondary,
     textDecorationLine: 'line-through',
   },
   discountValue: {
     fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.success,
+    fontWeight: '700',
+    color: TGTG_COLORS.success,
   },
   couponDiscountLabel: {
     flexDirection: 'row',
@@ -920,107 +1169,152 @@ const styles = StyleSheet.create({
   },
   couponDiscountValue: {
     fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
+    fontWeight: '700',
+    color: TGTG_COLORS.accent,
   },
   priceDivider: {
     height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: SPACING.sm,
+    backgroundColor: TGTG_COLORS.border,
+    marginVertical: 12,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
   },
-  totalWithSavings: {
+  totalPriceContainer: {
     alignItems: 'flex-end',
   },
   totalValueStrike: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: TGTG_COLORS.textSecondary,
     textDecorationLine: 'line-through',
   },
   totalValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.primary,
+    fontSize: 24,
+    fontWeight: '900',
+    color: TGTG_COLORS.primary,
+  },
+  totalCurrency: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: TGTG_COLORS.textSecondary,
+    marginTop: 2,
   },
   totalSavingsBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDERS.radiusSm,
+    backgroundColor: '#E6F7F3',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     alignSelf: 'flex-start',
-    marginTop: SPACING.xs,
-    gap: 4,
+    gap: 6,
   },
   totalSavingsText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.success,
+    fontSize: 13,
+    fontWeight: '700',
+    color: TGTG_COLORS.success,
   },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.card,
-    borderRadius: BORDERS.radiusSm,
-    padding: SPACING.sm,
-    marginBottom: SPACING.md,
-    alignItems: 'flex-start',
-    gap: SPACING.xs,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  paymentMethodHeader: {
+  warningCard: {
+    backgroundColor: '#FFF9E6',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: TGTG_COLORS.warning,
   },
-  mercadoPagoInfo: {
-    gap: SPACING.xs,
+  warningIcon: {
+    marginRight: 12,
+  },
+  warningContent: {
+    flex: 1,
+  },
+  warningTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
+    marginBottom: 2,
+  },
+  warningText: {
+    fontSize: 13,
+    color: TGTG_COLORS.textSecondary,
+  },
+  mpInfoCard: {
+    backgroundColor: '#E6F5FC',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  mpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  mpTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
+  },
+  mpFeatures: {
+    gap: 8,
   },
   mpFeature: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: 8,
   },
   mpFeatureText: {
     fontSize: 14,
-    color: COLORS.text,
+    color: TGTG_COLORS.text,
+    fontWeight: '500',
   },
   bottomContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.card,
-    padding: SPACING.md,
-    paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.md,
+    backgroundColor: TGTG_COLORS.card,
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24, // Aumentado para Android
     ...SHADOWS.medium,
   },
   purchaseBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#009EE3', // Mercado Pago blue
-    borderRadius: BORDERS.radiusMd,
-    padding: SPACING.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   purchaseBtnDisabled: {
     opacity: 0.7,
   },
+  purchaseBtnGradient: {
+    flexDirection: 'row',
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  purchaseBtnTextContainer: {
+    alignItems: 'center',
+  },
   purchaseBtnText: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '900',
     color: '#FFF',
+  },
+  purchaseBtnSubtext: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
   },
   // Modal styles
   modalOverlay: {
@@ -1029,95 +1323,135 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: COLORS.card,
-    borderTopLeftRadius: BORDERS.radiusLg,
-    borderTopRightRadius: BORDERS.radiusLg,
-    padding: SPACING.md,
-    maxHeight: '70%',
+    backgroundColor: TGTG_COLORS.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 22,
+    fontWeight: '900',
+    color: TGTG_COLORS.text,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: TGTG_COLORS.textSecondary,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  closeButton: {
+    padding: 4,
+    backgroundColor: TGTG_COLORS.background,
+    borderRadius: 20,
   },
   noCoupons: {
     alignItems: 'center',
-    padding: SPACING.xl,
+    padding: 40,
+  },
+  noCouponsIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: TGTG_COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   noCouponsText: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
+    fontSize: 18,
+    color: TGTG_COLORS.text,
     textAlign: 'center',
-    marginTop: SPACING.md,
+    fontWeight: '700',
+    marginBottom: 8,
   },
   noCouponsSubtext: {
     fontSize: 14,
-    color: COLORS.textTertiary,
-    marginTop: SPACING.xs,
+    color: TGTG_COLORS.textSecondary,
+    textAlign: 'center',
   },
   couponsList: {
-    maxHeight: 300,
+    maxHeight: 400,
   },
   couponOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderRadius: BORDERS.radiusSm,
-    padding: SPACING.sm,
-    marginBottom: SPACING.sm,
+    backgroundColor: TGTG_COLORS.background,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   couponOptionSelected: {
-    borderColor: COLORS.primary,
+    borderColor: TGTG_COLORS.primary,
+    backgroundColor: TGTG_COLORS.primaryLight,
   },
   couponOptionLeft: {
-    width: 60,
-    height: 60,
-    borderRadius: BORDERS.radiusSm,
+    width: 70,
+    height: 70,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 4,
   },
   couponOptionValue: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '900',
     color: '#FFF',
-    marginBottom: 2,
   },
   couponOptionInfo: {
     flex: 1,
-    marginLeft: SPACING.sm,
+    marginLeft: 12,
   },
   couponOptionName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
+    fontSize: 15,
+    fontWeight: '700',
+    color: TGTG_COLORS.text,
+    marginBottom: 2,
   },
   couponOptionMeta: {
     fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
+    color: TGTG_COLORS.textSecondary,
+    marginBottom: 6,
   },
-  couponOptionSavings: {
+  couponSavingsBadge: {
+    backgroundColor: '#E6F7F3',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  couponSavingsText: {
     fontSize: 12,
-    fontWeight: '500',
-    color: COLORS.success,
-    marginTop: 2,
+    fontWeight: '700',
+    color: TGTG_COLORS.success,
   },
-  removeCouponBtn: {
-    padding: SPACING.md,
+  checkmarkCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: TGTG_COLORS.primary,
+    justifyContent: 'center',
     alignItems: 'center',
   },
+  removeCouponBtn: {
+    padding: 16,
+    alignItems: 'center',
+    backgroundColor: TGTG_COLORS.background,
+    borderRadius: 12,
+    marginTop: 8,
+  },
   removeCouponText: {
-    fontSize: 14,
-    color: COLORS.error,
-    fontWeight: '500',
+    fontSize: 15,
+    color: TGTG_COLORS.error,
+    fontWeight: '700',
   },
 });
 

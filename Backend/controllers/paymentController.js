@@ -783,25 +783,41 @@ exports.getUserPaymentStatus = asyncHandler(async (req, res) => {
 
     try {
         // Obtener historial de pagos completados del usuario
+        // Estados válidos: pagado, confirmado, en_preparacion, listo, recogido
         const paymentsResult = await pool.query(
-            `SELECT COUNT(*) as total_payments, MAX(created_at) as last_payment
+            `SELECT 
+                COUNT(*) as total_payments, 
+                MAX(created_at) as last_payment,
+                SUM(total) as total_spent
              FROM orders
-             WHERE user_id = $1 AND payment_status = 'completed'`,
+             WHERE user_id = $1 
+             AND estado IN ('pagado', 'confirmado', 'en_preparacion', 'listo', 'recogido')
+             AND mercadopago_payment_id IS NOT NULL`,
             [userId]
         );
 
         const stats = paymentsResult.rows[0];
+        const totalPayments = parseInt(stats.total_payments) || 0;
+
+        console.log('📊 User payment status:', {
+            userId,
+            totalPayments,
+            lastPayment: stats.last_payment,
+            totalSpent: stats.total_spent,
+        });
 
         res.json({
             success: true,
             data: {
-                totalPayments: parseInt(stats.total_payments) || 0,
+                totalPayments,
                 lastPayment: stats.last_payment || null,
-                hasCompletedPayment: parseInt(stats.total_payments) > 0,
+                totalSpent: parseFloat(stats.total_spent) || 0,
+                hasCompletedPayment: totalPayments > 0,
+                hasMercadoPagoAccount: totalPayments > 0, // Usuario ya ha pagado con MercadoPago
             }
         });
     } catch (error) {
-        console.error('Error getting user payment status:', error);
+        console.error('❌ Error getting user payment status:', error);
         res.status(500).json({
             success: false,
             msg: 'Error al obtener el estado de pagos',
