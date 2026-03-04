@@ -13,8 +13,10 @@ const {
     deleteSavedCard,
     setDefaultSavedCard,
     paymentCallback,
+    getUserPaymentStatus,
 } = require('../controllers/paymentController');
 const authMiddleware = require('../middleware/authMiddleware');
+const getStoreId = require('../middleware/getStoreId');
 
 // === MERCADO PAGO CHECKOUT PRO ===
 
@@ -65,12 +67,12 @@ router.get('/merchant-status', authMiddleware, getMerchantStatus);
 // @route   GET /api/payments/merchant-balance
 // @desc    Obtiene el balance del comercio
 // @access  Privado (Comercio)
-router.get('/merchant-balance', authMiddleware, getMerchantBalance);
+router.get('/merchant-balance', authMiddleware, getStoreId, getMerchantBalance);
 
 // @route   GET /api/payments/merchant-payouts
 // @desc    Obtiene historial de pagos del comercio
 // @access  Privado (Comercio)
-router.get('/merchant-payouts', authMiddleware, getMerchantPayouts);
+router.get('/merchant-payouts', authMiddleware, getStoreId, getMerchantPayouts);
 
 // === MÉTODOS DE PAGO GUARDADOS ===
 
@@ -93,5 +95,12 @@ router.delete('/methods/:id', authMiddleware, deleteSavedCard);
 // @desc    Establece método de pago como predeterminado
 // @access  Privado
 router.put('/methods/:id/default', authMiddleware, setDefaultSavedCard);
+
+// === ESTADO DE CUENTA DE USUARIO ===
+
+// @route   GET /api/payments/user-status
+// @desc    Obtiene el estado de pagos del usuario (historial)
+// @access  Privado
+router.get('/user-status', authMiddleware, getUserPaymentStatus);
 
 module.exports = router;

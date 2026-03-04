@@ -125,14 +125,26 @@ exports.createReview = asyncHandler(async (req, res, next) => {
             throw new Error('Debe proporcionar un ID de pedido o producto.');
         }
 
+        // Procesar imágenes si se subieron
+        let imageUrls = [];
+        if (req.files && req.files.length > 0) {
+            // Construir URLs de las imágenes subidas
+            imageUrls = req.files.map(file => ({
+                url: `/uploads/${file.filename}`,
+                filename: file.filename,
+                size: file.size,
+                mimetype: file.mimetype
+            }));
+        }
+
         // Crear la reseña
         const newReview = await client.query(
             `INSERT INTO reviews (
                 order_id, user_id, product_id, 
-                rating, comment, is_verified
-            ) VALUES ($1, $2, $3, $4, $5, FALSE) 
+                rating, comment, is_verified, images
+            ) VALUES ($1, $2, $3, $4, $5, TRUE, $6) 
             RETURNING *`,
-            [finalOrderId, userId, productIdToUse, finalRating, comentario || '']
+            [finalOrderId, userId, productIdToUse, finalRating, comentario || '', JSON.stringify(imageUrls)]
         );
 
         // Recalcular promedios del producto

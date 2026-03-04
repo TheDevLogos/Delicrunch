@@ -9,10 +9,12 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
-  StatusBar 
+  StatusBar,
+  Image 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
 import logger from '../services/logger';
 
@@ -101,6 +103,8 @@ const LeaveReviewScreen = ({ route, navigation }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderDetails, setOrderDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [images, setImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   useEffect(() => {
     fetchOrderDetails();
@@ -119,6 +123,110 @@ const LeaveReviewScreen = ({ route, navigation }) => {
     }
   };
 
+  // Solicitar permisos y seleccionar imagen
+  const pickImage = async () => {
+    try {
+      // Solicitar permisos
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permisos requeridos',
+          'Necesitamos acceso a tu galería para subir fotos.',
+          [{ text: 'Entendido' }]
+        );
+        return;
+      }
+
+      // Abrir selector de imágenes
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+        allowsMultipleSelection: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImage = result.assets[0];
+        
+        // Limitar a 3 imágenes máximo
+        if (images.length >= 3) {
+          Alert.alert(
+            'Límite alcanzado',
+            'Puedes subir máximo 3 fotos por reseña.',
+            [{ text: 'Entendido' }]
+          );
+          return;
+        }
+
+        setImages([...images, { uri: selectedImage.uri, uploaded: false }]);
+      }
+    } catch (error) {
+      logger.error(error, 'pickImage');
+      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
+    }
+  };
+
+  // Tomar foto con la cámara
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permisos requeridos',
+          'Necesitamos acceso a tu cámara para tomar fotos.',
+          [{ text: 'Entendido' }]
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const photo = result.assets[0];
+        
+        if (images.length >= 3) {
+          Alert.alert(
+            'Límite alcanzado',
+            'Puedes subir máximo 3 fotos por reseña.',
+            [{ text: 'Entendido' }]
+          );
+          return;
+        }
+
+        setImages([...images, { uri: photo.uri, uploaded: false }]);
+      }
+    } catch (error) {
+      logger.error(error, 'takePhoto');
+      Alert.alert('Error', 'No se pudo tomar la foto.');
+    }
+  };
+
+  // Mostrar opciones de imagen
+  const showImageOptions = () => {
+    Alert.alert(
+      'Agregar foto',
+      'Elige una opción',
+      [
+        { text: 'Tomar foto', onPress: takePhoto },
+        { text: 'Elegir de galería', onPress: pickImage },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
+  // Eliminar imagen
+  const removeImage = (index) => {
+    const newImages = images.filter((_, i) => i !== index);
+    setImages(newImages);
+  };
+
   const handleSubmitReview = async () => {
     if (rating === 0) {
       Alert.alert(
@@ -131,14 +239,33 @@ const LeaveReviewScreen = ({ route, navigation }) => {
 
     setIsSubmitting(true);
     try {
-      const reviewData = {
-        producto_id: productId,
-        pedido_id: orderId,
-        calificacion: rating,
-        comentario: comment.trim(),
-      };
+      // Preparar FormData para enviar con imágenes
+      const formData = new FormData();
+      formData.append('producto_id', productId);
+      formData.append('pedido_id', orderId);
+      formData.append('calificacion', rating);
+      formData.append('comentario', comment.trim());
 
-      await api.post('/reviews', reviewData);
+      // Agregar imágenes si las hay
+      if (images.length > 0) {
+        images.forEach((image, index) => {
+          const uriParts = image.uri.split('.');
+          const fileType = uriParts[uriParts.length - 1];
+          
+          formData.append('images', {
+            uri: Platform.OS === 'ios' ? image.uri.replace('file://', '') : image.uri,
+            name: `review_${Date.now()}_${index}.${fileType}`,
+            type: `image/${fileType}`,
+          });
+        });
+      }
+
+      // Enviar review con imágenes
+      await api.post('/reviews', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
       Alert.alert(
         '¡Gracias por tu opinión!', 
@@ -240,6 +367,51 @@ const LeaveReviewScreen = ({ route, navigation }) => {
               </View>
             </View>
 
+            {/* Photo Section */}
+            <View style={styles.photoSection}>
+              <Text style={styles.sectionTitle}>Agrega fotos (opcional)</Text>
+              <Text style={styles.sectionSubtitle}>
+                Las fotos ayudan a otros usuarios a ver el producto
+              </Text>
+              
+              <View style={styles.imagesContainer}>
+                {images.map((image, index) => (
+                  <View key={index} style={styles.imageWrapper}>
+                    <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => removeImage(index)}
+                    >
+                      <Ionicons name="close-circle" size={24} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                
+                {images.length < 3 && (
+                  <TouchableOpacity
+                    style={styles.addPhotoButton}
+                    onPress={showImageOptions}
+                    disabled={uploadingImages}
+                  >
+                    {uploadingImages ? (
+                      <ActivityIndicator color={COLORS.primary} />
+                    ) : (
+                      <>
+                        <Ionicons name="camera-outline" size={28} color={COLORS.primary} />
+                        <Text style={styles.addPhotoText}>Agregar foto</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {images.length > 0 && (
+                <Text style={styles.photoHint}>
+                  {images.length}/3 fotos • Puedes agregar hasta 3 fotos
+                </Text>
+              )}
+            </View>
+
             {/* Tips */}
             <View style={styles.tipsCard}>
               <View style={styles.tipHeader}>
@@ -327,7 +499,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
-    paddingBottom: SPACING.xl * 2,
+    paddingBottom: 120, // Aumentado para dar espacio al botón fijo
   },
   loadingContainer: {
     flex: 1,
@@ -432,6 +604,56 @@ const styles = StyleSheet.create({
     right: SPACING.md,
     fontSize: 12,
     color: COLORS.textLight,
+  },
+  photoSection: {
+    marginBottom: SPACING.lg,
+  },
+  imagesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.md,
+  },
+  imageWrapper: {
+    position: 'relative',
+    width: 100,
+    height: 100,
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    ...SHADOWS.md,
+  },
+  addPhotoButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPhotoText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginTop: SPACING.xs,
+    fontWeight: '600',
+  },
+  photoHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.sm,
+    textAlign: 'center',
   },
   tipsCard: {
     backgroundColor: `${COLORS.warning}10`,

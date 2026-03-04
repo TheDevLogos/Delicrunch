@@ -53,7 +53,7 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
                 p.store_id, 
                 p.activo, 
                 p.imagen_url,
-                s.nombre as nombre_comercio,
+                s.nombre_comercio,
                 u.email as seller_email
              FROM products p
              LEFT JOIN stores s ON p.store_id = s.id
@@ -423,13 +423,13 @@ exports.merchantSetup = asyncHandler(async (req, res, next) => {
                 [userId, user?.nombre || 'Mi Tienda', '', '', mercadopago_email]
             );
         } else {
-            // Actualizar tienda existente
+            // Actualizar tienda existente con el email/ID de Mercado Pago
             storeResult = await pool.query(
                 `UPDATE stores 
-                 SET mercadopago_email = $1, 
-                     mercadopago_configured = true,
-                     updated_at =user_id = $1, 
-                     mercadopago_onboarding_complete
+                 SET mercadopago_user_id = $1, 
+                     mercadopago_onboarding_complete = true,
+                     updated_at = NOW()
+                 WHERE user_id = $2
                  RETURNING id, nombre_comercio`,
                 [mercadopago_email, userId]
             );
@@ -521,7 +521,7 @@ exports.getMerchantBalance = asyncHandler(async (req, res, next) => {
         // Calcular balance basado en órdenes de la tienda
         const balanceResult = await pool.query(
             `SELECT 
-                COALESCE(SUM(CASE WHEN estado = 'entregado' THEN total * 0.75 ELSE 0 END), 0) as available,
+                COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total * 0.75 ELSE 0 END), 0) as available,
                 COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN total * 0.75 ELSE 0 END), 0) as pending
              FROM orders 
              WHERE store_id = $1`,
@@ -563,7 +563,7 @@ exports.getMerchantPayouts = asyncHandler(async (req, res, next) => {
             `SELECT id, total * 0.75 as amount, estado as status, 
                     created_at, mercadopago_payment_id as payment_id
              FROM orders 
-             WHERE store_id = $1 AND estado = 'entregado'
+             WHERE store_id = $1 AND estado = 'recogido'
              ORDER BY created_at DESC
              LIMIT 10`,
             [storeId]
@@ -614,23 +614,26 @@ exports.addSavedCard = asyncHandler(async (req, res) => {
         return res.status(400).json({ msg: 'Datos de tarjeta inválidos.' });
     }
 
-    await pool.query('BEGIN');
+    const client = await pool.connect();
     try {
+        await client.query('BEGIN');
         let isDefault = false;
         if (make_default) {
-            await pool.query('UPDATE saved_cards SET is_default = FALSE WHERE user_id = $1', [userId]);
+            await client.query('UPDATE saved_cards SET is_default = FALSE WHERE user_id = $1', [userId]);
             isDefault = true;
         }
-        const insert = await pool.query(
+        const insert = await client.query(
             `INSERT INTO saved_cards (user_id, brand, last4, exp_month, exp_year, is_default)
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, brand, last4, exp_month, exp_year, is_default, created_at`,
             [userId, brand, String(last4).slice(-4), parseInt(exp_month), parseInt(exp_year), isDefault]
         );
-        await pool.query('COMMIT');
+        await client.query('COMMIT');
         res.status(201).json(insert.rows[0]);
     } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
+    } finally {
+        client.release();
     }
 });
 
@@ -657,20 +660,23 @@ exports.deleteSavedCard = asyncHandler(async (req, res) => {
 exports.setDefaultSavedCard = asyncHandler(async (req, res) => {
     const userId = req.user.id;
     const id = req.params.id;
-    await pool.query('BEGIN');
+    const client = await pool.connect();
     try {
-        const exists = await pool.query('SELECT id FROM saved_cards WHERE id = $1 AND user_id = $2', [id, userId]);
+        await client.query('BEGIN');
+        const exists = await client.query('SELECT id FROM saved_cards WHERE id = $1 AND user_id = $2', [id, userId]);
         if (exists.rowCount === 0) {
-            await pool.query('ROLLBACK');
+            await client.query('ROLLBACK');
             return res.status(404).json({ msg: 'Tarjeta no encontrada' });
         }
-        await pool.query('UPDATE saved_cards SET is_default = FALSE WHERE user_id = $1', [userId]);
-        await pool.query('UPDATE saved_cards SET is_default = TRUE WHERE id = $1 AND user_id = $2', [id, userId]);
-        await pool.query('COMMIT');
+        await client.query('UPDATE saved_cards SET is_default = FALSE WHERE user_id = $1', [userId]);
+        await client.query('UPDATE saved_cards SET is_default = TRUE WHERE id = $1 AND user_id = $2', [id, userId]);
+        await client.query('COMMIT');
         res.json({ msg: 'Tarjeta establecida como predeterminada' });
     } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
+    } finally {
+        client.release();
     }
 });
 

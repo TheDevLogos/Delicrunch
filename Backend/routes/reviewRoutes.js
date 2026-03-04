@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const reviewController = require('../controllers/reviewController');
 const authMiddleware = require('../middleware/authMiddleware');
+const upload = require('../middleware/upload');
 
 // ============ RUTAS PÚBLICAS ============
 
@@ -23,9 +24,9 @@ router.get('/store/:storeId/stats', reviewController.getStoreReviewStats);
 // ============ RUTAS PRIVADAS (COMPRADOR) ============
 
 // @ruta    POST api/reviews
-// @desc    Crear una nueva reseña para un pedido/producto
+// @desc    Crear una nueva reseña para un pedido/producto (con soporte de imágenes)
 // @acceso  Privado (solo compradores que hayan comprado)
-router.post('/', authMiddleware, reviewController.createReview);
+router.post('/', authMiddleware, upload.array('images', 3), reviewController.createReview);
 
 // @ruta    GET api/reviews/my
 // @desc    Obtener reseñas del usuario autenticado

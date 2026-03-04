@@ -12,24 +12,33 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
+// Asegura que la URL siempre termine en /api
+const ensureApiSuffix = (url) => {
+    if (!url) return url;
+    const normalized = url.replace(/\/$/, '');
+    if (/\/api$/i.test(normalized)) return normalized;
+    return `${normalized}/api`;
+};
+
 // Obtener la URL base del API de forma consistente con el resto de la app
 const getApiUrl = () => {
     // 1) extra.apiUrl inyectado por app.config.js
     const expoExtraApi = Constants.expoConfig?.extra?.apiUrl;
     if (expoExtraApi) {
-        return expoExtraApi;
+        return ensureApiSuffix(expoExtraApi);
     }
     
     // 2) Variable de entorno en runtime
     if (process.env.EXPO_PUBLIC_API_URL) {
-        return process.env.EXPO_PUBLIC_API_URL;
+        return ensureApiSuffix(process.env.EXPO_PUBLIC_API_URL);
     }
     
     // 3) Fallback a localhost
-    return 'http://localhost:5001';
+    return ensureApiSuffix('http://localhost:5001');
 };
 
 const API_URL = getApiUrl();
+console.log('💳 MercadoPago Service API URL:', API_URL);
 
 /**
  * Crea una preferencia de pago para Checkout Pro
@@ -54,7 +63,7 @@ export const createPaymentPreference = async ({ productId, cantidad = 1, coupon_
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
+                'x-auth-token': token,
             },
             body: JSON.stringify({
                 productId,
@@ -117,7 +126,7 @@ export const getPaymentStatus = async (paymentId) => {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
+                'x-auth-token': token,
             },
         });
 
@@ -155,7 +164,7 @@ export const setupMerchantAccount = async (mercadopagoEmail) => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
+                'x-auth-token': token,
             },
             body: JSON.stringify({ mercadopago_email: mercadopagoEmail }),
         });
@@ -193,7 +202,7 @@ export const getMerchantStatus = async () => {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
+                'x-auth-token': token,
             },
         });
 
@@ -228,7 +237,7 @@ export const getMerchantBalance = async () => {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
+                'x-auth-token': token,
             },
         });
 
@@ -263,7 +272,7 @@ export const getMerchantPayouts = async () => {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
+                'x-auth-token': token,
             },
         });
 

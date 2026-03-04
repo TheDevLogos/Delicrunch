@@ -19,15 +19,19 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
         return res.status(400).json({ msg: 'Por favor, incluye todos los campos (nombre, email, password).' });
     }
     
-    // Mapear roles de español a inglés para la BD
+    // Mapear roles al español (nombres correctos en la BD)
+    // La BD acepta: 'comprador', 'comercio', 'admin'
     let dbRole = userRole.toLowerCase();
-    if (dbRole === 'comprador') dbRole = 'buyer';
-    if (dbRole === 'comercio') dbRole = 'seller';
+    // Compatibilidad: aceptar roles en inglés y convertir a español
+    if (dbRole === 'buyer') dbRole = 'comprador';
+    if (dbRole === 'seller') dbRole = 'comercio';
     if (dbRole === 'administrador') dbRole = 'admin';
+    // Si no es un rol válido, usar comprador por defecto
+    if (!['comprador', 'comercio', 'admin'].includes(dbRole)) dbRole = 'comprador';
     
     // Validación adicional para comercios/sellers
     if (['comercio', 'seller'].includes(userRole.toLowerCase())) {
-        dbRole = 'seller';
+        dbRole = 'comercio';
         if (!storeData || !storeData.nombre_comercio || !storeData.direccion || !storeData.telefono) {
             return res.status(400).json({ msg: 'Por favor, incluye todos los campos requeridos del comercio (nombre, dirección, teléfono).' });
         }
@@ -63,8 +67,8 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
         [userName, email, passwordHash, dbRole]
     );
 
-    // 4. Lógica específica si el rol es 'seller' (comercio)
-    if (dbRole === 'seller' && storeData) {
+    // 4. Lógica específica si el rol es 'comercio'
+    if (dbRole === 'comercio' && storeData) {
         // Creamos una entrada en la tabla 'stores' asociada a este nuevo usuario
         await pool.query(
             `INSERT INTO stores 

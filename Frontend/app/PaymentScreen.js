@@ -279,7 +279,11 @@ const PaymentScreen = ({ route, navigation }) => {
       console.log('✅ Preferencia creada:', preference.preferenceId);
 
       // 2. Abrir Checkout Pro de Mercado Pago en el navegador
-      const checkoutUrl = preference.sandboxInitPoint || preference.initPoint;
+      // En producción (Google Play): usar initPoint (pagos reales)
+      // En desarrollo: usar sandboxInitPoint para pruebas
+      const checkoutUrl = __DEV__ 
+        ? (preference.sandboxInitPoint || preference.initPoint)
+        : preference.initPoint;
       
       if (!checkoutUrl) {
         throw new Error('No se pudo obtener la URL de checkout');

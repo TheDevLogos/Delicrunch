@@ -19,7 +19,7 @@ import PaymentScreen from '../app/PaymentScreen';
 import PaymentMethodsScreen from '../app/PaymentMethodsScreen';
 import PaymentSuccessScreen from '../app/PaymentSuccessScreen';
 import PaymentErrorScreen from '../app/PaymentErrorScreen';
-import ManageCardsScreen from '../app/ManageCardsScreen';
+import PaymentMethodManager from '../components/PaymentMethodManager';
 import StoreProfileScreen from '../app/StoreProfileScreen';
 import StoreReviewsScreen from '../app/StoreReviewsScreen';
 
@@ -74,7 +74,8 @@ const AuthStack = () => (
     <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
     <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: true }} />
     <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: true }} />
-    <Stack.Screen name="ManageCards" component={ManageCardsScreen} options={{ title: 'Gestionar Tarjetas', headerShown: true }} />
+    <Stack.Screen name="ManageCards" component={PaymentMethodManager} options={{ title: 'Métodos de Pago', headerShown: true }} />
+    <Stack.Screen name="PaymentMethodManager" component={PaymentMethodManager} options={{ title: 'Configurar Pagos', headerShown: true }} />
     <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} options={{ title: 'Pago Exitoso', headerShown: false }} />
     <Stack.Screen name="PaymentError" component={PaymentErrorScreen} options={{ title: 'Error de Pago', headerShown: false }} />
     {/* Pantallas exclusivas de comercio */}
@@ -105,7 +106,8 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
     <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: true }} />
     <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: true }} />
-    <Stack.Screen name="ManageCards" component={ManageCardsScreen} options={{ title: 'Gestionar Tarjetas', headerShown: true }} />
+    <Stack.Screen name="ManageCards" component={PaymentMethodManager} options={{ title: 'Métodos de Pago', headerShown: true }} />
+    <Stack.Screen name="PaymentMethodManager" component={PaymentMethodManager} options={{ title: 'Configurar Pagos', headerShown: true }} />
     <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} options={{ title: 'Pago Exitoso', headerShown: false }} />
     <Stack.Screen name="PaymentError" component={PaymentErrorScreen} options={{ title: 'Error de Pago', headerShown: false }} />
     {/* Pantallas exclusivas de comercio */}

@@ -24,11 +24,19 @@
       },
       "ios": {
         "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://delicrunch.onrender.com/api",
+        "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY": "APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa"
       }
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://delicrunch.onrender.com/api",
+        "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY": "APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa"
       }
     }
   },
