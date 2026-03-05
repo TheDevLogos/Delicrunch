@@ -27,6 +27,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.delicrunch.app",
+      "versionCode": 2,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"

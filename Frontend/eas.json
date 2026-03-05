@@ -15,7 +15,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://delicrunch.onrender.com/api",
-        "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY": "APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa"
+        "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY": "APP_USR-9ba7aa3b-9864-48b9-8b7c-271a5cf44549"
       }
     },
     "preview": {
@@ -27,7 +27,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://delicrunch.onrender.com/api",
-        "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY": "APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa"
+        "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY": "APP_USR-9ba7aa3b-9864-48b9-8b7c-271a5cf44549"
       }
     },
     "production": {
@@ -36,7 +36,7 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://delicrunch.onrender.com/api",
-        "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY": "APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa"
+        "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY": "APP_USR-9ba7aa3b-9864-48b9-8b7c-271a5cf44549"
       }
     }
   },
