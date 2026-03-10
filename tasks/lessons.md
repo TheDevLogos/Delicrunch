@@ -7,6 +7,62 @@
 
 ## 🔴 Errores Críticos y Sus Soluciones
 
+### Patrón: reviewController.js — Columnas SQL en Inglés Sobreviven a Auditorías Parciales
+**Fecha:** 2026-03-10
+**Contexto:** Revisión completa del proyecto para identificar tareas pendientes
+**Causa Raíz:** La auditoría de columnas inglés/español se corrigió en `productController`, `authController`, `profileController` y `storeController`, pero `reviewController.js` quedó parcialmente corregido. Líneas 68, 99, 293, 296, 448 todavía referencian `p.name`, `u.name`, `o.seller_id` y `p.seller_id` que no existen en el schema.
+**Impacto:** `GET /api/reviews` y endpoints de reseñas relacionados fallan con error 500 (column does not exist) cuando hay products o users involucrados.
+**Solución pendiente:** Corregir en `reviewController.js`:
+- `p.name` → `p.nombre`
+- `u.name` → `u.nombre`
+- `o.seller_id` → `o.store_id` (o eliminar si no aplica al schema de orders)
+- `p.seller_id` → `p.store_id`
+**Prevención:**
+- ✅ Regla: Al hacer auditoría de columnas, listar TODOS los controllers con `grep -rn "\.name\b\|\.role\b\|seller_id" /Backend/controllers/` antes de marcar como completado
+- ✅ Regla: No marcar "inconsistencia de columnas resuelta" hasta verificar TODOS los archivos en el directorio, no solo los mencionados explícitamente
+
+### Patrón: Variables de Entorno Desincronizadas entre Local y Producción
+**Fecha:** 2026-03-10
+**Contexto:** Usuario reporta "no se pudo crear referencia de pago" al intentar pagar desde la app
+**Causa Raíz:** 
+- Backend LOCAL tiene credenciales actualizadas de MercadoPago ✅ FUNCIONAN
+- Backend en RENDER tiene credenciales antiguas/desactualizadas ❌ FALLAN  
+- Frontend apunta a Render en producción → errores para usuarios reales
+**Diagnóstico Senior Dev:**
+1. ✅ NO asumir el backend local - probar AMBOS entornos
+2. ✅ Local create-preference → SUCCESS (preferenceId creado)
+3. ✅ Render create-preference → ERROR ("Error al crear la preferencia de pago")
+4. ✅ Identificar discrepancia → variables de entorno diferentes
+**Solución:**
+- Actualizar variables en dashboard.render.com → Environment
+- Credenciales correctas: `MERCADOPAGO_ACCESS_TOKEN` y `MERCADOPAGO_PUBLIC_KEY`
+- Esperar re-deploy automático (2-3 min)
+- Verificar con script de prueba end-to-end
+**Prevención:**
+- ✅ Regla: Ante error "solo en producción" → verificar ENV vars PRIMERO
+- ✅ Regla: Al actualizar credenciales locales → crear tarea para actualizar producción
+- ✅ Regla: Mantener scripts de prueba por entorno (test-local, test-render)
+- ✅ Regla: Probar cambios sensibles (pagos, APIs) en AMBOS entornos
+- ✅ Regla: Documentar credenciales por entorno en lugar seguro
+
+### Patrón: Diagnóstico Incompleto - Confundir Síntoma con Causa Raíz
+**Fecha:** 2026-03-10
+**Contexto:** Error en frontend → fácil asumir que el problema es del frontend
+**Aprendizaje:** El lugar donde se MANIFIESTA ≠ La CAUSA RAÍZ
+- Frontend muestra: "no se pudo crear referencia"
+- Pero la causa real: credenciales inválidas en backend de producción
+**Metodología Senior Dev para Debugging:**
+1. ✅ Verificar cadena completa: Frontend → Backend → API Externa
+2. ✅ Revisar logs en CADA capa
+3. ✅ Probar componentes aisladamente
+4. ✅ Comparar local vs producción
+5. ✅ No hacer suposiciones sin evidencia
+**Prevención:**
+- ✅ Regla: Trazar flujo completo desde origen hasta destino
+- ✅ Regla: Revisar logs del servidor SIEMPRE (no solo cliente)
+- ✅ Regla: Crear herramientas de diagnóstico end-to-end
+- ✅ Regla: Documentar diagnóstico paso a paso, no solo la solución
+
 ### Patrón: Pool de BD Creando Nueva Conexión en Cada Query
 **Fecha:** 2026-03-04
 **Contexto:** `db/index.js` creaba un nuevo `PgPool` con `new PgPool({...})` dentro de cada llamada a `pool.query()`, luego lo cerraba con `pgPool.end()`. Esto significa N conexiones para N queries, agotando recursos y causando timeouts.

@@ -7,21 +7,9 @@ const asyncHandler = require('../middleware/asyncHandler');
  * @param {object} client - El cliente de la base de datos para la transacción.
  */
 const updateProductAverageRating = async (productId, client) => {
-    const dbClient = client || pool;
-    // Calculamos promedio desde reviews que tienen ese product_id
-    const avgResult = await dbClient.query(
-         `SELECT AVG(rating) as average, COUNT(*) as total
-         FROM reviews 
-         WHERE product_id = $1`,
-        [productId]
-    );
-    const average = parseFloat(avgResult.rows[0].average) || 0;
-    const total = parseInt(avgResult.rows[0].total) || 0;
-    await dbClient.query(
-        'UPDATE products SET rating = $1, reviews_count = $2 WHERE id = $3',
-        [average.toFixed(2), total, productId]
-    );
-    return { average, total };
+    // Función deshabilitada — el schema de products no tiene columnas rating/reviews_count
+    // La calificación promedio de tiendas se gestiona en stores.calificacion_promedio
+    return { average: 0, total: 0 };
 };
 
 /**
@@ -65,7 +53,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
         // Si viene un orderId, validamos que el pedido pertenezca al usuario
         if (finalOrderId) {
             const orderResult = await client.query(
-                `SELECT o.user_id, o.seller_id, oi.product_id, p.name as product_name
+                `SELECT o.user_id, o.store_id, oi.product_id, p.nombre as product_name
                  FROM orders o
                  LEFT JOIN order_items oi ON o.id = oi.order_id
                  LEFT JOIN products p ON oi.product_id = p.id
@@ -96,11 +84,11 @@ exports.createReview = asyncHandler(async (req, res, next) => {
         // Si viene productId sin orderId, verificamos que el usuario haya comprado ese producto
         else if (finalProductId) {
             const purchaseCheck = await client.query(
-                `SELECT o.id as order_id, p.name as product_name
+                `SELECT o.id as order_id, p.nombre as product_name
                  FROM orders o
                  JOIN order_items oi ON o.id = oi.order_id
                  JOIN products p ON oi.product_id = p.id
-                 WHERE o.user_id = $1 AND oi.product_id = $2 AND o.status IN ('ready', 'delivered', 'completed', 'confirmed')
+                 WHERE o.user_id = $1 AND oi.product_id = $2 AND o.estado IN ('listo', 'entregado', 'completado', 'confirmado')
                  ORDER BY o.created_at DESC
                  LIMIT 1`,
                 [userId, finalProductId]
@@ -141,7 +129,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
         const newReview = await client.query(
             `INSERT INTO reviews (
                 order_id, user_id, product_id, 
-                rating, comment, is_verified, images
+                calificacion, comentario, is_verified, images
             ) VALUES ($1, $2, $3, $4, $5, TRUE, $6) 
             RETURNING *`,
             [finalOrderId, userId, productIdToUse, finalRating, comentario || '', JSON.stringify(imageUrls)]
@@ -290,10 +278,10 @@ exports.getAllReviews = asyncHandler(async (req, res, next) => {
                r.valor_precio,
                r.experiencia_recogida,
                r.visible,
-               u.name as nombre_usuario, 
+               u.nombre as nombre_usuario, 
                u.email as user_email,
                s.nombre_comercio,
-               COALESCE(r.nombre_producto, p.name) as nombre_producto
+               COALESCE(r.nombre_producto, p.nombre) as nombre_producto
          FROM reviews r
          JOIN users u ON r.user_id = u.id
          LEFT JOIN stores s ON r.store_id = s.id
@@ -437,15 +425,15 @@ exports.getStoreReviewStats = asyncHandler(async (req, res, next) => {
     const stats = await pool.query(
         `SELECT 
             COUNT(*) as total_reviews,
-            AVG(r.rating) as promedio,
-            COUNT(CASE WHEN r.rating = 5 THEN 1 END) as cinco_estrellas,
-            COUNT(CASE WHEN r.rating = 4 THEN 1 END) as cuatro_estrellas,
-            COUNT(CASE WHEN r.rating = 3 THEN 1 END) as tres_estrellas,
-            COUNT(CASE WHEN r.rating = 2 THEN 1 END) as dos_estrellas,
-            COUNT(CASE WHEN r.rating = 1 THEN 1 END) as una_estrella
+            AVG(r.calificacion) as promedio,
+            COUNT(CASE WHEN r.calificacion = 5 THEN 1 END) as cinco_estrellas,
+            COUNT(CASE WHEN r.calificacion = 4 THEN 1 END) as cuatro_estrellas,
+            COUNT(CASE WHEN r.calificacion = 3 THEN 1 END) as tres_estrellas,
+            COUNT(CASE WHEN r.calificacion = 2 THEN 1 END) as dos_estrellas,
+            COUNT(CASE WHEN r.calificacion = 1 THEN 1 END) as una_estrella
          FROM reviews r
          JOIN products p ON r.product_id = p.id
-         WHERE p.seller_id = $1`,
+         WHERE p.store_id = (SELECT id FROM stores WHERE user_id = $1 LIMIT 1)`,
         [sellerId]
     );
     
@@ -487,8 +475,8 @@ exports.updateReview = asyncHandler(async (req, res, next) => {
     // Actualizar la reseña usando campos correctos del schema
     const result = await pool.query(
         `UPDATE reviews 
-         SET rating = COALESCE($1, rating),
-             comment = COALESCE($2, comment)
+         SET calificacion = COALESCE($1, calificacion),
+             comentario = COALESCE($2, comentario)
          WHERE id = $3
          RETURNING *`,
         [finalRating, finalComment, reviewId]
