@@ -68,7 +68,7 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         // 3. Calcular totales
         const subtotal = parseFloat(product.precio_descuento) * cantidad;
-        const comisionPorcentaje = 25; // Comisión fija del 25%
+        const comisionPorcentaje = 18; // 18% para admin, 82% para comercio
         const comisionPlataforma = calculatePlatformFee(subtotal, comisionPorcentaje);
         const total = subtotal;
 

@@ -92,7 +92,7 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
             });
         }
 
-        const comisionPorcentaje = 25; // Default 25%
+        const comisionPorcentaje = 18; // 18% para admin, 82% para comercio
         const platformFeeAmount = Math.round(totalAfterCoupon * (comisionPorcentaje / 100) * 100) / 100;
         const merchantAmount = Math.round((totalAfterCoupon - platformFeeAmount) * 100) / 100;
 
@@ -492,7 +492,7 @@ exports.getMerchantStatus = asyncHandler(async (req, res, next) => {
             chargesEnabled: store.mercadopago_onboarding_complete || false,
             payoutsEnabled: store.mercadopago_onboarding_complete || false,
             detailsSubmitted: store.mercadopago_onboarding_complete || false,
-            comisionPlataforma: store.comision_plataforma || 25
+            comisionPlataforma: store.comision_plataforma || 18
         });
     } catch (error) {
         console.error('❌ Error getting merchant status:', error);
@@ -521,8 +521,8 @@ exports.getMerchantBalance = asyncHandler(async (req, res, next) => {
         // Calcular balance basado en órdenes de la tienda
         const balanceResult = await pool.query(
             `SELECT 
-                COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total * 0.75 ELSE 0 END), 0) as available,
-                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN total * 0.75 ELSE 0 END), 0) as pending
+                COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total * 0.82 ELSE 0 END), 0) as available,
+                COALESCE(SUM(CASE WHEN estado = 'confirmado' THEN total * 0.82 ELSE 0 END), 0) as pending
              FROM orders 
              WHERE store_id = $1`,
             [storeId]
@@ -560,7 +560,7 @@ exports.getMerchantPayouts = asyncHandler(async (req, res, next) => {
     try {
         // Obtener últimas órdenes pagadas como "payouts"
         const payoutsResult = await pool.query(
-            `SELECT id, total * 0.75 as amount, estado as status, 
+            `SELECT id, total * 0.82 as amount, estado as status, 
                     created_at, mercadopago_payment_id as payment_id
              FROM orders 
              WHERE store_id = $1 AND estado = 'recogido'
