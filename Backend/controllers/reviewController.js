@@ -80,11 +80,12 @@ exports.createReview = asyncHandler(async (req, res, next) => {
 
             productIdToUse = orderResult.rows[0].product_id || finalProductId;
             productName = orderResult.rows[0].product_name;
+            storeId = orderResult.rows[0].store_id;
         } 
         // Si viene productId sin orderId, verificamos que el usuario haya comprado ese producto
         else if (finalProductId) {
             const purchaseCheck = await client.query(
-                `SELECT o.id as order_id, p.nombre as product_name
+                `SELECT o.id as order_id, p.nombre as product_name, p.store_id
                  FROM orders o
                  JOIN order_items oi ON o.id = oi.order_id
                  JOIN products p ON oi.product_id = p.id
@@ -109,6 +110,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
 
             productIdToUse = finalProductId;
             productName = purchaseCheck.rows[0].product_name;
+            storeId = purchaseCheck.rows[0].store_id;
         } else {
             throw new Error('Debe proporcionar un ID de pedido o producto.');
         }
@@ -128,11 +130,11 @@ exports.createReview = asyncHandler(async (req, res, next) => {
         // Crear la reseña
         const newReview = await client.query(
             `INSERT INTO reviews (
-                order_id, user_id, product_id, 
+                order_id, user_id, product_id, store_id,
                 calificacion, comentario, is_verified, images
-            ) VALUES ($1, $2, $3, $4, $5, TRUE, $6) 
+            ) VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7) 
             RETURNING *`,
-            [finalOrderId, userId, productIdToUse, finalRating, comentario || '', JSON.stringify(imageUrls)]
+            [finalOrderId, userId, productIdToUse, storeId || null, finalRating, comentario || '', JSON.stringify(imageUrls)]
         );
 
         // Recalcular promedios del producto
@@ -162,12 +164,13 @@ exports.getProductReviews = asyncHandler(async (req, res, next) => {
     
     const reviews = await pool.query(
         `SELECT r.id, r.calificacion as rating, r.comentario as comment, r.created_at, r.is_verified,
+                r.respuesta_admin, r.respuesta_comercio, r.fecha_respuesta_admin, r.fecha_respuesta_comercio,
                 u.nombre as nombre_usuario,
                 p.foto_perfil as user_avatar
          FROM reviews r 
          JOIN users u ON r.user_id = u.id 
          LEFT JOIN profiles p ON r.user_id = p.user_id
-         WHERE r.product_id = $1
+         WHERE r.product_id = $1 AND r.visible = true
          ORDER BY r.created_at DESC`,
         [productId]
     );
@@ -194,6 +197,7 @@ exports.getStoreReviews = asyncHandler(async (req, res, next) => {
     // Obtener reseñas de todos los productos de este vendedor
     const reviews = await pool.query(
         `SELECT r.id, r.calificacion as rating, r.comentario as comment, r.created_at, r.is_verified,
+                r.respuesta_admin, r.respuesta_comercio, r.fecha_respuesta_admin, r.fecha_respuesta_comercio,
                 u.nombre as nombre_usuario,
                 prof.foto_perfil as user_avatar,
                 p.nombre as nombre_producto
@@ -201,7 +205,7 @@ exports.getStoreReviews = asyncHandler(async (req, res, next) => {
          JOIN users u ON r.user_id = u.id 
          LEFT JOIN profiles prof ON r.user_id = prof.user_id
          LEFT JOIN products p ON r.product_id = p.id
-         WHERE p.store_id = (SELECT id FROM stores WHERE user_id = $1 LIMIT 1)
+         WHERE p.store_id = (SELECT id FROM stores WHERE user_id = $1 LIMIT 1) AND r.visible = true
          ORDER BY r.created_at DESC`,
         [sellerId]
     );
@@ -242,14 +246,17 @@ exports.getMyStoreReviews = asyncHandler(async (req, res, next) => {
                 r.valor_precio,
                 r.experiencia_recogida,
                 r.visible,
+                r.moderada,
+                r.respuesta_comercio,
+                r.fecha_respuesta_comercio,
                 u.nombre as nombre_usuario, 
                 u.email as user_email,
                 s.nombre_comercio,
                 COALESCE(p.nombre, 'Producto eliminado') as nombre_producto
          FROM reviews r
          JOIN users u ON r.user_id = u.id
-         JOIN stores s ON r.store_id = s.id
-         LEFT JOIN products p ON r.product_id = p.id
+         JOIN products p ON r.product_id = p.id
+         JOIN stores s ON p.store_id = s.id
          WHERE s.user_id = $1
          ORDER BY r.created_at DESC`,
         [userId]
@@ -278,10 +285,15 @@ exports.getAllReviews = asyncHandler(async (req, res, next) => {
                r.valor_precio,
                r.experiencia_recogida,
                r.visible,
+               r.moderada,
+               r.respuesta_admin,
+               r.respuesta_comercio,
+               r.fecha_respuesta_admin,
+               r.fecha_respuesta_comercio,
                u.nombre as nombre_usuario, 
                u.email as user_email,
                s.nombre_comercio,
-               COALESCE(r.nombre_producto, p.nombre) as nombre_producto
+               COALESCE(p.nombre, 'Producto eliminado') as nombre_producto
          FROM reviews r
          JOIN users u ON r.user_id = u.id
          LEFT JOIN stores s ON r.store_id = s.id
@@ -344,28 +356,127 @@ exports.respondToReview = asyncHandler(async (req, res, next) => {
     const { reviewId } = req.params;
     const { respuesta } = req.body;
     
-    // Nota: La tabla reviews no tiene columnas para respuestas de admin
-    // Retornamos error indicando que la funcionalidad no está disponible
-    return res.status(501).json({ 
-        msg: 'Funcionalidad de respuestas de admin no implementada en el schema actual.' 
+    if (!respuesta || respuesta.trim() === '') {
+        return res.status(400).json({ msg: 'La respuesta no puede estar vacía.' });
+    }
+    
+    // Verificar que la reseña existe
+    const checkReview = await pool.query(
+        'SELECT id FROM reviews WHERE id = $1',
+        [reviewId]
+    );
+    
+    if (checkReview.rows.length === 0) {
+        return res.status(404).json({ msg: 'Reseña no encontrada.' });
+    }
+    
+    // Actualizar con respuesta del admin
+    const result = await pool.query(
+        `UPDATE reviews 
+         SET respuesta_admin = $1,
+             fecha_respuesta_admin = NOW(),
+             moderada = true
+         WHERE id = $2
+         RETURNING id, calificacion as rating, comentario as comment, 
+                   respuesta_admin, fecha_respuesta_admin`,
+        [respuesta.trim(), reviewId]
+    );
+    
+    res.json({
+        msg: 'Respuesta del administrador añadida exitosamente.',
+        review: result.rows[0]
     });
 });
 
 // @desc    Responder a una reseña de mi tienda (Comercio)
-// @acceso  Privado (Comercio) - FUNCIONALIDAD NO DISPONIBLE
+// @acceso  Privado (Comercio)
 exports.storeRespondToReview = asyncHandler(async (req, res, next) => {
-    // Nota: La tabla reviews no tiene columnas para respuestas
-    return res.status(501).json({ 
-        msg: 'Funcionalidad de respuestas de comercio no implementada en el schema actual.' 
+    const { reviewId } = req.params;
+    const { respuesta } = req.body;
+    const userId = req.user.id;
+    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    
+    // Verificar que es un comercio
+    if (userRole !== 'comercio') {
+        return res.status(403).json({ msg: 'Acceso denegado. Solo comercios.' });
+    }
+    
+    if (!respuesta || respuesta.trim() === '') {
+        return res.status(400).json({ msg: 'La respuesta no puede estar vacía.' });
+    }
+    
+    // Verificar que la reseña pertenece a un producto de mi tienda
+    const checkReview = await pool.query(
+        `SELECT r.id, r.product_id, s.user_id as store_user_id
+         FROM reviews r
+         JOIN products p ON r.product_id = p.id
+         JOIN stores s ON p.store_id = s.id
+         WHERE r.id = $1`,
+        [reviewId]
+    );
+    
+    if (checkReview.rows.length === 0) {
+        return res.status(404).json({ msg: 'Reseña no encontrada.' });
+    }
+    
+    if (checkReview.rows[0].store_user_id !== userId) {
+        return res.status(403).json({ msg: 'No tiene permiso para responder a esta reseña.' });
+    }
+    
+    // Actualizar con respuesta del comercio
+    const result = await pool.query(
+        `UPDATE reviews 
+         SET respuesta_comercio = $1,
+             fecha_respuesta_comercio = NOW()
+         WHERE id = $2
+         RETURNING id, calificacion as rating, comentario as comment, 
+                   respuesta_comercio, fecha_respuesta_comercio`,
+        [respuesta.trim(), reviewId]
+    );
+    
+    res.json({
+        msg: 'Respuesta del comercio añadida exitosamente.',
+        review: result.rows[0]
     });
 });
 
-// @desc    Ocultar/Mostrar una reseña (Admin) - FUNCIONALIDAD NO DISPONIBLE
+// @desc    Ocultar/Mostrar una reseña (Admin)
 // @acceso  Privado (Admin)
 exports.toggleReviewVisibility = asyncHandler(async (req, res, next) => {
-    // Nota: La tabla reviews no tiene columna 'visible'
-    return res.status(501).json({ 
-        msg: 'Funcionalidad de visibilidad no implementada en el schema actual.' 
+    // Verificar que el usuario es admin
+    if (req.user.rol !== 'admin') {
+        return res.status(403).json({ msg: 'Acceso denegado. Solo administradores.' });
+    }
+    
+    const { reviewId } = req.params;
+    const { visible } = req.body;
+    
+    // Verificar que la reseña existe
+    const checkReview = await pool.query(
+        'SELECT id, visible FROM reviews WHERE id = $1',
+        [reviewId]
+    );
+    
+    if (checkReview.rows.length === 0) {
+        return res.status(404).json({ msg: 'Reseña no encontrada.' });
+    }
+    
+    // Si no se especifica visible, hacer toggle del valor actual
+    const newVisibility = visible !== undefined ? visible : !checkReview.rows[0].visible;
+    
+    // Actualizar visibilidad y marcar como moderada
+    const result = await pool.query(
+        `UPDATE reviews 
+         SET visible = $1,
+             moderada = true
+         WHERE id = $2
+         RETURNING id, visible, moderada, calificacion as rating, comentario as comment`,
+        [newVisibility, reviewId]
+    );
+    
+    res.json({
+        msg: `Reseña ${newVisibility ? 'mostrada' : 'ocultada'} exitosamente.`,
+        review: result.rows[0]
     });
 });
 
