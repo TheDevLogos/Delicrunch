@@ -394,3 +394,21 @@ Se documentaron 4 patrones de error identificados previamente en el proyecto:
 **Prevención:**
 - ✅ Regla: Al agregar rutas de comercio, verificar siempre que incluyen `authMiddleware + getStoreId`
 - ✅ Regla: Documentar en el controller qué req fields necesita (storeId, userId, etc.)
+
+### Patrón: Alias de columna inexistente en SELECT  
+**Fecha:** 2026-03-12  
+**Contexto:** `getAllReviews` usaba `r.nombre_producto` en un `COALESCE`, pero `reviews` no tiene esa columna. Pasó desapercibido en revisiones parciales porque la query solo fallaba cuando había condiciones específicas.  
+**Causa Raíz:** Se escribió `r.nombre_producto` asumiendo que la columna existía en la tabla `reviews`, cuando en realidad el nombre del producto solo existe en `products.nombre` (via JOIN).  
+**Solución:** `COALESCE(r.nombre_producto, p.nombre)` → `COALESCE(p.nombre, 'Producto eliminado')`  
+**Prevención:**  
+- ✅ Regla: Tras escribir cualquier SELECT, verificar que cada `tabla.columna` existe corriendo `node check-reviews-schema.js` (o equivalente)  
+- ✅ Regla: Probar el endpoint `/reviews/admin/all` con al menos 1 reseña en staging antes de deploy  
+- ✅ Regla: Usar aliases descriptivos solo sobre columnas existentes, nunca sobre columnas hipotéticas  
+
+### Patrón: store_id no persistido al crear entidad relacionada  
+**Fecha:** 2026-03-12  
+**Contexto:** `createReview` hacía el SELECT del pedido para obtener `store_id`, pero no lo insertaba en el INSERT. Resultado: `reviews.store_id` siempre NULL, rompiendo `getMyStoreReviews`.  
+**Causa Raíz:** El campo `storeId` se declaraba en `let storeId, productIdToUse, productName` pero nunca se asignaba ni se usaba en el INSERT.  
+**Solución:** Asignar `storeId = orderResult.rows[0].store_id` y añadirlo al INSERT.  
+**Prevención:**  
+- ✅ Regla: Al crear un INSERT, listar explícitamente todas las FK (store_id, user_id, product_id, order_id) y verificar que cada una se asigna en el código previo  
