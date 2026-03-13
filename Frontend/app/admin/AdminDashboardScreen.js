@@ -71,7 +71,7 @@ const AdminDashboardScreen = () => {
       // Cargar pedidos
       let orders = [];
       try {
-        const ordersRes = await api.get('/orders/all');
+        const ordersRes = await api.get('/admin/transactions');
         orders = ordersRes.data || [];
       } catch (e) {
         orders = [];

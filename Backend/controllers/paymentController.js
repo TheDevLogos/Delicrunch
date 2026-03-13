@@ -282,61 +282,110 @@ exports.handleWebhook = asyncHandler(async (req, res, next) => {
 
             // Actualizar o crear orden según el estado del pago
             if (payment.status === 'approved') {
-                // Generar número de orden único
-                const orderNumber = `DC-${Date.now().toString(36).toUpperCase()}`;
+                const client = await pool.connect();
+                try {
+                    await client.query('BEGIN');
+
+                    // Idempotencia: verificar si ya existe una orden para este pago
+                    const existingOrder = await client.query(
+                        'SELECT id FROM orders WHERE mercadopago_payment_id = $1 LIMIT 1',
+                        [payment.id.toString()]
+                    );
+                    if (existingOrder.rows.length > 0) {
+                        console.log('⚠️ Order already exists for payment', payment.id, '— skipping duplicate');
+                        await client.query('ROLLBACK');
+                        client.release();
+                        return res.status(200).json({ received: true, duplicate: true });
+                    }
                 
-                // Obtener store_id del producto
-                let storeId = orderData.store_id;
-                if (!storeId && orderData.product_id) {
-                    const productRes = await pool.query(
-                        'SELECT store_id FROM products WHERE id = $1',
-                        [orderData.product_id]
-                    );
-                    storeId = productRes.rows[0]?.store_id;
-                }
+                    // Obtener store_id del producto
+                    let storeId = orderData.store_id;
+                    if (!storeId && orderData.product_id) {
+                        const productRes = await client.query(
+                            'SELECT store_id FROM products WHERE id = $1',
+                            [orderData.product_id]
+                        );
+                        storeId = productRes.rows[0]?.store_id;
+                    }
 
-                // Crear orden exitosa con campos correctos de la tabla orders
-                const orderResult = await pool.query(
-                    `INSERT INTO orders (
-                        user_id, store_id, codigo_recogida, total, subtotal,
-                        estado, metodo_pago, mercadopago_payment_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    RETURNING id`,
-                    [
-                        orderData.user_id,
-                        storeId,
-                        `DC${Math.floor(1000 + Math.random() * 9000)}`,
-                        orderData.total,
-                        orderData.subtotal || orderData.total,
-                        'confirmado',
-                        'mercadopago',
-                        payment.id.toString()
-                    ]
-                );
-
-                // Crear order_item si se creó la orden
-                if (orderResult.rows.length > 0 && orderData.product_id) {
-                    const productRes = await pool.query(
-                        'SELECT nombre, precio_descuento, imagen_url FROM products WHERE id = $1',
-                        [orderData.product_id]
-                    );
-                    const prod = productRes.rows[0];
-                    
-                    await pool.query(
-                        `INSERT INTO order_items (
-                            order_id, product_id, cantidad, precio_unitario, subtotal
-                        ) VALUES ($1, $2, $3, $4, $5)`,
+                    // Crear orden exitosa con campos correctos de la tabla orders
+                    const orderResult = await client.query(
+                        `INSERT INTO orders (
+                            user_id, store_id, codigo_recogida, total, subtotal,
+                            comision_plataforma, estado, metodo_pago, mercadopago_payment_id
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                        RETURNING id`,
                         [
-                            orderResult.rows[0].id,
-                            orderData.product_id,
-                            orderData.cantidad || 1,
-                            prod?.precio_descuento || 0,
-                            (orderData.cantidad || 1) * (prod?.precio_descuento || 0)
+                            orderData.user_id,
+                            storeId,
+                            `DC${Math.floor(1000 + Math.random() * 9000)}`,
+                            orderData.total,
+                            orderData.subtotal || orderData.total,
+                            orderData.platform_fee || Math.round(orderData.total * 0.18 * 100) / 100,
+                            'confirmado',
+                            'mercadopago',
+                            payment.id.toString()
                         ]
                     );
-                }
 
-                console.log('✅ Order created from webhook', { paymentId: payment.id, orderId: orderResult.rows[0]?.id });
+                    // Crear order_item, reducir stock y actualizar perfil (transaccional)
+                    if (orderResult.rows.length > 0 && orderData.product_id) {
+                        const cantidad = orderData.cantidad || 1;
+                        const productRes = await client.query(
+                            'SELECT nombre, precio_descuento, precio_original, imagen_url, cantidad_disponible, categoria FROM products WHERE id = $1 FOR UPDATE',
+                            [orderData.product_id]
+                        );
+                        const prod = productRes.rows[0];
+                        
+                        await client.query(
+                            `INSERT INTO order_items (
+                                order_id, product_id, cantidad, precio_unitario, subtotal
+                            ) VALUES ($1, $2, $3, $4, $5)`,
+                            [
+                                orderResult.rows[0].id,
+                                orderData.product_id,
+                                cantidad,
+                                prod?.precio_descuento || 0,
+                                cantidad * (prod?.precio_descuento || 0)
+                            ]
+                        );
+
+                        // Reducir stock — cantidad_disponible no puede bajar de 0
+                        await client.query(
+                            `UPDATE products 
+                             SET cantidad_disponible = GREATEST(0, cantidad_disponible - $1)
+                             WHERE id = $2`,
+                            [cantidad, orderData.product_id]
+                        );
+
+                        // Actualizar perfil del comprador (ahorro + CO2)
+                        try {
+                            const { calculateCO2Saved } = require('../utils/co2Factors');
+                            const precioOriginal = parseFloat(prod?.precio_original || prod?.precio_descuento || 0);
+                            const ahorro = (precioOriginal - parseFloat(prod?.precio_descuento || 0)) * cantidad;
+                            const co2Ahorrado = calculateCO2Saved(prod?.categoria || 'otros', cantidad);
+                            await client.query(
+                                `UPDATE profiles SET 
+                                    total_pedidos = COALESCE(total_pedidos, 0) + 1,
+                                    total_ahorrado = COALESCE(total_ahorrado, 0) + $1,
+                                    co2_ahorrado = COALESCE(co2_ahorrado, 0) + $2
+                                 WHERE user_id = $3`,
+                                [ahorro, co2Ahorrado, orderData.user_id]
+                            );
+                        } catch (profileErr) {
+                            console.warn('⚠️ Could not update buyer profile stats:', profileErr.message);
+                        }
+                    }
+
+                    await client.query('COMMIT');
+                    console.log('✅ Order created from webhook', { paymentId: payment.id, orderId: orderResult.rows[0]?.id });
+                } catch (txErr) {
+                    await client.query('ROLLBACK');
+                    console.error('❌ Transaction failed in webhook:', txErr.message);
+                    throw txErr;
+                } finally {
+                    client.release();
+                }
             } else if (payment.status === 'rejected' || payment.status === 'cancelled') {
                 // Registrar pago fallido
                 console.log('❌ Payment failed', { 

@@ -98,17 +98,18 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         const orderResult = await client.query(
             `INSERT INTO orders (
                 user_id, store_id, codigo_recogida, subtotal, 
-                total, estado, metodo_pago, mercadopago_payment_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+                total, comision_plataforma, estado, metodo_pago, mercadopago_payment_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
             RETURNING *`,
             [
                 userId, 
                 product.store_id, 
                 codigoRecogida, 
                 subtotal, 
-                total, 
+                total,
+                comisionPlataforma,
                 'confirmado', 
-                'stripe',
+                'mercadopago',
                 stripePaymentIntentId || null
             ]
         );
@@ -387,8 +388,8 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
             COUNT(CASE WHEN estado = 'cancelado' THEN 1 END) as ordenes_canceladas,
             COUNT(CASE WHEN estado IN ('confirmado', 'en_preparacion', 'listo') THEN 1 END) as ordenes_pendientes,
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas_totales,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.25, 2) ELSE 0 END), 0) as comisiones_totales,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.75, 2) ELSE 0 END), 0) as ingresos_netos
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.18, 2) ELSE 0 END), 0) as comisiones_totales,
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.82, 2) ELSE 0 END), 0) as ingresos_netos
          FROM orders 
          WHERE store_id = $1 AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`,
         [storeId]
@@ -400,7 +401,7 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
             DATE(created_at) as fecha,
             COUNT(*) as ordenes,
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.75, 2) ELSE 0 END), 0) as ingresos
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.82, 2) ELSE 0 END), 0) as ingresos
          FROM orders 
          WHERE store_id = $1 AND created_at >= NOW() - INTERVAL '30 days'
          GROUP BY DATE(created_at)
@@ -452,8 +453,8 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             COUNT(DISTINCT CASE WHEN o.estado = 'cancelado' THEN o.id END) as pedidos_cancelados,
             COUNT(DISTINCT CASE WHEN o.estado IN ('pendiente', 'confirmado', 'listo') THEN o.id END) as pedidos_activos,
             COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.total ELSE 0 END), 0) as ventas_totales,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN ROUND(o.total * 0.25, 2) ELSE 0 END), 0) as comisiones_totales,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN ROUND(o.total * 0.75, 2) ELSE 0 END), 0) as ingresos_netos,
+            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN ROUND(o.total * 0.18, 2) ELSE 0 END), 0) as comisiones_totales,
+            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN ROUND(o.total * 0.82, 2) ELSE 0 END), 0) as ingresos_netos,
             COALESCE(AVG(CASE WHEN o.estado = 'recogido' THEN o.total END), 0) as ticket_promedio,
             COUNT(DISTINCT o.user_id) as clientes_unicos
          FROM orders o
@@ -467,8 +468,8 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             DATE(o.created_at) as fecha,
             COUNT(*) as pedidos,
             COUNT(CASE WHEN o.estado = 'recogido' THEN 1 END) as completados,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.total ELSE 0 END), 0) as ventas,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN ROUND(o.total * 0.75, 2) ELSE 0 END), 0) as ingresos
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.18, 2) ELSE 0 END), 0) as comision,
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.82, 2) ELSE 0 END), 0) as ingreso
          FROM orders o
          WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '30 days'
          GROUP BY DATE(o.created_at)

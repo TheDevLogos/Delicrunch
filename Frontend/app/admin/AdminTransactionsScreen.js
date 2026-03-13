@@ -46,7 +46,7 @@ const AdminTransactionsScreen = () => {
       // Cargar pedidos (transacciones)
       let allOrders = [];
       try {
-        const response = await api.get('/orders/all');
+        const response = await api.get('/admin/transactions');
         allOrders = response.data || [];
       } catch (e) {
         // Datos de demostración
