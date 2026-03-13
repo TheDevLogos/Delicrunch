@@ -1,8 +1,21 @@
 # 📋 Lista de Tareas Activas - Delicrunch
 
-> **Última actualización:** 12 de marzo de 2026 — Sistema de reseñas corregido y deployado ✅
-> **Estado del proyecto:** Backend + Frontend funcionando en producción ✅ — APK instalado en device real ✅
-> **Próximo objetivo:** Publicación en Google Play Store
+> **Última actualización:** 13 de marzo de 2026 — Bugs críticos corregidos y deployados ✅
+> **Estado del proyecto:** Backend + Frontend en producción ✅ — Cuenta Google Play ✅ — Estructuras core reparadas ✅
+> **Próximo objetivo:** Verificar flujo E2E con pago real → luego Google Play Store
+
+---
+
+## ✅ FIXES DEPLOYADOS HOY (commit 4800428 — 13 Mar 2026)
+
+| # | Fix | Impacto |
+|---|-----|---------|
+| 1 | **Comisión 25% → 18%** en `getStoreMetrics` + `getStoreAnalytics` | Dashboard comercio mostraba ingresos incorrectos |
+| 2 | **Webhook idempotente + transaccional** | Previene órdenes duplicadas por reintentos MP |
+| 3 | **Webhook reduce stock** al aprobarse pago | Stock nunca bajaba al pagar con MercadoPago |
+| 4 | **Webhook actualiza perfil** (CO2, ahorro, pedidos) del comprador | Gamificación no se activaba en compras reales |
+| 5 | **`comision_plataforma` guardada** en BD al crear orden | Admin sin datos reales de comisiones |
+| 6 | **AdminDashboardScreen + AdminTransactionsScreen** → `/admin/transactions` | Panel admin no mostraba transacciones (endpoint `/orders/all` no existía) |
 
 ---
 
@@ -10,7 +23,7 @@
 
 ```
 [FASE 1 ADMIN]──►[FASE 2 ASSETS]──►[FASE 3 BUILD]──►[FASE 4 CONSOLA]──►[LANZAMIENTO]
-  ⬜ Cuenta           ⬜ Screenshots    ⬜ .aab build    ⬜ Upload          ⬜ Revisión
+  ✅ Cuenta           ⬜ Screenshots    ⬜ .aab build    ⬜ Upload          ⬜ Revisión
   ⬜ Privacy Policy   ✅ Icono OK       ⬜ Esperar EAS   ⬜ Listing         Google
                       ⬜ Feature Art                     ⬜ Testers
 ```
@@ -20,9 +33,7 @@
 ## 🔴 FASE 1 — REQUISITOS ADMINISTRATIVOS (Hacer Primero)
 
 ### A. Cuenta Google Play Developer
-- [ ] Pagar $25 USD (único pago) en [play.google.com/console](https://play.google.com/console)
-- [ ] Completar verificación de identidad (puede tardar 2-3 días)
-- [ ] **Bloqueante:** Sin cuenta no se puede subir nada
+- [x] **Cuenta creada ✅** (usuario confirmó — 13 Mar 2026)
 
 ### B. Política de Privacidad (OBLIGATORIA por Google)
 - [ ] Crear documento de Política de Privacidad (puede ser Google Doc público o página simple)
@@ -146,26 +157,30 @@ Integración oficial con MercadoPago — el método de pago líder en latinoamé
 
 ---
 
-## ⚠️ PENDIENTES TÉCNICOS (No bloqueantes para lanzamiento)
+## ⚠️ PENDIENTES TÉCNICOS — Revisados 13 Mar 2026
 
 ### M. Verificar webhook MercadoPago en producción
-**Estado:** PaymentScreen.js tiene comentario "datos simulados hasta webhook"
+**Estado:** Webhook refactorizado — transaccional + idempotente + reduce stock ✅ (commit 4800428)
 - [ ] Hacer una compra real con tarjeta de prueba en dispositivo físico
-- [ ] Verificar en DB que el estado de la orden cambia de `pendiente` → `pagado`
-- [ ] Si no cambia, revisar logs de Render para ver si llega el webhook
-- [ ] **Prioridad:** Alta — afecta el flujo core de la app
+- [ ] Verificar en DB que se crea la orden + baja el stock + sube XP (profiles)
+- [ ] Revisar logs de Render para confirmar webhook llegó: `✅ Order created from webhook`
+- [ ] **Prioridad:** Alta — es la verificación final E2E del flujo core
 
 ### N. Comercios en producción (Seed)
-**Estado:** No hay comercios activos en Supabase producción
-- [ ] Ejecutar seed manualmente o registrar primer comercio real
-- [ ] Sin comercios, los compradores no verán productos en la app
-- [ ] **Prioridad:** Alta — la app no tiene contenido sin comercios
+**Estado:** ✅ COMPLETADO — 3 comercios con 9 productos activos en Supabase producción
+- [x] Taquería las Delicias (3 packs) — store_id: 4
+- [x] Pizza Orsinis (3 packs) — store_id: 5
+- [x] Café Placeres (3 packs) — store_id: 6
 
 ### O. Favoritos — Decisión de arquitectura
 **Estado:** `FavoritesScreen.js` usa solo `AsyncStorage` local
-- [ ] **Opción A:** Dejar local (scope actual, documentar limitación)
+- [ ] **Opción A:** Dejar local (scope actual, documentar limitación) ← **Recomendado para v1**
 - [ ] **Opción B:** Crear endpoint `POST /api/profiles/favorites` + tabla `favorites` en DB
 - [ ] **Prioridad:** Baja — no afecta funcionalidad core
+
+### P. AdminMetricsScreen — endpoints correctos
+**Estado:** Pantalla usa `/admin/metrics/overview`, `/admin/metrics/trends`, `/admin/metrics/by-store` — todos existen ✅
+- [x] Endpoints de métricas admin implementados y funcionando
 
 ---
 
@@ -188,6 +203,10 @@ Integración oficial con MercadoPago — el método de pago líder en latinoamé
 | 11 Mar 2026 | Webhook MercadoPago configurado | `https://delicrunch.onrender.com/api/payments/webhook` ✅ |
 | 12 Mar 2026 | Sistema de reseñas — 3 bugs críticos corregidos | Commit `138076e`, deploy en Render ✅ |
 | 12 Mar 2026 | reviews/admin/all funciona en producción | `total=0` (0 reseñas, sin error SQL) ✅ |
+| 13 Mar 2026 | **Comisión 25% → 18%** en métricas de comercio | Commit `4800428` ✅ |
+| 13 Mar 2026 | **Webhook idempotente + transaccional + reduce stock** | Commit `4800428` — previene duplicados y reduce stock al pagar ✅ |
+| 13 Mar 2026 | **Admin panel**: AdminDashboard + AdminTransactions usan endpoint real | Commit `4800428` — antes fallaba silenciosamente ✅ |
+| 13 Mar 2026 | **comision_plataforma** guardada en BD al crear orden | Commit `4800428` — métricas admin ahora precisas ✅ |
 
 **Bugs corregidos (Commit `138076e` — 12 Mar 2026):**
 - `r.nombre_producto` (no existe) → `p.nombre` en `getAllReviews` — causaba 500 en producción
@@ -199,17 +218,18 @@ Integración oficial con MercadoPago — el método de pago líder en latinoamé
 ## 📌 Orden de Ejecución Recomendado
 
 ```
-HOY:
-  1. [M] Hacer compra de prueba para verificar webhook → confirmar flujo core
-  2. [N] Seed de comercios en producción → la app necesita contenido
+HOY (validar sistema core):
+  1. [M] Hacer compra real → verificar en DB: orden creada + stock -1 + perfil actualizado
+  2. Confirmar: comercio ve el pedido en MerchantOrdersScreen
+  3. Comercio marca pedido como "listo" → cliente ve el cambio en MyOrdersScreen
+  4. Comercio marca "recogido" → verificar balance 82% en MerchantDashboard
 
-ESTA SEMANA:
-  3. [A] Crear cuenta Google Play ($25 USD)
-  4. [B] Redactar y publicar política de privacidad
-  5. [D] Crear Feature Graphic 1024×500 (Canva gratis)
-  6. [E] Tomar screenshots desde el dispositivo
+ESTA SEMANA (preparar Google Play):
+  5. [B] Redactar y publicar política de privacidad
+  6. [D] Crear Feature Graphic 1024×500 (Canva gratis)
+  7. [E] Tomar screenshots desde el dispositivo (HomeScreen, ProductDetail, PaymentScreen, OrderConfirmation)
 
-CUANDO TENGAS CUENTA:
-  7. [G] `eas build --profile production --platform android`
-  8. [H-L] Completar consola y subir .aab
+CUANDO TENGAS ASSETS LISTOS:
+  8. [G] `cd Frontend && eas build --profile production --platform android`
+  9. [H-L] Completar consola y subir .aab
 ```
