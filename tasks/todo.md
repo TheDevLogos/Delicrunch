@@ -1,12 +1,60 @@
 # 📋 Lista de Tareas Activas - Delicrunch
 
-> **Última actualización:** 13 de marzo de 2026 — Bugs críticos corregidos y deployados ✅
-> **Estado del proyecto:** Backend + Frontend en producción ✅ — Cuenta Google Play ✅ — Estructuras core reparadas ✅
-> **Próximo objetivo:** Verificar flujo E2E con pago real → luego Google Play Store
+> **Última actualización:** 16 de marzo de 2026 — Fix MercadoPago integración deployado ✅
+> **Estado del proyecto:** Backend fix en producción ✅ — Frontend actualizado ⚠️ requiere Metro reload
+> **Próximo objetivo:** Reiniciar Metro → Probar pago real con tarjeta test → Verificar flujo E2E completo
 
 ---
 
-## ✅ FIXES DEPLOYADOS HOY (commit 4800428 — 13 Mar 2026)
+## 🔴 URGENTE - PRÓXIMOS PASOS (17 Mar 2026)
+
+### 1️⃣ Reiniciar Metro Bundler (Frontend requiere reload)
+```bash
+cd /workspaces/Delicrunch/Frontend
+npm start --clear
+```
+**Motivo:** Código JS actualizado pero Metro NO está corriendo → app usa cache viejo
+
+### 2️⃣ Recargar App en Dispositivo
+- Shake device → "Reload" 
+- O presionar `r` en terminal de Metro
+
+### 3️⃣ Probar Pago Real (Tarjeta Test)
+```
+Tarjeta: 5031 7557 3453 0604
+CVV: 123
+Fecha: 11/25
+Nombre: APRO
+```
+**Verificar:**
+- ✅ Checkout de MP abre sin error
+- ✅ Pago se completa exitosamente
+- ✅ Orden creada en Supabase con estado='confirmado'
+- ✅ Stock reducido en producto
+- ✅ Webhook recibido en logs Render
+
+### 4️⃣ Si Todo Funciona → Continuar Google Play
+Ver sección "FASE 1 — REQUISITOS ADMINISTRATIVOS" abajo
+
+---
+
+## ✅ FIXES DEPLOYADOS (commit f3d7d1f + 539a283 — 16 Mar 2026)
+
+| # | Fix | Archivo | Estado |
+|---|-----|---------|--------|
+| 1 | ❌ Removido `marketplace_fee` | `paymentController.js` | ✅ Deployado Render |
+| 2 | ❌ Removido `expiration_date_from` | `paymentController.js` | ✅ Deployado Render |
+| 3 | ✅ `external_reference` simplificado (256 char max) | `paymentController.js` | ✅ Deployado Render |
+| 4 | ✅ `auto_return: 'approved'` agregado | `paymentController.js` | ✅ Deployado Render |
+| 5 | ✅ Sistema códigos error CPT01-CPT99 | `errorCodes.js` (nuevo) | ⚠️ Requiere Metro reload |
+| 6 | ✅ Error handling mejorado | `PaymentScreen.js` | ⚠️ Requiere Metro reload |
+| 7 | ✅ Mapeo errores backend | `mercadoPagoService.js` | ⚠️ Requiere Metro reload |
+
+**Documentación:** Ver `RESUMEN_CORRECCION_MP.md`, `PASOS_PRUEBA_PAGO.md`
+
+---
+
+## ✅ FIXES PREVIOS (commit 4800428 — 13 Mar 2026)
 
 | # | Fix | Impacto |
 |---|-----|---------|
@@ -32,7 +80,7 @@
 
 ## 🔴 FASE 1 — REQUISITOS ADMINISTRATIVOS (Hacer Primero)
 
-### A. Cuenta Google Play Developer
+### A. Cuen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           a Google Play Developer
 - [x] **Cuenta creada ✅** (usuario confirmó — 13 Mar 2026)
 
 ### B. Política de Privacidad (OBLIGATORIA por Google)
@@ -60,7 +108,7 @@
   1. HomeScreen — listado de productos con packs disponibles
   2. ProductDetailScreen — detalle del pack con botón comprar
   3. PaymentScreen — flujo de pago con MercadoPago
-  4. OrderConfirmationScreen — confirmación con XP ganado + CO₂ ahorrado
+  4. OrderConfirmationScreen — confirmación con XP ganado + CO₂ ahorr,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,, ado
 - [ ] Formato: PNG o JPEG, mínimo 320px lado corto, máximo 3840px lado largo
 
 ### F. Textos del Listing
