@@ -54,10 +54,13 @@ export const createPaymentPreference = async ({ productId, cantidad = 1, coupon_
         const token = await AsyncStorage.getItem('userToken');
         
         if (!token) {
-            throw new Error('No hay sesión activa. Por favor inicia sesión.');
+            const error = new Error('No hay sesión activa. Por favor inicia sesión.');
+            error.code = 'AUTH_TOKEN_MISSING';
+            throw error;
         }
 
         console.log('📡 Creando preferencia de Mercado Pago...');
+        console.log('📊 Datos:', { productId, cantidad, coupon_discount });
 
         const response = await fetch(`${API_URL}/payments/create-preference`, {
             method: 'POST',
@@ -76,7 +79,15 @@ export const createPaymentPreference = async ({ productId, cantidad = 1, coupon_
 
         if (!response.ok) {
             console.error('❌ Error del servidor:', data);
-            throw new Error(data.msg || `Error ${response.status}: ${response.statusText}`);
+            
+            // Crear error con información completa
+            const error = new Error(data.msg || `Error ${response.status}: ${response.statusText}`);
+            error.response = {
+                status: response.status,
+                data: data
+            };
+            error.code = 'PREFERENCE_CREATION_FAILED';
+            throw error;
         }
 
         console.log('✅ Preferencia creada:', {
@@ -96,12 +107,17 @@ export const createPaymentPreference = async ({ productId, cantidad = 1, coupon_
     } catch (error) {
         console.error('❌ Error en createPaymentPreference:', error);
         
-        if (error.message.includes('Network request failed')) {
-            throw new Error('No se pudo conectar al servidor. Verifica tu conexión a internet.');
-        }
-        
-        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-            throw new Error('Sesión expirada. Por favor inicia sesión nuevamente.');
+        // Agregar código de error si no existe
+        if (!error.code) {
+            if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+                error.code = 'PREFERENCE_NETWORK_ERROR';
+                error.message = 'No se pudo conectar al servidor. Verifica tu conexión a internet.';
+            } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                error.code = 'AUTH_UNAUTHORIZED';
+                error.message = 'Sesión expirada. Por favor inicia sesión nuevamente.';
+            } else {
+                error.code = 'UNKNOWN_ERROR';
+            }
         }
         
         throw error;

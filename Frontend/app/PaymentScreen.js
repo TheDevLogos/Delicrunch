@@ -33,6 +33,7 @@ import PickupCodeModal from '../components/PickupCodeModal';
 import XPRewardsModal from '../components/XPRewardsModal';
 import { calculateCO2Saved } from '../src/constants/co2Factors';
 import { useGamification } from '../contexts/GamificationContext';
+import { mapBackendError, logPaymentError } from '../utils/errorCodes';
 
 // Colores estilo TGTG
 const TGTG_COLORS = {
@@ -286,19 +287,31 @@ const PaymentScreen = ({ route, navigation }) => {
         : preference.initPoint;
       
       if (!checkoutUrl) {
-        throw new Error('No se pudo obtener la URL de checkout');
+        const error = mapBackendError({ message: 'No se pudo obtener la URL de checkout' });
+        logPaymentError(error, { productId: product.id, quantity, couponDiscount });
+        throw new Error(`[${error.uniqueCode}] ${error.message}`);
       }
 
       console.log('🌐 Abriendo Checkout Pro:', checkoutUrl);
 
       // Abrir en navegador externo (WebBrowser)
-      const result = await WebBrowser.openBrowserAsync(checkoutUrl, {
-        showTitle: true,
-        enableBarCollapsing: true,
-        toolbarColor: TGTG_COLORS.primary,
-        controlsColor: '#FFFFFF',
-        showInRecents: true,
-      });
+      let result;
+      try {
+        result = await WebBrowser.openBrowserAsync(checkoutUrl, {
+          showTitle: true,
+          enableBarCollapsing: true,
+          toolbarColor: TGTG_COLORS.primary,
+          controlsColor: '#FFFFFF',
+          showInRecents: true,
+        });
+      } catch (browserError) {
+        const error = mapBackendError({ 
+          message: 'Error al abrir navegador',
+          originalError: browserError 
+        });
+        logPaymentError(error, { checkoutUrl });
+        throw new Error(`[${error.uniqueCode}] No se pudo abrir el navegador de pago. ${browserError.message}`);
+      }
 
       console.log('📱 Resultado del navegador:', result.type);
 
@@ -387,7 +400,26 @@ const PaymentScreen = ({ route, navigation }) => {
 
     } catch (error) {
       console.error('❌ Error en initializePayment:', error);
-      const errorMessage = error.response?.data?.msg || error.message || 'No se pudo procesar tu solicitud.';
+      
+      // Mapear error a código de la app si no está ya mapeado
+      let mappedError;
+      if (error.message && error.message.includes('[CPT')) {
+        // Ya tiene código de error
+        mappedError = {
+          message: error.message
+        };
+      } else {
+        mappedError = mapBackendError(error);
+        logPaymentError(mappedError, { 
+          productId: product.id, 
+          quantity, 
+          couponDiscount,
+          errorStack: error.stack 
+        });
+      }
+      
+      const errorMessage = mappedError.message || 'No se pudo procesar tu solicitud.';
+      
       Alert.alert(
         'Error en la Compra',
         errorMessage,

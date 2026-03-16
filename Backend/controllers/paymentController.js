@@ -126,6 +126,10 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
         const failureUrl = `${backendUrl}/api/payments/callback/failure`;
         const pendingUrl = `${backendUrl}/api/payments/callback/pending`;
         
+        // Generar external_reference simple (máx 256 chars)
+        const timestamp = Date.now();
+        const externalRef = `DC_${userId}_${productId}_${timestamp}`;
+        
         const preferenceData = {
             items: [
                 {
@@ -148,20 +152,9 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
                 failure: failureUrl,
                 pending: pendingUrl,
             },
-            // auto_return solo funciona con URLs públicas (no localhost)
-            // auto_return: 'approved',
+            auto_return: 'approved', // Redirigir automáticamente en pagos aprobados
             notification_url: `${backendUrl}/api/payments/webhook`,
-            external_reference: JSON.stringify({
-                user_id: userId,
-                product_id: productId,
-                store_id: product.store_id,
-                cantidad: cantidad,
-                coupon_discount: coupon_discount,
-                subtotal: subtotal,
-                total: totalAfterCoupon,
-                platform_fee: platformFeeAmount,
-                merchant_amount: merchantAmount,
-            }),
+            external_reference: externalRef,
             metadata: {
                 user_id: userId,
                 product_id: productId,
@@ -170,19 +163,21 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
                 store_name: product.nombre_comercio,
                 cantidad: cantidad,
                 coupon_discount: coupon_discount,
+                subtotal: subtotal,
+                total: totalAfterCoupon,
                 platform_fee: platformFeeAmount,
                 merchant_amount: merchantAmount,
+                timestamp: timestamp
             },
             statement_descriptor: 'DELICRUNCH',
             expires: true,
-            expiration_date_from: new Date().toISOString(),
             expiration_date_to: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
         };
 
-        // Si el vendedor tiene cuenta de Mercado Pago, configurar marketplace fee
-        if (product.seller_email) {
-            preferenceData.marketplace_fee = platformFeeAmount;
-        }
+        // NOTA: marketplace_fee removido temporalmente
+        // Requiere que el seller tenga cuenta de MP registrada y vinculada
+        // Para habilitarlo: seller debe completar onboarding de MP
+        // Ref: https://www.mercadopago.com.mx/developers/es/docs/checkout-pro/checkout-customization/checkout-pro-payments-split
 
         console.log('📝 Preference data to send:', JSON.stringify(preferenceData, null, 2));
 
@@ -269,16 +264,37 @@ exports.handleWebhook = asyncHandler(async (req, res, next) => {
                 status: payment.status,
                 statusDetail: payment.status_detail,
                 externalReference: payment.external_reference,
+                metadata: payment.metadata
             });
 
-            // Parsear external_reference
-            let orderData;
-            try {
-                orderData = JSON.parse(payment.external_reference);
-            } catch (e) {
-                console.warn('⚠️ Could not parse external_reference');
-                orderData = {};
+            // Parsear external_reference y metadata
+            let orderData = {};
+            
+            // Intentar obtener datos de metadata primero (más confiable)
+            if (payment.metadata && typeof payment.metadata === 'object') {
+                orderData = {
+                    user_id: payment.metadata.user_id,
+                    product_id: payment.metadata.product_id,
+                    store_id: payment.metadata.store_id,
+                    cantidad: payment.metadata.cantidad || 1,
+                    coupon_discount: payment.metadata.coupon_discount || 0,
+                    subtotal: payment.metadata.subtotal || payment.transaction_amount,
+                    total: payment.metadata.total || payment.transaction_amount,
+                    platform_fee: payment.metadata.platform_fee || 0,
+                    merchant_amount: payment.metadata.merchant_amount || payment.transaction_amount,
+                };
+            } else if (payment.external_reference) {
+                // Fallback: parsear external_reference
+                // Formato: DC_userId_productId_timestamp
+                const parts = payment.external_reference.split('_');
+                if (parts.length >= 4 && parts[0] === 'DC') {
+                    orderData.user_id = parseInt(parts[1]);
+                    orderData.product_id = parseInt(parts[2]);
+                    orderData.total = payment.transaction_amount;
+                }
             }
+            
+            console.log('📦 Order data extracted:', orderData);
 
             // Actualizar o crear orden según el estado del pago
             if (payment.status === 'approved') {
