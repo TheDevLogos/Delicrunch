@@ -1,44 +1,54 @@
 # 📋 Lista de Tareas Activas - Delicrunch
 
-> **Última actualización:** 16 de marzo de 2026 — Fix MercadoPago integración deployado ✅
-> **Estado del proyecto:** Backend fix en producción ✅ — Frontend actualizado ⚠️ requiere Metro reload
-> **Próximo objetivo:** Reiniciar Metro → Probar pago real con tarjeta test → Verificar flujo E2E completo
+> **Última actualización:** 20 de marzo de 2026 — Sistema de gamificación deployado ✅
+> **Estado del proyecto:** Backend gamificación en producción ✅ — Frontend actualizado ✅ requiere Metro reload
+> **Próximo objetivo:** Ejecutar migración SQL en Supabase → Probar gamificación completa E2E
 
 ---
 
-## 🔴 URGENTE - PRÓXIMOS PASOS (17 Mar 2026)
+## 🔴 URGENTE — PRÓXIMOS PASOS (20 Mar 2026)
 
-### 1️⃣ Reiniciar Metro Bundler (Frontend requiere reload)
-```bash
-cd /workspaces/Delicrunch/Frontend
-npm start --clear
-```
-**Motivo:** Código JS actualizado pero Metro NO está corriendo → app usa cache viejo
+### 1️⃣ EJECUTAR MIGRACIÓN EN SUPABASE (OBLIGATORIO una sola vez)
+1. Abrir [Supabase Dashboard → SQL Editor](https://supabase.com/dashboard)
+2. Seleccionar proyecto Delicrunch
+3. New Query → pegar contenido de `Backend/db/migrations/gamification_migration.sql`
+4. Run  
+**Crea:** `coupon_definitions` (14 cupones), `user_coupons`, `xp_transactions`  
+**Agrega a `profiles`:** `current_level`, `current_streak`, `best_streak`, `last_purchase_date`
 
-### 2️⃣ Recargar App en Dispositivo
-- Shake device → "Reload" 
-- O presionar `r` en terminal de Metro
+### 2️⃣ Esperar redeploy de Render (~2-3 min)
+Render auto-redesplegó por el push de commit `11f5dfe` — verificar en [Render Dashboard](https://dashboard.render.com)
 
-### 3️⃣ Probar Pago Real (Tarjeta Test)
-```
-Tarjeta: 5031 7557 3453 0604
-CVV: 123
-Fecha: 11/25
-Nombre: APRO
-```
-**Verificar:**
-- ✅ Checkout de MP abre sin error
-- ✅ Pago se completa exitosamente
-- ✅ Orden creada en Supabase con estado='confirmado'
-- ✅ Stock reducido en producto
-- ✅ Webhook recibido en logs Render
+### 3️⃣ Recargar App (Metro reload)
+- Shake device → "Reload"  
+- O `r` en terminal de Metro
 
-### 4️⃣ Si Todo Funciona → Continuar Google Play
-Ver sección "FASE 1 — REQUISITOS ADMINISTRATIVOS" abajo
+### 4️⃣ Probar sistema de gamificación completo
+**Tab General:** XP, nivel, barra de progreso  
+**Tab Cupones:** Lista de cupones activos/usados  
+**Tab Insignias:** Progreso de badges  
+**Tab Niveles:** 15 niveles con XP requerida  
+**Tab Ranking:** Lista real de usuarios ordenada por XP (no mock)
 
 ---
 
-## ✅ FIXES DEPLOYADOS (commit f3d7d1f + 539a283 — 16 Mar 2026)
+## ✅ DEPLOYADO HOY (commit 11f5dfe — 20 Mar 2026)
+
+| # | Fix/Feature | Estado |
+|---|-------------|--------|
+| 1 | **Fix crítico `db/index.js`** — código duplicado causaba SyntaxError en startup | ✅ Producción |
+| 2 | **Endpoint `/api/profiles/leaderboard`** — ranking real usuarios por XP | ✅ Producción |
+| 3 | **`postGamification` persiste `current_level`** calculado desde XP | ✅ Producción |
+| 4 | **`postGamification` persiste racha** (`current_streak`, `best_streak`, `last_purchase_date`) | ✅ Producción |
+| 5 | **`getLevelCoupons` calcula nivel dinámicamente** desde `total_xp` | ✅ Producción |
+| 6 | **`gamification_migration.sql`** — migración lista para Supabase SQL Editor | ✅ En repo |
+| 7 | **`CouponModal` rediseñado** — bottom-sheet, header coloreado, barra XP, tips | ✅ Frontend |
+| 8 | **53 avatares** con 7 categorías en `profileAvatars.js` | ✅ Frontend |
+| 9 | **Headers duplicados eliminados** en 6 pantallas | ✅ Frontend |
+
+---
+
+## ✅ FIXES PREVIOS (commit f3d7d1f + 539a283 — 16 Mar 2026)
 
 | # | Fix | Archivo | Estado |
 |---|-----|---------|--------|
