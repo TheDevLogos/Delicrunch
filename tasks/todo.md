@@ -1,34 +1,45 @@
 # 📋 Lista de Tareas Activas - Delicrunch
 
-> **Última actualización:** 20 de marzo de 2026 — Sistema de gamificación deployado ✅
-> **Estado del proyecto:** Backend gamificación en producción ✅ — Frontend actualizado ✅ requiere Metro reload
-> **Próximo objetivo:** Ejecutar migración SQL en Supabase → Probar gamificación completa E2E
+> **Última actualización:** 20 de marzo de 2026 — Backend gamificación deployado ✅ · Migración SQL pendiente
+> **Estado del proyecto:** Backend en producción ✅ · Leaderboard real funcionando ✅ · Cupones bloqueados por migración ❌
+> **Próximo objetivo:** Ejecutar migración SQL en Supabase → Sistema 100% operativo
 
 ---
 
-## 🔴 URGENTE — PRÓXIMOS PASOS (20 Mar 2026)
+## 🔴 URGENTE (1 solo paso pendiente — 5 minutos)
 
-### 1️⃣ EJECUTAR MIGRACIÓN EN SUPABASE (OBLIGATORIO una sola vez)
-1. Abrir [Supabase Dashboard → SQL Editor](https://supabase.com/dashboard)
-2. Seleccionar proyecto Delicrunch
-3. New Query → pegar contenido de `Backend/db/migrations/gamification_migration.sql`
-4. Run  
-**Crea:** `coupon_definitions` (14 cupones), `user_coupons`, `xp_transactions`  
-**Agrega a `profiles`:** `current_level`, `current_streak`, `best_streak`, `last_purchase_date`
+### 1️⃣ EJECUTAR MIGRACIÓN EN SUPABASE
+**Por qué:** Las tablas `coupon_definitions`, `user_coupons` y `xp_transactions` NO existen en producción.
+Mientras no se ejecute: tab Cupones → error 500, stats de gamificación incompletas.
 
-### 2️⃣ Esperar redeploy de Render (~2-3 min)
-Render auto-redesplegó por el push de commit `11f5dfe` — verificar en [Render Dashboard](https://dashboard.render.com)
+**Cómo:**
+1. Abrir → [supabase.com/dashboard](https://supabase.com/dashboard) → tu proyecto Delicrunch
+2. Menú izquierdo → **SQL Editor** → **New Query**
+3. Copiar y pegar el archivo completo: `Backend/db/migrations/gamification_migration.sql`
+4. Click **Run** (▶)
+5. Verificar que el resultado final muestre **14 filas** en `coupon_definitions`
 
-### 3️⃣ Recargar App (Metro reload)
-- Shake device → "Reload"  
-- O `r` en terminal de Metro
+**Resultado esperado al final:**
+```
+tabla                    | filas
+coupon_definitions       | 14
+user_coupons             | 0
+xp_transactions          | 0
+profiles_con_total_xp   | (número de usuarios)
+```
 
-### 4️⃣ Probar sistema de gamificación completo
-**Tab General:** XP, nivel, barra de progreso  
-**Tab Cupones:** Lista de cupones activos/usados  
-**Tab Insignias:** Progreso de badges  
-**Tab Niveles:** 15 niveles con XP requerida  
-**Tab Ranking:** Lista real de usuarios ordenada por XP (no mock)
+---
+
+## ✅ VERIFICADO EN PRODUCCIÓN (20 Mar 2026 — post redeploy)
+
+| Endpoint | Estado | Detalle |
+|---|---|---|
+| `GET /api/health` | ✅ | Backend activo en Render |
+| `GET /api/profiles/leaderboard` | ✅ | Ranking real: 1 usuario (Test, 483 XP, Bronce) |
+| `GET /api/profiles/gamification` | ✅ | 483 XP, 5 packs, 2 badges, $340 ahorrados |
+| `GET /api/coupons/my` | ✅ | Responde (0 cupones activos — normal) |
+| `GET /api/coupons/definitions` | ❌ | Error 500 — tabla no existe (pendiente migración) |
+| `GET /api/coupons/stats` | ⚠️ | `currentLevel: 1` stale — se corrige al ejecutar migración |
 
 ---
 
@@ -36,19 +47,185 @@ Render auto-redesplegó por el push de commit `11f5dfe` — verificar en [Render
 
 | # | Fix/Feature | Estado |
 |---|-------------|--------|
-| 1 | **Fix crítico `db/index.js`** — código duplicado causaba SyntaxError en startup | ✅ Producción |
-| 2 | **Endpoint `/api/profiles/leaderboard`** — ranking real usuarios por XP | ✅ Producción |
-| 3 | **`postGamification` persiste `current_level`** calculado desde XP | ✅ Producción |
-| 4 | **`postGamification` persiste racha** (`current_streak`, `best_streak`, `last_purchase_date`) | ✅ Producción |
-| 5 | **`getLevelCoupons` calcula nivel dinámicamente** desde `total_xp` | ✅ Producción |
-| 6 | **`gamification_migration.sql`** — migración lista para Supabase SQL Editor | ✅ En repo |
-| 7 | **`CouponModal` rediseñado** — bottom-sheet, header coloreado, barra XP, tips | ✅ Frontend |
-| 8 | **53 avatares** con 7 categorías en `profileAvatars.js` | ✅ Frontend |
-| 9 | **Headers duplicados eliminados** en 6 pantallas | ✅ Frontend |
+| 1 | **Fix crítico `db/index.js`** — SyntaxError en startup | ✅ Producción |
+| 2 | **Endpoint `GET /api/profiles/leaderboard`** — ranking real | ✅ Producción |
+| 3 | **`postGamification` persiste `current_level`** | ✅ Producción |
+| 4 | **`postGamification` persiste racha completa** | ✅ Producción |
+| 5 | **`getLevelCoupons` nivel dinámico desde `total_xp`** | ✅ Producción |
+| 6 | **`gamification_migration.sql`** — listo para Supabase | ✅ En repo |
+| 7 | **`CouponModal` rediseñado** completo | ✅ Frontend |
+| 8 | **53 avatares** expandidos | ✅ Frontend |
+| 9 | **Headers duplicados** eliminados | ✅ Frontend |
 
 ---
 
-## ✅ FIXES PREVIOS (commit f3d7d1f + 539a283 — 16 Mar 2026)
+## 🚀 RUTA GOOGLE PLAY — Estado Actual
+
+```
+[FASE 1 ADMIN]──►[FASE 2 ASSETS]──►[FASE 3 BUILD]──►[FASE 4 CONSOLA]──►[LANZAMIENTO]
+  ✅ Cuenta           ⬜ Screenshots    ⬜ .aab build    ⬜ Upload          ⬜ Revisión
+  ✅ Privacy Policy   ✅ Icono OK       ⬜ Esperar EAS   ⬜ Listing         Google
+  (HTML lista)        ⬜ Feature Art                     ⬜ Testers
+```
+
+---
+
+## 🔴 FASE 1 — REQUISITOS ADMINISTRATIVOS
+
+### A. Cuenta Google Play Developer
+- [x] **Cuenta creada ✅** (13 Mar 2026)
+
+### B. Política de Privacidad
+- [x] **Archivo `privacy-policy.html` creado ✅** (20 Mar 2026)
+- [ ] **Publicar online** — opciones (elige una):
+  - **Opción A — Google Sites (gratis, 5 min):**
+    1. Ir a [sites.google.com](https://sites.google.com) → Crear sitio nuevo
+    2. Título: "Delicrunch Privacy Policy"
+    3. Insertar → Embed → pegar el HTML de `privacy-policy.html`
+    4. Publicar → copiar URL pública (ej: `https://sites.google.com/view/delicrunch-privacy`)
+  - **Opción B — GitHub Pages (si tienes cuenta GitHub configurada):**
+    ```bash
+    # El archivo ya está en el repo, solo activar GitHub Pages
+    # Settings → Pages → Source: main → /privacy-policy.html
+    ```
+- [ ] Guardar la URL — se necesita en Google Play Console
+
+---
+
+## 🟠 FASE 2 — ASSETS DEL LISTING
+
+### C. Icono de la App
+- [x] **`Frontend/assets/icon.png` — 1024×1024 PNG ✅**
+
+### D. Feature Graphic (Banner)
+- [ ] Crear imagen **1024×500 px PNG** con nombre `Delicrunch` + tagline
+- [ ] Herramienta recomendada: [Canva](https://canva.com) → "Presentation 16:9" → cambiar a 1024×500
+- [ ] Exportar como PNG
+
+### E. Screenshots (mínimo 2, recomendado 4-8)
+- [ ] Tomar desde dispositivo Android con la app instalada
+- [ ] Pantallas recomendadas:
+  1. **HomeScreen** — packs disponibles de comercios
+  2. **ProductDetailScreen** — detalle de pack con botón Comprar
+  3. **RewardsScreen (Overview)** — nivel, XP, barra progreso
+  4. **RewardsScreen (Ranking)** — leaderboard de usuarios reales
+
+### F. Textos del Listing (listos para copiar)
+- [x] **Nombre:** `Delicrunch` (10 chars / máx 30)
+- [x] **Descripción corta** (78 chars):
+  ```
+  Rescata packs de comida a precio reducido y reduce el desperdicio alimentario.
+  ```
+- [x] **Descripción larga:** Ver sección expandible abajo
+- [x] **Categoría:** Comida y bebida
+- [x] **Contenido:** Para todos
+
+<details>
+<summary>📝 Descripción larga — lista para copiar en Google Play Console</summary>
+
+```
+¿Sabías que millones de kilos de comida perfectamente buena se tiran cada día?
+Delicrunch conecta a compradores con comercios locales para rescatar packs sorpresa
+de comida a precios reducidos — tú ahorras dinero, ellos reducen pérdidas y todos
+contribuimos al planeta.
+
+🛒 CÓMO FUNCIONA
+1. Explora los packs disponibles en comercios cercanos
+2. Paga de forma segura con MercadoPago
+3. Recoge tu pack en la hora acordada
+4. ¡Disfruta de comida deliciosa a hasta un 70% de descuento!
+
+🎮 GAMIFICACIÓN — HAZ DEL BIEN Y SUBE DE NIVEL
+• Gana XP por cada compra realizada
+• Sube de Bronce a Diamante con 15 niveles de progreso
+• Desbloquea badges por logros especiales
+• Obtén cupones de descuento automáticos al subir de nivel
+• Compite en el ranking con otros salvadores de comida
+
+🌱 IMPACTO AMBIENTAL REAL
+Cada compra muestra exactamente cuántos kg de CO₂ dejaste de emitir.
+Conviértete en un héroe del medio ambiente sin esfuerzo extra.
+
+💼 PARA COMERCIOS
+¿Eres dueño de un restaurante, panadería, cafetería o supermercado?
+Registra tu negocio, publica tus packs sobrantes y convierte pérdidas en ingresos.
+Panel de administración completo con gestión de pedidos y estadísticas.
+
+🔒 PAGOS SEGUROS
+Integración oficial con MercadoPago — el método de pago líder en latinoamérica.
+```
+</details>
+
+---
+
+## 🟡 FASE 3 — BUILD DE PRODUCCIÓN .aab
+
+### G. Generar Android App Bundle
+```bash
+cd /workspaces/Delicrunch/Frontend
+eas build --profile production --platform android
+```
+- Esperar ~10-15 min (build en servidores de Expo)
+- Descargar `.aab` desde [expo.dev](https://expo.dev)
+- **Datos del build:** Package `com.delicrunch.app` · Versión `1.1.0` · versionCode `2`
+- **API URL en build:** `https://delicrunch.onrender.com/api` ✅
+
+---
+
+## 🟢 FASE 4 — GOOGLE PLAY CONSOLE
+
+### H. Crear la app
+- Nueva app → "Delicrunch" → Español → Comida y bebida → Gratuita → Package: `com.delicrunch.app`
+
+### I. Ficha de la tienda
+- Subir: icono (1024×1024), feature graphic (1024×500), screenshots
+- Pegar descripción corta y larga (ver Fase 2-F)
+- Agregar URL política de privacidad (de Fase 1-B)
+
+### J. Prueba interna (Internal Testing)
+- Track: Pruebas internas → Subir .aab → Invitar tester por email → Instalar y verificar
+
+### K. Declaraciones obligatorias
+- [ ] Clasificación de contenido (cuestionario ~5 min)
+- [ ] Data Safety form (permisos: email, nombre, historial de pedidos)
+- [ ] "No contiene anuncios"
+- [ ] MercadoPago es pago EXTERNO — NO in-app purchase
+
+### L. Enviar a revisión → Producción
+- Revisión Google: 1-7 días hábiles
+
+---
+
+## ⚠️ PENDIENTES TÉCNICOS
+
+### M. Verificar compra real E2E (post migración)
+- [ ] Hacer compra con tarjeta test `5031 7557 3453 0604` CVV `123` Fecha `11/25` Nombre `APRO`
+- [ ] Verificar en Supabase: orden creada + stock -1 + XP sumado en `profiles` + `xp_transactions` creado
+- [ ] Verificar en Render logs: `✅ Order created from webhook`
+
+### N. Favoritos (Decisión pendiente)
+- [ ] **Opción A (recomendada v1):** Dejar en AsyncStorage local — sin cambios
+- [ ] **Opción B:** Crear tabla `favorites` + `POST /api/profiles/favorites`
+
+---
+
+## 📌 Orden de Ejecución Recomendado
+
+```
+HOY (5 min — desbloquea cupones y stats):
+  1. Ejecutar gamification_migration.sql en Supabase SQL Editor
+
+ESTA SEMANA (preparar Google Play):
+  2. Publicar privacy-policy.html online (Google Sites — 5 min)
+  3. Crear Feature Graphic 1024×500 en Canva
+  4. Tomar 4 screenshots desde el dispositivo
+  5. cd Frontend && eas build --profile production --platform android
+
+CUANDO TENGAS .aab:
+  6. Completar Google Play Console (H → K)
+  7. Enviar a revisión → Lanzamiento
+```
+
 
 | # | Fix | Archivo | Estado |
 |---|-----|---------|--------|
