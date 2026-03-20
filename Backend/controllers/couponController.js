@@ -493,7 +493,7 @@ const getLevelCoupons = async (req, res) => {
     res.json({ success: true, currentLevel, levels: Object.values(byLevel) });
   } catch (error) {
     console.error('Error getting level coupons:', error);
-    res.status(500).json({ success: false, error: 'Error al obtener definiciones de cupones' });
+    res.status(500).json({ success: false, error: 'Error al obtener definiciones de cupones', detail: error.message, code: error.code });
   }
 };
 
