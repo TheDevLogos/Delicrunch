@@ -154,6 +154,52 @@ export const SPACING = {
 };
 
 // ============================================================
+// LAYOUT - Dimensiones y espaciado especial TGTG
+// ============================================================
+export const LAYOUT = {
+  // Safe areas y márgenes de pantalla
+  screenPaddingHorizontal: 16,  // Padding lateral estándar (igual que SPACING.md)
+  screenPaddingVertical: 12,    // Padding vertical estándar
+  
+  // Componentes específicos
+  bottomTabHeight: 100,          // Altura de la barra de navegación inferior
+  searchBarHeight: 44,           // Altura estándar de barra de búsqueda (iOS style)
+  headerHeight: 56,              // Altura estándar de headers
+  
+  // Cards y contenedores
+  cardPadding: 16,               // Padding interno de cards (SPACING.md)
+  cardPaddingSmall: 12,          // Padding para cards pequeños (SPACING.smd)
+  cardMargin: 16,                // Margen entre cards
+  cardBorderRadius: 16,          // Border radius de cards (BORDERS.radius.lg)
+  
+  // Listas y scroll
+  listPaddingBottom: 100,        // Padding inferior para listas con bottom tab
+  listItemSpacing: 8,            // Espaciado entre items de lista (SPACING.sm)
+  
+  // Modales
+  modalPadding: 20,              // Padding interno de modales (SPACING.mld)
+  modalMaxHeight: 0.8,           // 80% de la altura de pantalla
+  
+  // Inputs
+  inputHeight: 48,               // Altura de inputs estándar
+  inputPadding: 16,              // Padding interno de inputs
+  
+  // Touch targets (accesibilidad)
+  minTouchTarget: 44,            // Tamaño mínimo recomendado para botones (iOS guideline)
+  iconButtonSize: 40,            // Tamaño de botones circulares de iconos
+  
+  // Secciones
+  sectionSpacing: 24,            // Espacio entre secciones (SPACING.lg)
+  sectionPaddingHorizontal: 16,  // Padding lateral de secciones
+  
+  // Badges y chips
+  badgePaddingHorizontal: 8,     // Padding horizontal de badges (SPACING.sm)
+  badgePaddingVertical: 4,       // Padding vertical de badges (SPACING.xs)
+  chipPaddingHorizontal: 16,     // Padding horizontal de chips
+  chipPaddingVertical: 8,        // Padding vertical de chips
+};
+
+// ============================================================
 // BORDES - Radios y anchos
 // ============================================================
 export const BORDERS = {
@@ -388,6 +434,7 @@ export default {
   COLORS,
   TYPOGRAPHY,
   SPACING,
+  LAYOUT,
   BORDERS,
   SHADOWS,
   SIZES,

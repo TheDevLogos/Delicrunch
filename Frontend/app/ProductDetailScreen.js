@@ -141,7 +141,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
   console.log('💰 Descuento calculado:', { precioOriginal, precioDescuento, discount, savings });
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" />
       
       {/* Header Image con overlay */}

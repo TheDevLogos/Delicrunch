@@ -147,7 +147,7 @@ const MerchantPaymentSettingsScreen = ({ navigation }) => {
   const mainPending = balance.pending?.find(b => b.currency === 'MXN') || { amount: 0, currency: 'MXN' };
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       
       {/* Header */}

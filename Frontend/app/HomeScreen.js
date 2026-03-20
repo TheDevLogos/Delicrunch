@@ -24,7 +24,7 @@ import ProductCard from '../components/ProductCard';
 import FlashDealModal from '../components/FlashDealModal';
 import MapSection from '../components/MapSection';
 import SpecialNotificationModal from '../components/SpecialNotificationModal';
-import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
+import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS, LAYOUT } from '../src/constants/theme';
 
   const HomeScreen = () => {
 const navigation = useNavigation(); 
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   badge: {
     backgroundColor: COLORS.primarySoft,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
+    paddingVertical: SPACING.xs,
     borderRadius: BORDERS.radius.sm,
   },
   badgeText: {
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   },
   // List
   listContent: {
-    paddingBottom: 100,
+    paddingBottom: LAYOUT.listPaddingBottom,
   },
   errorText: {
     fontSize: TYPOGRAPHY.fontSize.base,

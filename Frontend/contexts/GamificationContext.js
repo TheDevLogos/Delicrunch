@@ -366,21 +366,28 @@ export const GamificationProvider = ({ children }) => {
   }, [stats, unlockedBadges]);
 
   /**
-   * Obtiene datos para el leaderboard (mock por ahora)
+   * Obtiene datos para el leaderboard comparando usuarios reales de la BD
    */
   const getLeaderboard = useCallback(async () => {
     try {
       const response = await api.get('/profiles/leaderboard');
-      return response.data || [];
+      const data = response.data || {};
+      return {
+        leaderboard: data.leaderboard || [],
+        userRank: data.userRank || null,
+      };
     } catch (e) {
-      // Mock data si falla
-      return [
-        { id: 1, nickname: 'Salvador Verde', xp: 12500, level: 10, tier: 'PLATINUM' },
-        { id: 2, nickname: 'Eco Guerrero', xp: 9800, level: 9, tier: 'GOLD' },
-        { id: 3, nickname: 'Héroe Local', xp: 7500, level: 8, tier: 'GOLD' },
-        { id: 4, nickname: 'Guardián Foodie', xp: 5200, level: 7, tier: 'GOLD' },
-        { id: 5, nickname: 'Ninja Ahorro', xp: 3800, level: 6, tier: 'SILVER' },
-      ];
+      // Fallback mock si el endpoint no responde
+      return {
+        leaderboard: [
+          { id: 1, nickname: 'Salvador Verde', xp: 12500, level: 10, tier: 'PLATINUM', rank: 1 },
+          { id: 2, nickname: 'Eco Guerrero', xp: 9800, level: 9, tier: 'GOLD', rank: 2 },
+          { id: 3, nickname: 'Héroe Local', xp: 7500, level: 8, tier: 'GOLD', rank: 3 },
+          { id: 4, nickname: 'Guardián Foodie', xp: 5200, level: 7, tier: 'GOLD', rank: 4 },
+          { id: 5, nickname: 'Ninja Ahorro', xp: 3800, level: 6, tier: 'SILVER', rank: 5 },
+        ],
+        userRank: null,
+      };
     }
   }, []);
 

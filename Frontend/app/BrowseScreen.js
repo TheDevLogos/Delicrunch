@@ -25,7 +25,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { publicApi } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocation } from '../contexts/LocationContext';
-import { COLORS, SPACING } from '../src/constants/theme';
+import { COLORS, SPACING, LAYOUT } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 // WebView se cargará dinámicamente para evitar fallos en Expo Go
 
@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
 
   // Búsqueda
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E5EA', height: 44, marginRight: 10 },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: SPACING.smd, borderRadius: SPACING.smd, borderWidth: 1, borderColor: '#E5E5EA', height: LAYOUT.searchBarHeight, marginRight: SPACING.sm },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 16, color: COLORS.text },
   filterButton: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E5EA', justifyContent: 'center', alignItems: 'center' },
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
   filterBadgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
 
   // Toggle
-  toggleContainer: { flexDirection: 'row', marginHorizontal: SPACING.md, marginBottom: SPACING.sm, backgroundColor: '#E5E5EA', borderRadius: 10, padding: 3 },
+  toggleContainer: { flexDirection: 'row', marginHorizontal: SPACING.md, marginBottom: SPACING.sm, backgroundColor: '#E5E5EA', borderRadius: SPACING.sm, padding: SPACING.xs },
   toggleButton: { flex: 1, flexDirection: 'row', paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   toggleActive: { backgroundColor: COLORS.primary },
   toggleText: { fontSize: 14, fontWeight: '600', color: '#8E8E93', marginLeft: 6 },
@@ -821,8 +821,8 @@ const styles = StyleSheet.create({
   centerBtn: { position: 'absolute', top: 16, right: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 4 },
 
   // Preview card en mapa
-  previewCardContainer: { position: 'absolute', bottom: 20, left: SPACING.md, right: SPACING.md },
-  previewCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 12, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 },
+  previewCardContainer: { position: 'absolute', bottom: SPACING.mld, left: SPACING.md, right: SPACING.md },
+  previewCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: LAYOUT.cardBorderRadius, padding: SPACING.smd, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 },
   previewImage: { width: 70, height: 70, borderRadius: 12, marginRight: 12 },
   previewContent: { flex: 1 },
   previewStoreName: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
@@ -832,18 +832,18 @@ const styles = StyleSheet.create({
   previewProducts: { fontSize: 12, color: '#8E8E93', marginBottom: 2 },
   previewLastReview: { fontSize: 12, color: '#8E8E93', fontStyle: 'italic', marginBottom: 4 },
   previewPrice: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
-  navigateBtn: { marginTop: 8, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
+  navigateBtn: { marginTop: SPACING.sm, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: SPACING.smd, paddingVertical: SPACING.sm, borderRadius: SPACING.mld },
   navigateBtnText: { marginLeft: 6, color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
 
   // Lista
-  listContent: { paddingHorizontal: SPACING.md, paddingBottom: 20 },
+  listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.mld },
   resultsCount: { fontSize: 14, color: '#8E8E93', marginBottom: 12 },
   listCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
   listCardImageWrapper: { position: 'relative' },
   listCardImage: { width: 100, height: 120, resizeMode: 'cover' },
   stockBadgeList: { position: 'absolute', top: 6, left: 6, backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
   stockBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  listCardContent: { flex: 1, padding: 12 },
+  listCardContent: { flex: 1, padding: SPACING.smd },
   listCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   storeInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   smallStoreLogo: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 6 },

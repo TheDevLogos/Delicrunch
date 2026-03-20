@@ -3,7 +3,6 @@ import {
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
   ActivityIndicator, 
   ScrollView,
   TouchableOpacity,
@@ -15,6 +14,7 @@ import {
   Linking,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,7 +22,7 @@ import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ReadOnlyStarRating from '../components/ReadOnlyStarRating';
 import MercadoPagoOnboarding from '../components/MercadoPagoOnboarding';
-import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
+import { COLORS, SPACING, SHADOWS, LAYOUT } from '../src/constants/theme';
 import { getAvatarById } from '../src/constants/profileAvatars';
 import { formatNumber } from '../src/utils/format';
 
@@ -1115,9 +1115,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: SPACING.smd,
+    paddingVertical: SPACING.sm,
+    borderRadius: SPACING.mld,
     gap: 6,
   },
   rolBadgeComercio: {
@@ -1131,11 +1131,11 @@ const styles = StyleSheet.create({
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: SPACING.smd,
     backgroundColor: COLORS.surfaceLight,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: SPACING.smd,
+    paddingVertical: SPACING.sm,
+    borderRadius: SPACING.mld,
   },
   ratingValue: {
     fontSize: 14,

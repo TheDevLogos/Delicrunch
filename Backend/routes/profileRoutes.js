@@ -28,6 +28,9 @@ router.put('/store', authMiddleware, profileController.updateStoreProfile);
 router.get('/gamification', authMiddleware, profileController.getGamification);
 router.post('/gamification', authMiddleware, profileController.postGamification);
 
+// Leaderboard
+router.get('/leaderboard', authMiddleware, profileController.getLeaderboard);
+
 // First login endpoints
 router.get('/check-first-login', authMiddleware, profileController.checkFirstLogin);
 router.post('/first-login', authMiddleware, profileController.markFirstLoginShown);

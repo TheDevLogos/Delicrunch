@@ -64,7 +64,7 @@ export const CO2_FACTORS = {
  * @returns {number} Factor de CO2 en kg por pack
  */
 export const getCO2Factor = (categoria) => {
-  if (!categoria) return CO2_FACTORS['otros'];
+  if (!categoria) return CO2_FACTORS['otros']; 
   
   // Convertir a minúsculas y buscar
   const categoriaLower = categoria.toLowerCase().trim();

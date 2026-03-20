@@ -47,19 +47,17 @@ const pool = {
     query: (text, params) => {
         return pgPool.query(text, params);
     },
-
     connect: () => {
         return pgPool.connect();
     },
-
     end: () => {
         return pgPool.end();
     },
 };
 
-console.log('✅ Pool PostgreSQL inicializado (IPv4/IPv6 compatible)');
-
-// Exportamos el wrapper del pool y el cliente Supabase
+// Exportar pool y cliente de Supabase
 module.exports = pool;
 module.exports.supabase = supabase;
 module.exports.pgPool = pgPool;
+
+console.log('✅ Pool PostgreSQL inicializado (IPv4/IPv6 compatible)');

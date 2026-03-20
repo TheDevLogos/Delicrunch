@@ -66,14 +66,14 @@ const AuthStack = () => (
     <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} options={{ title: '¡Gracias!', headerBackVisible: false, headerShown: true }} />
     <Stack.Screen name="AddProduct" component={AddProductScreen} options={{ title: 'Añadir Nuevo Producto', headerShown: false }} />
     <Stack.Screen name="EditProduct" component={EditProductScreen} options={{ title: 'Editar Producto', headerShown: false }} />
-    <Stack.Screen name="EditProfileScreen" component={EditProfileScreen} options={{ title: 'Editar Perfil', headerShown: true }} />
-    <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Mis Pedidos', headerShown: true }} />
-    <Stack.Screen name="MyReviews" component={MyReviewsScreen} options={{ title: 'Mis Reseñas', headerShown: true }} />
-    <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} options={{ title: 'Dejar Reseña', headerShown: true }} />
+    <Stack.Screen name="EditProfileScreen" component={EditProfileScreen} options={{ title: 'Editar Perfil', headerShown: false }} />
+    <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Mis Pedidos', headerShown: false }} />
+    <Stack.Screen name="MyReviews" component={MyReviewsScreen} options={{ title: 'Mis Reseñas', headerShown: false }} />
+    <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} options={{ title: 'Dejar Reseña', headerShown: false }} />
     <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Detalle del Pedido', headerShown: false }} />
     <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
-    <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: true }} />
-    <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: true }} />
+    <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: false }} />
+    <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: false }} />
     <Stack.Screen name="ManageCards" component={PaymentMethodManager} options={{ title: 'Métodos de Pago', headerShown: true }} />
     <Stack.Screen name="PaymentMethodManager" component={PaymentMethodManager} options={{ title: 'Configurar Pagos', headerShown: true }} />
     <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} options={{ title: 'Pago Exitoso', headerShown: false }} />
@@ -98,14 +98,14 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} options={{ title: '¡Gracias!', headerBackVisible: false, headerShown: true }} />
     <Stack.Screen name="AddProduct" component={AddProductScreen} options={{ title: 'Añadir Nuevo Producto', headerShown: false }} />
     <Stack.Screen name="EditProduct" component={EditProductScreen} options={{ title: 'Editar Producto', headerShown: false }} />
-    <Stack.Screen name="EditProfileScreen" component={EditProfileScreen} options={{ title: 'Editar Perfil', headerShown: true }} />
-    <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Mis Pedidos', headerShown: true }} />
-    <Stack.Screen name="MyReviews" component={MyReviewsScreen} options={{ title: 'Mis Reseñas', headerShown: true }} />
-    <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} options={{ title: 'Dejar Reseña', headerShown: true }} />
+    <Stack.Screen name="EditProfileScreen" component={EditProfileScreen} options={{ title: 'Editar Perfil', headerShown: false }} />
+    <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Mis Pedidos', headerShown: false }} />
+    <Stack.Screen name="MyReviews" component={MyReviewsScreen} options={{ title: 'Mis Reseñas', headerShown: false }} />
+    <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} options={{ title: 'Dejar Reseña', headerShown: false }} />
     <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Detalle del Pedido', headerShown: false }} />
     <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
-    <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: true }} />
-    <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: true }} />
+    <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: false }} />
+    <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: false }} />
     <Stack.Screen name="ManageCards" component={PaymentMethodManager} options={{ title: 'Métodos de Pago', headerShown: true }} />
     <Stack.Screen name="PaymentMethodManager" component={PaymentMethodManager} options={{ title: 'Configurar Pagos', headerShown: true }} />
     <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} options={{ title: 'Pago Exitoso', headerShown: false }} />

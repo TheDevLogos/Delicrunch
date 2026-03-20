@@ -591,7 +591,7 @@ const MerchantOrdersScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Hero Header */}

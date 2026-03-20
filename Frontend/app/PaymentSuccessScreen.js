@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import StyledButton from '../components/StyledButton';
@@ -7,6 +7,7 @@ import StyledButton from '../components/StyledButton';
 const PaymentSuccessScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <Ionicons name="checkmark-circle" size={80} color="#30D158" />
       <Text style={styles.title}>¡Pago Exitoso!</Text>
       <Text style={styles.subtitle}>

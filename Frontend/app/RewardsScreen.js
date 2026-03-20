@@ -61,6 +61,7 @@ const RewardsScreen = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [leaderboard, setLeaderboard] = useState([]);
+  const [userRank, setUserRank] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [allBadges, setAllBadges] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -102,8 +103,9 @@ const RewardsScreen = () => {
     const badges = getAllBadgesProgress();
     setAllBadges(badges);
     
-    const lb = await getLeaderboard();
-    setLeaderboard(lb);
+    const result = await getLeaderboard();
+    setLeaderboard(result.leaderboard || result || []);
+    setUserRank(result.userRank || null);
     
     // Cargar cupones
     await loadCoupons();
@@ -854,7 +856,7 @@ const RewardsScreen = () => {
         <Text style={styles.yourPositionLabel}>Tu posición</Text>
         <View style={styles.leaderboardRow}>
           <View style={styles.leaderboardRank}>
-            <Text style={styles.rankNumber}>--</Text>
+            <Text style={styles.rankNumber}>{userRank?.rank ?? '--'}</Text>
           </View>
           <View style={[styles.leaderboardAvatar, { backgroundColor: tierColor }]}>
             <Ionicons name={tierInfo.icon} size={18} color="#FFFFFF" />
@@ -1014,6 +1016,7 @@ const RewardsScreen = () => {
         onUse={handleUseLevelCoupon}
         locked={currentLevel?.level < selectedLevelRequired}
         levelRequired={selectedLevelRequired}
+        currentXP={stats.totalXP}
       />
     </SafeAreaView>
   );

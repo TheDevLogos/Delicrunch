@@ -452,9 +452,14 @@ const getLevelCoupons = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Obtener nivel actual del perfil
-    const profileRes = await pool.query('SELECT current_level, total_pedidos FROM profiles WHERE user_id = $1', [userId]);
-    const currentLevel = (profileRes.rows[0] && profileRes.rows[0].current_level) || 1;
+    // Calcular nivel desde total_xp (no leer current_level que puede estar desactualizado)
+    const LEVEL_XP = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
+    const profileRes = await pool.query('SELECT total_xp, total_pedidos FROM profiles WHERE user_id = $1', [userId]);
+    const totalXP = parseInt((profileRes.rows[0] || {}).total_xp) || 0;
+    let currentLevel = 1;
+    for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
+      if (totalXP >= LEVEL_XP[i]) { currentLevel = i + 1; break; }
+    }
 
     // Obtener todas las definiciones activas
     const defsRes = await pool.query('SELECT * FROM coupon_definitions WHERE is_active = true ORDER BY level_required ASC');

@@ -1,5 +1,39 @@
 const pool = require('../db');
+const { supabase } = require('../db');
 const asyncHandler = require('../middleware/asyncHandler');
+const crypto = require('crypto');
+
+// Helper para subir imágenes a Supabase Storage
+const uploadToSupabase = async (fileBuffer, originalFilename, folder = 'profiles') => {
+    try {
+        // Generar nombre único para el archivo
+        const fileExt = originalFilename.split('.').pop();
+        const fileName = `${folder}/${crypto.randomBytes(16).toString('hex')}-${Date.now()}.${fileExt}`;
+        
+        // Subir a Supabase Storage en el bucket 'avatars'
+        const { data, error } = await supabase.storage
+            .from('avatars')
+            .upload(fileName, fileBuffer, {
+                contentType: `image/${fileExt}`,
+                upsert: false
+            });
+        
+        if (error) {
+            console.error('Error uploading to Supabase:', error);
+            throw new Error('Error al subir imagen a Supabase Storage');
+        }
+        
+        // Obtener URL pública
+        const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName);
+        
+        return urlData.publicUrl;
+    } catch (error) {
+        console.error('Error in uploadToSupabase:', error);
+        throw error;
+    }
+};
 
 // @desc    Obtener el perfil del usuario logueado (con datos de perfil y su tienda si es comercio)
 exports.getLoggedInUserProfile = asyncHandler(async (req, res, next) => {
@@ -65,8 +99,11 @@ exports.updateLoggedInUserProfile = asyncHandler(async (req, res, next) => {
             );
         }
 
-        // 2) Preparar valores de perfil
-        const foto_perfil = fotoFile ? `/uploads/${fotoFile.filename}` : null;
+        // 2) Subir foto a Supabase Storage si viene archivo
+        let foto_perfil = null;
+        if (fotoFile && fotoFile.buffer) {
+            foto_perfil = await uploadToSupabase(fotoFile.buffer, fotoFile.originalname, 'profiles');
+        }
 
         // 3) Hacer upsert en profiles (telefono, direccion, ciudad están en profiles, NO en users)
         const upsertResult = await pool.query(
@@ -202,6 +239,46 @@ exports.postGamification = asyncHandler(async (req, res, next) => {
 
         let profile = updateRes.rows[0];
 
+        // Calcular nuevo nivel desde XP (umbrales deben coincidir con Frontend/src/constants/gamification.js)
+        const LEVEL_XP = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
+        let newLevel = 1;
+        for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
+            if (profile.total_xp >= LEVEL_XP[i]) { newLevel = i + 1; break; }
+        }
+
+        // Calcular racha: comparar last_purchase_date con hoy/ayer
+        const streakRes = await client.query(
+            'SELECT COALESCE(current_streak, 0) AS current_streak, COALESCE(best_streak, 0) AS best_streak, last_purchase_date FROM profiles WHERE user_id = $1',
+            [userId]
+        );
+        const streakData = streakRes.rows[0] || {};
+        const lastDate = streakData.last_purchase_date ? new Date(streakData.last_purchase_date) : null;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+
+        let newStreak = streakData.current_streak || 0;
+        if (lastDate) {
+            const lastDay = new Date(lastDate); lastDay.setHours(0, 0, 0, 0);
+            if (lastDay.getTime() === yesterday.getTime()) {
+                newStreak = newStreak + 1; // día consecutivo
+            } else if (lastDay.getTime() < yesterday.getTime()) {
+                newStreak = 1; // racha rota
+            }
+            // Si era hoy → mantener racha (ya se contó)
+        } else {
+            newStreak = 1; // primera compra
+        }
+        const newBestStreak = Math.max(newStreak, streakData.best_streak || 0);
+
+        // Persistir nivel, racha y fecha de última compra
+        await client.query(
+            `UPDATE profiles SET current_level = $1, current_streak = $2, best_streak = $3, last_purchase_date = NOW() WHERE user_id = $4`,
+            [newLevel, newStreak, newBestStreak, userId]
+        );
+        profile.current_level = newLevel;
+        profile.current_streak = newStreak;
+        profile.best_streak = newBestStreak;
+
         // Guardar badges nuevos en unlocked_badges (JSONB array), evitando duplicados
         if (new_badges && Array.isArray(new_badges) && new_badges.length > 0) {
             // Obtener badges actuales
@@ -224,6 +301,9 @@ exports.postGamification = asyncHandler(async (req, res, next) => {
         res.json({
             msg: 'Gamification updated',
             total_xp: profile.total_xp,
+            current_level: profile.current_level,
+            current_streak: profile.current_streak,
+            best_streak: profile.best_streak,
             total_packs_saved: profile.total_packs_saved || profile.total_pedidos,
             total_savings: profile.total_ahorrado,
             total_co2_saved: profile.co2_ahorrado,
@@ -284,4 +364,76 @@ exports.checkFirstLogin = asyncHandler(async (req, res, next) => {
         should_show_modal: shouldShow,
         first_login_shown: result.rows.length > 0 ? result.rows[0].first_login_shown : false
     });
+});
+
+// @desc    Obtener leaderboard de compradores ordenados por XP
+// @route   GET /api/profiles/leaderboard
+// @access  Privado
+exports.getLeaderboard = asyncHandler(async (req, res, next) => {
+    const userId = req.user.id;
+
+    // Umbrales XP por nivel — deben coincidir con Frontend/src/constants/gamification.js LEVELS
+    const LEVEL_XP   = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
+    const LEVEL_TIER = ['BRONZE','BRONZE','BRONZE','SILVER','SILVER','SILVER','GOLD','GOLD','GOLD','PLATINUM','PLATINUM','PLATINUM','DIAMOND','DIAMOND','DIAMOND'];
+
+    const calcLevel = (xp) => {
+        for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
+            if (xp >= LEVEL_XP[i]) return i + 1;
+        }
+        return 1;
+    };
+    const calcTier = (level) => LEVEL_TIER[Math.min(level - 1, LEVEL_TIER.length - 1)] || 'BRONZE';
+
+    // Top 20 compradores por XP (incluye compradores, clientes y roles nulos)
+    const topResult = await pool.query(`
+        SELECT
+            u.id,
+            SPLIT_PART(u.nombre, ' ', 1) AS nickname,
+            COALESCE(p.total_xp, 0) AS xp
+        FROM users u
+        LEFT JOIN profiles p ON u.id = p.user_id
+        WHERE u.rol IN ('comprador', 'buyer', 'cliente') OR u.rol IS NULL
+        ORDER BY COALESCE(p.total_xp, 0) DESC
+        LIMIT 20
+    `);
+
+    const leaderboard = topResult.rows.map((row, idx) => {
+        const xp = parseInt(row.xp) || 0;
+        const level = calcLevel(xp);
+        return {
+            id: row.id,
+            nickname: row.nickname || 'Usuario',
+            xp,
+            level,
+            tier: calcTier(level),
+            rank: idx + 1,
+        };
+    });
+
+    // Posición global del usuario actual
+    const rankResult = await pool.query(`
+        SELECT COUNT(*) + 1 AS user_rank
+        FROM users u
+        LEFT JOIN profiles p ON u.id = p.user_id
+        WHERE (u.rol IN ('comprador', 'buyer', 'cliente') OR u.rol IS NULL)
+          AND COALESCE(p.total_xp, 0) > (
+              SELECT COALESCE(p2.total_xp, 0) FROM profiles p2 WHERE p2.user_id = $1
+          )
+    `, [userId]);
+
+    const userProfileRes = await pool.query(
+        'SELECT COALESCE(total_xp, 0) AS xp FROM profiles WHERE user_id = $1',
+        [userId]
+    );
+    const userXP = parseInt((userProfileRes.rows[0] || {}).xp) || 0;
+    const userLevel = calcLevel(userXP);
+
+    const userRank = {
+        rank: parseInt(rankResult.rows[0].user_rank) || null,
+        xp: userXP,
+        level: userLevel,
+        tier: calcTier(userLevel),
+    };
+
+    res.json({ leaderboard, userRank });
 });

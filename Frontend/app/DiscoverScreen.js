@@ -25,7 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocation } from '../contexts/LocationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getAvatarById } from '../src/constants/profileAvatars';
-import { COLORS, SPACING } from '../src/constants/theme';
+import { COLORS, SPACING, LAYOUT } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import FlashDealModal from '../components/FlashDealModal';
 
@@ -598,10 +598,10 @@ const styles = StyleSheet.create({
   locationSubtitle: { fontSize: 12, color: '#8E8E93' },
   localHaulsButton: { alignItems: 'center', padding: 8, backgroundColor: '#FFF8F0', borderRadius: 12, borderWidth: 1, borderColor: COLORS.primary },
   localHaulsText: { fontSize: 10, fontWeight: '600', color: COLORS.primary, textAlign: 'center' },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: SPACING.md, marginVertical: SPACING.sm, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E5EA', height: 44 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: SPACING.md, marginVertical: SPACING.sm, paddingHorizontal: SPACING.smd, borderRadius: SPACING.smd, borderWidth: 1, borderColor: '#E5E5EA', height: LAYOUT.searchBarHeight },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 16, color: COLORS.text },
-  locationBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF8F0', marginHorizontal: SPACING.md, marginBottom: SPACING.sm, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  locationBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF8F0', marginHorizontal: SPACING.md, marginBottom: SPACING.sm, paddingHorizontal: SPACING.smd, paddingVertical: SPACING.sm, borderRadius: SPACING.sm },
   locationBannerText: { flex: 1, marginLeft: 8, fontSize: 13, color: COLORS.text },
   categoriesScroll: { marginBottom: SPACING.sm },
   categoriesContainer: { paddingHorizontal: SPACING.md, paddingVertical: 4 },
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   storeLogo: { width: 28, height: 28, borderRadius: 14, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 6 },
   storeLogoText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
   storeNameOverlay: { fontSize: 12, fontWeight: '600', color: '#FFFFFF', maxWidth: CARD_WIDTH - 60 },
-  productInfo: { padding: 10 },
+  productInfo: { padding: SPACING.sm },
   productName: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
   pickupTime: { fontSize: 11, color: '#8E8E93', marginBottom: 8 },
   productFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

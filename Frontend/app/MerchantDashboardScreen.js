@@ -229,7 +229,7 @@ const MerchantDashboardScreen = () => {
   const storeLogo = storeInfo?.foto_perfil;
 
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Modal de Tips */}

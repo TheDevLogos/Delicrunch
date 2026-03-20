@@ -25,7 +25,7 @@ import * as WebBrowser from 'expo-web-browser';
 import api from '../services/api';
 import logger from '../services/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
+import { COLORS, TYPOGRAPHY, SPACING, LAYOUT, BORDERS, SHADOWS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import { COUPON_CATEGORIES } from '../src/constants/gamification';
 import { createPaymentPreference } from '../services/mercadoPagoService';
@@ -907,14 +907,14 @@ const styles = StyleSheet.create({
     backgroundColor: TGTG_COLORS.background,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 120, // Aumentado para dar espacio al bottomContainer fijo
+    paddingHorizontal: SPACING.md,
+    paddingBottom: LAYOUT.listPaddingBottom, // Aumentado para dar espacio al bottomContainer fijo
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: SPACING.lg,
   },
   errorText: {
     fontSize: 16,
@@ -926,10 +926,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: SPACING.md,
   },
   backBtn: {
-    padding: 8,
+    padding: SPACING.sm,
     borderRadius: 20,
   },
   headerTitle: {
@@ -939,9 +939,9 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: TGTG_COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: LAYOUT.cardBorderRadius,
+    padding: SPACING.md,
+    marginBottom: SPACING.smd,
     ...SHADOWS.small,
   },
   cardHeader: {
@@ -1049,9 +1049,9 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   impactCard: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: LAYOUT.cardBorderRadius,
+    padding: SPACING.md,
+    marginBottom: SPACING.smd,
     flexDirection: 'row',
     alignItems: 'center',
     ...SHADOWS.small,
@@ -1066,7 +1066,7 @@ const styles = StyleSheet.create({
   },
   impactContent: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: SPACING.smd,
   },
   impactTitle: {
     fontSize: 15,
@@ -1082,9 +1082,9 @@ const styles = StyleSheet.create({
   // Coupon styles (NUEVOS ESTILOS MÁS VISIBLES)
   couponCountBadge: {
     backgroundColor: TGTG_COLORS.accent,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDERS.radius.smd,
   },
   couponCountText: {
     fontSize: 12,
@@ -1094,10 +1094,10 @@ const styles = StyleSheet.create({
   addCouponBtnNew: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: SPACING.smd,
     borderWidth: 2,
     borderColor: TGTG_COLORS.primary,
-    borderRadius: 12,
+    borderRadius: BORDERS.radius.md,
     backgroundColor: TGTG_COLORS.primaryLight,
     borderStyle: 'solid',
   },
@@ -1111,7 +1111,7 @@ const styles = StyleSheet.create({
   },
   addCouponTextContainer: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: SPACING.smd,
   },
   addCouponTitle: {
     fontSize: 15,
@@ -1130,16 +1130,16 @@ const styles = StyleSheet.create({
   selectedCoupon: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: BORDERS.radius.md,
+    padding: SPACING.smd,
   },
   selectedCouponLeft: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.smd,
     borderRightWidth: 1,
     borderRightColor: 'rgba(255,255,255,0.3)',
-    paddingRight: 16,
+    paddingRight: SPACING.md,
   },
   selectedCouponValue: {
     fontSize: 20,
@@ -1154,7 +1154,7 @@ const styles = StyleSheet.create({
   },
   selectedCouponInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: SPACING.smd,
   },
   selectedCouponName: {
     fontSize: 14,
@@ -1171,10 +1171,10 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   changeCouponBtn: {
-    padding: 12,
+    padding: SPACING.smd,
     alignItems: 'center',
     backgroundColor: TGTG_COLORS.background,
-    borderRadius: 8,
+    borderRadius: BORDERS.radius.sm,
   },
   changeCouponText: {
     fontSize: 14,
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   priceLabel: {
     fontSize: 14,
