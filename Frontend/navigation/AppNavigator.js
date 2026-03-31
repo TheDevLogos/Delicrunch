@@ -61,7 +61,7 @@ const AuthStack = () => (
     <Stack.Screen name="Register" component={RegisterScreen} />
     <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
-    <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Detalles del Pack', headerShown: true }} />
+    <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Detalles del Pack', headerShown: false }} />
     <Stack.Screen name="StoreProfile" component={StoreProfileScreen} options={{ title: 'Tienda', headerShown: false }} />
     <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} options={{ title: '¡Gracias!', headerBackVisible: false, headerShown: true }} />
     <Stack.Screen name="AddProduct" component={AddProductScreen} options={{ title: 'Añadir Nuevo Producto', headerShown: false }} />
@@ -93,7 +93,7 @@ const AppStack = ({ userRole }) => (
       name="MainTabs"
       component={BottomTabNavigator}
     />
-    <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Detalles del Pack', headerShown: true }} />
+    <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Detalles del Pack', headerShown: false }} />
     <Stack.Screen name="StoreProfile" component={StoreProfileScreen} options={{ title: 'Tienda', headerShown: false }} />
     <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} options={{ title: '¡Gracias!', headerBackVisible: false, headerShown: true }} />
     <Stack.Screen name="AddProduct" component={AddProductScreen} options={{ title: 'Añadir Nuevo Producto', headerShown: false }} />

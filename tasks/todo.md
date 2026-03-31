@@ -203,6 +203,19 @@ eas build --profile production --platform android
 - [ ] Verificar en Supabase: orden creada + stock -1 + XP sumado en `profiles` + `xp_transactions` creado
 - [ ] Verificar en Render logs: `✅ Order created from webhook`
 
+### MP. Estado MercadoPago y pagos
+- [ ] `GET /api/payments/user-status` responde `{totalPayments:0, hasMercadoPagoAccount:false}` → OK para estado inicial
+- [ ] `POST /api/payments/create` actualmente devuelve `404 Not Found` (endpoint no implementado en backend, pendiente)
+- [ ] Ajustar `PaymentScreen` + `mercadoPagoService.js` para flujos de pago cuando el endpoint esté disponible
+- [ ] Confirmar en backend que `mongo`/Status `mercadoPago` dice `active` (aun con credenciales de producción)
+
+### UX/UI: navegación y responsive
+- [x] Evitar duplicado de botón "atrás":
+  - `ProductDetail` ahora `headerShown: false` en `AppNavigator` (antes estaba `true`)
+- [ ] Revisar otras rutas y componentes con header personalizado vs stack header
+- [ ] Verificar que las pantallas usan `SafeAreaView` + padding inferior en Android (navbar) y en iOS (bottom inset)
+- [ ] Validar que no haya un `ScrollView` con `height: 1000` estático; usar `flex:1`, `width:'100%'`, `maxWidth` global
+
 ### N. Favoritos (Decisión pendiente)
 - [ ] **Opción A (recomendada v1):** Dejar en AsyncStorage local — sin cambios
 - [ ] **Opción B:** Crear tabla `favorites` + `POST /api/profiles/favorites`
