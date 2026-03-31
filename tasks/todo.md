@@ -201,31 +201,38 @@ eas build --profile production --platform android
 ## 🎯 V. PERFILES y PORTADAS (Para miércoles — Lanzamiento)
 
 ### V.A. Portada de Tiendas (Cover Image)
-**Estado:** Auditoría completa — SEGURO implementar (ver [`AUDITORIA_PORTADA_STORES.md`](AUDITORIA_PORTADA_STORES.md))
+**Estado:** ✅ COMPLETO (Commit d7bd67e + dc825ac) — Listo para testing E2E
 
-- [ ] **Backend:** Actualizar SELECT en storeController para incluir `cover_url` (20 min)
+- [x] **Backend:** Actualizar SELECT en storeController para incluir `cover_url` (20 min) — ✅ DONE
   - `getAllStores()` — agregar `cover_url` al SELECT
   - `getStoresWithProducts()` — agregar `cover_url` al SELECT
   - `getStoreById()` — agregar `cover_url` al SELECT
-- [ ] **Backend:** Crear `PUT /api/stores/me/cover` — upload endpoint (25 min)
-- [ ] **Frontend:** Renderizar portada en `StoreProfileScreen` hero (20 min)
-- [ ] **Frontend:** Crear `UploadCoverModal.js` reutilizable (25 min)
-- [ ] **Frontend:** Botón "📷 Editar Portada" en `MerchantDashboardScreen` (10 min)
-- [ ] **Test:** Portada visible en perfil tienda (comprador) + upload funciona
+- [x] **Backend:** Crear `PUT /api/stores/me/cover` — upload endpoint (25 min) — ✅ DONE
+- [x] **Frontend:** Renderizar portada en `StoreProfileScreen` hero (20 min) — ✅ DONE
+- [x] **Frontend:** Crear `UploadCoverModal.js` reutilizable (25 min) — ✅ DONE
+- [x] **Frontend:** Botón "📷 Editar Portada" en `MerchantDashboardScreen` (10 min) — ✅ DONE
+- [ ] **Test:** Portada visible en perfil tienda (comprador) + upload funciona — PRÓXIMO STEP (15 min)
+- [ ] **Render redeploy:** Esperar auto-redeploy de commit d7bd67e (2-3 min)
 
-**Prioridad:** ALTA — Comercios ven su propia tienda realista, compradores ven tienda con identidad visual
+**Funcionamiento:**
+- Comercio abre dashboard → ve botón 📷 en esquina superior derecha → abre modal
+- Modal: selecciona imagen 16:9 → sube a `PUT /stores/me/cover` → `cover_url` actualizado en DB
+- Comprador ve store profile → hero muestra `store.cover_url` (o fallback primera imagen producto)
+- Si comercio es propietario → puede editar portada desde su store profile
+
+**Prioridad:** ✅ COMPLETADO — Lista para E2E testing
 
 ---
 
 ### V.B. Modal Inicial - Promociones (Onboarding)
-**Estado:** Listo para UI nuevo
+**Estado:** Ready-to-implement (V.A deps solved)
 
 - [ ] Crear `PromotionalOnboardingModal.js` en componentes (30 min)
 - [ ] Mostrar 1 sola vez al primer login (localStorage `@delicrunch_promo_seen`)
 - [ ] Contenido: 3 slides (XP system, Cupones, CO2 impact) o simple modal
 - [ ] Integrar en `AuthContext` o `ProfileScreen` init
 
-**Prioridad:** MEDIA — Nice to have para retención
+**Prioridad:** MEDIA — Next after V.A testing
 
 ---
 
