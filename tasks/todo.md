@@ -1,8 +1,8 @@
 # 📋 Lista de Tareas Activas - Delicrunch
 
-> **Última actualización:** 20 de marzo de 2026 — Backend gamificación deployado ✅ · Migración SQL pendiente
-> **Estado del proyecto:** Backend en producción ✅ · Leaderboard real funcionando ✅ · Cupones bloqueados por migración ❌
-> **Próximo objetivo:** Ejecutar migración SQL en Supabase → Sistema 100% operativo
+> **Última actualización:** 31 de marzo de 2026 — UI/UX nav fixes ✅ · Perfiles tiendas + portada (v2 UX) IN PROGRESS
+> **Estado del proyecto:** Backend en producción ✅ · Leaderboard real ✅ · Cupones schema pending ⚠️ · Pagos MP estructura ready ⚠️
+> **Próximo objetivo:** Portada tiendas visibles + Modal promociones iniciales → Lanzamiento Google Play
 
 ---
 
@@ -196,9 +196,51 @@ eas build --profile production --platform android
 
 ---
 
-## ⚠️ PENDIENTES TÉCNICOS
+---
 
-### M. Verificar compra real E2E (post migración)
+## 🎯 V. PERFILES y PORTADAS (Para miércoles — Lanzamiento)
+
+### V.A. Portada de Tiendas (Cover Image)
+**Estado:** Auditoría completa — SEGURO implementar (ver [`AUDITORIA_PORTADA_STORES.md`](AUDITORIA_PORTADA_STORES.md))
+
+- [ ] **Backend:** Actualizar SELECT en storeController para incluir `cover_url` (20 min)
+  - `getAllStores()` — agregar `cover_url` al SELECT
+  - `getStoresWithProducts()` — agregar `cover_url` al SELECT
+  - `getStoreById()` — agregar `cover_url` al SELECT
+- [ ] **Backend:** Crear `PUT /api/stores/me/cover` — upload endpoint (25 min)
+- [ ] **Frontend:** Renderizar portada en `StoreProfileScreen` hero (20 min)
+- [ ] **Frontend:** Crear `UploadCoverModal.js` reutilizable (25 min)
+- [ ] **Frontend:** Botón "📷 Editar Portada" en `MerchantDashboardScreen` (10 min)
+- [ ] **Test:** Portada visible en perfil tienda (comprador) + upload funciona
+
+**Prioridad:** ALTA — Comercios ven su propia tienda realista, compradores ven tienda con identidad visual
+
+---
+
+### V.B. Modal Inicial - Promociones (Onboarding)
+**Estado:** Listo para UI nuevo
+
+- [ ] Crear `PromotionalOnboardingModal.js` en componentes (30 min)
+- [ ] Mostrar 1 sola vez al primer login (localStorage `@delicrunch_promo_seen`)
+- [ ] Contenido: 3 slides (XP system, Cupones, CO2 impact) o simple modal
+- [ ] Integrar en `AuthContext` o `ProfileScreen` init
+
+**Prioridad:** MEDIA — Nice to have para retención
+
+---
+
+### V.C. Modales de XP al Comprar
+**Estado:** Existe pero revisar diseño
+
+- [ ] Revisar `XPRewardsModal.js` en componentes
+- [ ] Asegurar visible + animaciones suave
+- [ ] Test en OrderConfirmationScreen
+
+**Prioridad:** BAJA — Funciona, solo perfeccionar
+
+---
+
+## ⚠️ PENDIENTES TÉCNICOS (Anterior)
 - [ ] Hacer compra con tarjeta test `5031 7557 3453 0604` CVV `123` Fecha `11/25` Nombre `APRO`
 - [ ] Verificar en Supabase: orden creada + stock -1 + XP sumado en `profiles` + `xp_transactions` creado
 - [ ] Verificar en Render logs: `✅ Order created from webhook`
