@@ -18,10 +18,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ReadOnlyStarRating from '../components/ReadOnlyStarRating';
 import MercadoPagoOnboarding from '../components/MercadoPagoOnboarding';
+import PromotionalOnboardingModal from '../components/PromotionalOnboardingModal';
 import { COLORS, SPACING, SHADOWS, LAYOUT } from '../src/constants/theme';
 import { getAvatarById } from '../src/constants/profileAvatars';
 import { formatNumber } from '../src/utils/format';
@@ -38,6 +40,7 @@ const ProfileScreen = () => {
   const { signOut } = useAuth();
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPromoModal, setShowPromoModal] = useState(false);
   
   // Estados para configuración y ayuda
   const [showSettings, setShowSettings] = useState(false);
@@ -51,6 +54,13 @@ const ProfileScreen = () => {
     try {
       const response = await api.get('/profiles/me');
       setProfile(response.data);
+      
+      // Mostrar modal promo solo la primera vez
+      const hasSeenPromo = await AsyncStorage.getItem('@promo_modal_seen');
+      if (!hasSeenPromo) {
+        setShowPromoModal(true);
+        await AsyncStorage.setItem('@promo_modal_seen', 'true');
+      }
     } catch (error) {
       console.error('Error al obtener el perfil:', error);
     } finally {
@@ -823,6 +833,12 @@ const ProfileScreen = () => {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Modal promocional inicial */}
+      <PromotionalOnboardingModal
+        visible={showPromoModal}
+        onClose={() => setShowPromoModal(false)}
+      />
     </SafeAreaView>
   );
 };
