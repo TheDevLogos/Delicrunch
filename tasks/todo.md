@@ -1,8 +1,27 @@
 # 📋 Lista de Tareas Activas - Delicrunch
 
-> **Última actualización:** 31 de marzo de 2026 — UI/UX nav fixes ✅ · Perfiles tiendas + portada (v2 UX) IN PROGRESS
-> **Estado del proyecto:** Backend en producción ✅ · Leaderboard real ✅ · Cupones schema pending ⚠️ · Pagos MP estructura ready ⚠️
-> **Próximo objetivo:** Portada tiendas visibles + Modal promociones iniciales → Lanzamiento Google Play
+> **Última actualización:** 31 de marzo de 2026 — V.A Portada + V.B Promo Modal ✅ COMPLETADO · Render redeploy en progreso · E2E testing pendiente
+> **Estado del proyecto:** Backend en producción ✅ · Leaderboard real ✅ · Cupones schema pending ⚠️ · Portada tiendas visible ✅ · Promo modal integrado ✅
+> **Próximo objetivo:** E2E test completo + Google Play build → Lanzamiento
+
+---
+
+## 📊 ESTADO RESUMIDO - Semana del Lanzamiento
+
+| Feature | Backend | Frontend | Status | Prioridad |
+|---------|---------|----------|--------|-----------|
+| **V.A Portada** | ✅ (dc825ac) | ✅ (d7bd67e) | E2E pending | ALTA |
+| **V.B Promo Modal** | ✅ (API exist) | ✅ (9ecceeb) | Listo | MEDIA |
+| **V.C XP Modals** | ✅ (already built) | ⏳ Revisar | En revisión | BAJA |
+| **MP Pagos** | ❌ (endpoint 404) | ⚠️ (fallback ok) | Deferred | MEDIA |
+| **Google Play** | ⏳ | ⏳ (build ready) | En QA | CRITICA |
+
+**Commits hoy:**
+- dc825ac: Backend cover_url + PUT endpoint
+- d7bd67e: Frontend UploadCoverModal + StoreProfileScreen
+- f81714e: Docs V.A status
+- cd55657: Fix: GET /stores/my-store endpoint
+- 9ecceeb: Frontend promo modal
 
 ---
 
@@ -225,19 +244,30 @@ eas build --profile production --platform android
 ---
 
 ### V.B. Modal Inicial - Promociones (Onboarding)
-**Estado:** Ready-to-implement (V.A deps solved)
+**Estado:** ✅ COMPLETO (Commit 9ecceeb) — Integrado en ProfileScreen
 
-- [ ] Crear `PromotionalOnboardingModal.js` en componentes (30 min)
-- [ ] Mostrar 1 sola vez al primer login (localStorage `@delicrunch_promo_seen`)
-- [ ] Contenido: 3 slides (XP system, Cupones, CO2 impact) o simple modal
-- [ ] Integrar en `AuthContext` o `ProfileScreen` init
+- [x] Crear `PromotionalOnboardingModal.js` en componentes (30 min) — ✅ DONE
+- [x] Mostrar 1 sola vez al primer login (localStorage `@delicrunch_promo_seen`) — ✅ DONE
+- [x] Contenido: 3 slides (XP system, Cupones, CO2 impact) — ✅ DONE
+  - Slide 1: ⭐ XP system (ganar experiencia)
+  - Slide 2: 🎫 Cupones (desbloquea por nivel)
+  - Slide 3: 🌍 Impacto CO2 (rastra tu contribución)
+- [x] Integrar en ProfileScreen — ✅ DONE
 
-**Prioridad:** MEDIA — Next after V.A testing
+**Funcionamiento:**
+- Comprador inicia sesión → ProfileScreen se carga → Modal aparece
+- 3 slides con navegación forward/back
+- Botón "Siguiente" / "¡Entendido!" (en última slide)
+- Slide indicators + color gradients únicos por slide
+- AsyncStorage flag previene mostrar más de 1 sola vez
+- Modal cierra con botón X o "¡Entendido!"
+
+**Prioridad:** ✅ COMPLETADO
 
 ---
 
 ### V.C. Modales de XP al Comprar
-**Estado:** Existe pero revisar diseño
+**Estado:** En revisión
 
 - [ ] Revisar `XPRewardsModal.js` en componentes
 - [ ] Asegurar visible + animaciones suave
