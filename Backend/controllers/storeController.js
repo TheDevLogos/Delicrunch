@@ -25,6 +25,30 @@ exports.getAllStores = asyncHandler(async (req, res, next) => {
     });
 });
 
+// @desc    Obtener la tienda del usuario autenticado (comercio)
+// @route   GET /api/stores/my-store
+// @access  Privado (Solo comercios)
+exports.getMyStore = asyncHandler(async (req, res, next) => {
+    const userId = req.user?.id;
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'No autenticado' });
+    }
+
+    const result = await pool.query(
+        `SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
+                s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url
+         FROM stores s
+         WHERE s.user_id = $1`,
+        [userId]
+    );
+
+    if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Tienda no encontrada' });
+    }
+
+    res.json(result.rows[0]);
+});
+
 // @desc    Obtener todas las tiendas con ubicación y packs disponibles
 // @route   GET /api/stores/with-products
 // @access  Público

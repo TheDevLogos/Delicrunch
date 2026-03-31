@@ -8,6 +8,11 @@ const authMiddleware = require('../middleware/authMiddleware');
 // @access  Público
 router.get('/', storeController.getAllStores);
 
+// @route   GET /api/stores/my-store
+// @desc    Obtener la tienda del usuario autenticado
+// @access  Privado (Solo comercios)
+router.get('/my-store', authMiddleware, storeController.getMyStore);
+
 // @route   GET /api/stores/with-products
 // @desc    Obtener todas las tiendas con packs disponibles y ubicación
 // @access  Público
