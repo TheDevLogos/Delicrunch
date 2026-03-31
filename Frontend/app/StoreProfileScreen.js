@@ -18,7 +18,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { publicApi } from '../services/api';
 import api from '../services/api';
@@ -26,6 +26,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocation } from '../contexts/LocationContext';
 import { COLORS, SPACING, BORDERS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
+import UploadCoverModal from '../components/UploadCoverModal';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +44,7 @@ const StoreProfileScreen = () => {
   const [isOwner, setIsOwner] = useState(false);
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [showCoverModal, setShowCoverModal] = useState(false);
 
   useEffect(() => {
     fetchStoreData();
@@ -289,10 +291,20 @@ const StoreProfileScreen = () => {
       {/* Header con imagen */}
       <View style={styles.headerImageContainer}>
         <Image
-          source={{ uri: products[0]?.imagen_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800' }}
+          source={{ uri: store.cover_url || products[0]?.imagen_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800' }}
           style={styles.headerImage}
         />
         <View style={styles.headerOverlay} />
+        
+        {/* Botón para editar portada (solo owner) */}
+        {isOwner && (
+          <TouchableOpacity 
+            style={styles.editCoverBtn}
+            onPress={() => setShowCoverModal(true)}
+          >
+            <Ionicons name="camera" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
         
         {/* Botón de regreso */}
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -721,6 +733,16 @@ const StoreProfileScreen = () => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Modal para subir portada */}
+      <UploadCoverModal
+        visible={showCoverModal}
+        onClose={() => setShowCoverModal(false)}
+        onSuccess={() => {
+          // Refrescar datos de la tienda después de subir portada
+          fetchStoreData();
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -782,6 +804,17 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editCoverBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },

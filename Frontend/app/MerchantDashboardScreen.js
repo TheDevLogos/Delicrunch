@@ -26,6 +26,7 @@ import api from '../services/api';
 import { COLORS, SPACING, SHADOWS, TYPOGRAPHY } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import MerchantTipsModal from '../components/MerchantTipsModal';
+import UploadCoverModal from '../components/UploadCoverModal';
 import { getCategoryBackground } from '../src/constants/categories';
 
 const { width } = Dimensions.get('window');
@@ -42,6 +43,7 @@ const MerchantDashboardScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showTips, setShowTips] = useState(false);
+  const [showCoverModal, setShowCoverModal] = useState(false);
   const [storeInfo, setStoreInfo] = useState(null);
   const [mercadoPagoStatus, setMercadoPagoStatus] = useState(null);
   const [metrics, setMetrics] = useState({
@@ -238,6 +240,15 @@ const MerchantDashboardScreen = () => {
         onClose={() => setShowTips(false)} 
       />
 
+      {/* Modal para editar portada */}
+      <UploadCoverModal
+        visible={showCoverModal}
+        onClose={() => setShowCoverModal(false)}
+        onSuccess={() => {
+          loadDashboardData();
+        }}
+      />
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -291,6 +302,13 @@ const MerchantDashboardScreen = () => {
                   onPress={() => setShowTips(true)}
                 >
                   <Ionicons name="bulb" size={22} color="#FFD700" />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.heroCoverButton}
+                  onPress={() => setShowCoverModal(true)}
+                >
+                  <Ionicons name="camera" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
 
@@ -652,6 +670,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  heroCoverButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   heroStats: {
     flexDirection: 'row',
