@@ -1,0 +1,1056 @@
+{
+  "authController.js": [
+    {
+      "file": "authController.js",
+      "line": 136,
+      "issue": "Usa .email",
+      "code": "console.log('✅ Usuario encontrado:', { id: user.id, email: user.email, rol: user.rol });"
+    },
+    {
+      "file": "authController.js",
+      "line": 19,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Por favor, incluye todos los campos (nombre, email, password).' "
+    },
+    {
+      "file": "authController.js",
+      "line": 32,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Por favor, incluye todos los campos requeridos del comercio (nom"
+    },
+    {
+      "file": "authController.js",
+      "line": 38,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Latitud debe ser un número entre -90 y 90.' });"
+    },
+    {
+      "file": "authController.js",
+      "line": 44,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Longitud debe ser un número entre -180 y 180.' });"
+    },
+    {
+      "file": "authController.js",
+      "line": 52,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'El correo electrónico ya está registrado.' });"
+    },
+    {
+      "file": "authController.js",
+      "line": 108,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(201).json({ token });"
+    },
+    {
+      "file": "authController.js",
+      "line": 125,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Por favor, incluye email y contraseña.' });"
+    },
+    {
+      "file": "authController.js",
+      "line": 132,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Credenciales inválidas.' });"
+    },
+    {
+      "file": "authController.js",
+      "line": 143,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Credenciales inválidas.' });"
+    },
+    {
+      "file": "authController.js",
+      "line": 173,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(200).json({ msg: 'Si existe una cuenta con este email, recibirás un enlace para re"
+    },
+    {
+      "file": "authController.js",
+      "line": 204,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(200).json({ msg: 'Email enviado.' });"
+    },
+    {
+      "file": "authController.js",
+      "line": 218,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'El token para restablecer la contraseña no es válido o ha expira"
+    },
+    {
+      "file": "authController.js",
+      "line": 227,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'La nueva contraseña no puede ser igual a la anterior.' });"
+    },
+    {
+      "file": "authController.js",
+      "line": 237,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(200).json({ msg: 'Contraseña actualizada exitosamente.' });"
+    }
+  ],
+  "couponController.js": [
+    {
+      "file": "couponController.js",
+      "line": 203,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "name: coupon.name,"
+    },
+    {
+      "file": "couponController.js",
+      "line": 304,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "couponDef.name, couponDef.description || `Recompensa por alcanzar nivel ${level}`,"
+    },
+    {
+      "file": "couponController.js",
+      "line": 315,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "message: `¡Felicidades! Has desbloqueado: ${couponDef.name}`,"
+    },
+    {
+      "file": "couponController.js",
+      "line": 58,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al obtener cupones' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 125,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al obtener cupones disponibles' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 138,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ success: false, error: 'ID de cupón requerido' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 147,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ success: false, error: 'Cupón no encontrado' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 153,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "if (coupon.status !== 'active') {"
+    },
+    {
+      "file": "couponController.js",
+      "line": 158,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ success: false, error: 'Este cupón ha expirado' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 162,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({"
+    },
+    {
+      "file": "couponController.js",
+      "line": 169,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({"
+    },
+    {
+      "file": "couponController.js",
+      "line": 212,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al validar cupón' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 236,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ success: false, error: 'No se pudo usar el cupón' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 249,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al usar cupón' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 321,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al otorgar cupón' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 354,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al registrar XP' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 385,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al obtener historial de XP' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 443,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al obtener estadísticas' });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 468,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "owned.get(r.coupon_definition_id).push({ id: r.id, status: r.status });"
+    },
+    {
+      "file": "couponController.js",
+      "line": 491,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ success: false, error: 'Error al obtener definiciones de cupones' });"
+    }
+  ],
+  "orderController.js": [
+    {
+      "file": "orderController.js",
+      "line": 190,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "JOIN users seller ON o.seller_id = seller.id"
+    },
+    {
+      "file": "orderController.js",
+      "line": 223,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "o.seller_id,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 235,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "JOIN users seller ON o.seller_id = seller.id"
+    },
+    {
+      "file": "orderController.js",
+      "line": 379,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "// El middleware getStoreId asigna storeId, pero usamos seller_id (user_id del comercio)"
+    },
+    {
+      "file": "orderController.js",
+      "line": 394,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE seller_id = $1 AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 406,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE seller_id = $1 AND created_at >= NOW() - INTERVAL '30 days'"
+    },
+    {
+      "file": "orderController.js",
+      "line": 422,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE o.seller_id = $1 AND o.status = 'delivered' AND o.created_at >= NOW() - INTERVAL '${parseInt(d"
+    },
+    {
+      "file": "orderController.js",
+      "line": 440,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "// Usar seller_id (user_id del comercio) en lugar de storeId"
+    },
+    {
+      "file": "orderController.js",
+      "line": 457,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE o.seller_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'`,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 470,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE o.seller_id = $1 AND o.created_at >= NOW() - INTERVAL '30 days'"
+    },
+    {
+      "file": "orderController.js",
+      "line": 489,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE p.seller_id = $1"
+    },
+    {
+      "file": "orderController.js",
+      "line": 503,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE o.seller_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'"
+    },
+    {
+      "file": "orderController.js",
+      "line": 516,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE o.seller_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'"
+    },
+    {
+      "file": "orderController.js",
+      "line": 533,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE seller_id = $1"
+    },
+    {
+      "file": "orderController.js",
+      "line": 188,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "p.name AS product_name, p.image_url"
+    },
+    {
+      "file": "orderController.js",
+      "line": 230,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "seller.name as nombre_comercio,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 415,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "p.id, p.name AS nombre,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 423,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "GROUP BY p.id, p.name"
+    },
+    {
+      "file": "orderController.js",
+      "line": 480,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "p.name AS nombre,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 490,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "GROUP BY p.id, p.name, p.image_url"
+    },
+    {
+      "file": "orderController.js",
+      "line": 263,
+      "issue": "Usa .email",
+      "code": "u.email AS email_comprador,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 34,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Solo los compradores pueden realizar pedidos.' });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 41,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Se requiere el ID del producto.' });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 156,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(201).json({"
+    },
+    {
+      "file": "orderController.js",
+      "line": 168,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: error.message });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 198,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Pedido no encontrado.' });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 205,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'No tienes permiso para ver este pedido.' });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 217,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Acceso denegado.' });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 227,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "CASE WHEN o.status = 'delivered' THEN 'Entregado' ELSE o.status END AS estado,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 253,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Store ID no disponible' });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 294,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Estado inválido.' });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 323,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'No tienes permisos para actualizar este pedido.' });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 346,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "if (finalStatus === 'delivered' && order.status !== 'delivered') {"
+    },
+    {
+      "file": "orderController.js",
+      "line": 367,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(error.message.includes('permisos') ? 403 : 404).json({ msg: error.message });"
+    },
+    {
+      "file": "orderController.js",
+      "line": 422,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "WHERE o.seller_id = $1 AND o.status = 'delivered' AND o.created_at >= NOW() - INTERVAL '${parseInt(d"
+    },
+    {
+      "file": "orderController.js",
+      "line": 448,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "COUNT(DISTINCT CASE WHEN o.status = 'delivered' THEN o.id END) as pedidos_completados,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 450,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "COUNT(DISTINCT CASE WHEN o.status IN ('pending', 'confirmed', 'ready') THEN o.id END) as pedidos_act"
+    },
+    {
+      "file": "orderController.js",
+      "line": 452,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN ROUND(o.total * 0.25, 2) ELSE 0 END), 0) as comis"
+    },
+    {
+      "file": "orderController.js",
+      "line": 454,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "COALESCE(AVG(CASE WHEN o.status = 'delivered' THEN o.total END), 0) as ticket_promedio,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 466,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "COUNT(CASE WHEN o.status = 'delivered' THEN 1 END) as completados,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 467,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN o.total ELSE 0 END), 0) as ventas,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 484,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN oi.unit_price * oi.quantity ELSE 0 END), 0) as in"
+    },
+    {
+      "file": "orderController.js",
+      "line": 499,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "o.status AS estado,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 504,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "GROUP BY o.status"
+    },
+    {
+      "file": "orderController.js",
+      "line": 514,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN o.total ELSE 0 END), 0) as ventas"
+    },
+    {
+      "file": "orderController.js",
+      "line": 188,
+      "issue": "Usa image_url (debería ser imagen_url)",
+      "code": "p.name AS product_name, p.image_url"
+    },
+    {
+      "file": "orderController.js",
+      "line": 481,
+      "issue": "Usa image_url (debería ser imagen_url)",
+      "code": "p.image_url AS imagen_url,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 490,
+      "issue": "Usa image_url (debería ser imagen_url)",
+      "code": "GROUP BY p.id, p.name, p.image_url"
+    },
+    {
+      "file": "orderController.js",
+      "line": 120,
+      "issue": "Usa unit_price (debería ser precio_unitario)",
+      "code": "`INSERT INTO order_items (order_id, product_id, quantity, unit_price, product_name, subtotal)"
+    },
+    {
+      "file": "orderController.js",
+      "line": 184,
+      "issue": "Usa unit_price (debería ser precio_unitario)",
+      "code": "oi.product_id, oi.quantity, oi.unit_price,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 265,
+      "issue": "Usa unit_price (debería ser precio_unitario)",
+      "code": "oi.unit_price as precio_unitario,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 484,
+      "issue": "Usa unit_price (debería ser precio_unitario)",
+      "code": "COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN oi.unit_price * oi.quantity ELSE 0 END), 0) as in"
+    },
+    {
+      "file": "orderController.js",
+      "line": 120,
+      "issue": "Usa quantity (debería ser cantidad)",
+      "code": "`INSERT INTO order_items (order_id, product_id, quantity, unit_price, product_name, subtotal)"
+    },
+    {
+      "file": "orderController.js",
+      "line": 184,
+      "issue": "Usa quantity (debería ser cantidad)",
+      "code": "oi.product_id, oi.quantity, oi.unit_price,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 264,
+      "issue": "Usa quantity (debería ser cantidad)",
+      "code": "oi.quantity as cantidad,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 417,
+      "issue": "Usa quantity (debería ser cantidad)",
+      "code": "SUM(oi.quantity) as unidades_vendidas,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 483,
+      "issue": "Usa quantity (debería ser cantidad)",
+      "code": "SUM(oi.quantity) as unidades,"
+    },
+    {
+      "file": "orderController.js",
+      "line": 484,
+      "issue": "Usa quantity (debería ser cantidad)",
+      "code": "COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN oi.unit_price * oi.quantity ELSE 0 END), 0) as in"
+    }
+  ],
+  "paymentController.js": [
+    {
+      "file": "paymentController.js",
+      "line": 522,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE seller_id = $1`,"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 557,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE seller_id = $1 AND payment_status = 'approved'"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 57,
+      "issue": "Usa .email",
+      "code": "u.email as seller_email"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 117,
+      "issue": "Usa .email",
+      "code": "const userEmail = userResult.rows[0]?.email || '';"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 30,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Se requiere el ID del producto.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 34,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 67,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Producto no encontrado.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 74,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Este producto no está disponible actualmente.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 83,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 90,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 239,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(500).json({"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 261,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(200).json({ received: true });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 269,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "status: payment.status,"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 284,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "if (payment.status === 'approved') {"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 339,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "} else if (payment.status === 'rejected' || payment.status === 'cancelled') {"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 343,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "status: payment.status,"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 349,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(200).json({ received: true });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 352,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(200).json({ received: true }); // Siempre responder 200 a MP"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 369,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "status: payment.status,"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 380,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ msg: 'Error al obtener estado del pago.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 392,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Acción no autorizada.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 399,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Se requiere el email de Mercado Pago.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 449,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ msg: 'Error al configurar Mercado Pago.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 461,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Acción no autorizada.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 498,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ msg: 'Error al obtener estado del comercio.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 510,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Acción no autorizada.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 534,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ msg: 'Error al obtener balance.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 546,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Acción no autorizada.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 578,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({ msg: 'Error al obtener historial de pagos.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 606,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Datos de tarjeta inválidos.' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 622,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(201).json(insert.rows[0]);"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 639,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Tarjeta no encontrada' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 657,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Tarjeta no encontrada' });"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 797,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(500).json({"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 519,
+      "issue": "Usa payment_status",
+      "code": "COALESCE(SUM(CASE WHEN payment_status = 'approved' THEN total * 0.75 ELSE 0 END), 0) as available,"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 554,
+      "issue": "Usa payment_status",
+      "code": "`SELECT id, total * 0.75 as amount, payment_status as status,"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 557,
+      "issue": "Usa payment_status",
+      "code": "WHERE seller_id = $1 AND payment_status = 'approved'"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 781,
+      "issue": "Usa payment_status",
+      "code": "WHERE user_id = $1 AND payment_status = 'completed'`,"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 139,
+      "issue": "Usa unit_price (debería ser precio_unitario)",
+      "code": "unit_price: Number((totalAfterCoupon / cantidad).toFixed(2)),"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 327,
+      "issue": "Usa unit_price (debería ser precio_unitario)",
+      "code": "order_id, product_id, product_name, quantity, unit_price, subtotal"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 137,
+      "issue": "Usa quantity (debería ser cantidad)",
+      "code": "quantity: cantidad,"
+    },
+    {
+      "file": "paymentController.js",
+      "line": 327,
+      "issue": "Usa quantity (debería ser cantidad)",
+      "code": "order_id, product_id, product_name, quantity, unit_price, subtotal"
+    }
+  ],
+  "productController.js": [
+    {
+      "file": "productController.js",
+      "line": 39,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Por favor, complete todos los campos obligatorios (nombre, preci"
+    },
+    {
+      "file": "productController.js",
+      "line": 58,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'No tienes una tienda asociada' });"
+    },
+    {
+      "file": "productController.js",
+      "line": 83,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(201).json(newProduct.rows[0]);"
+    },
+    {
+      "file": "productController.js",
+      "line": 93,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Store ID no disponible' });"
+    },
+    {
+      "file": "productController.js",
+      "line": 165,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'No tienes una tienda asociada' });"
+    },
+    {
+      "file": "productController.js",
+      "line": 188,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Producto no encontrado o no tienes permiso para editarlo.' });"
+    },
+    {
+      "file": "productController.js",
+      "line": 270,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'No tienes una tienda asociada' });"
+    },
+    {
+      "file": "productController.js",
+      "line": 282,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Producto no encontrado o no tienes permiso para eliminarlo.' });"
+    },
+    {
+      "file": "productController.js",
+      "line": 334,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Producto no encontrado.' });"
+    },
+    {
+      "file": "productController.js",
+      "line": 347,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'Store ID no disponible' });"
+    },
+    {
+      "file": "productController.js",
+      "line": 26,
+      "issue": "Usa image_url (debería ser imagen_url)",
+      "code": "image_url: imageUrlBody"
+    }
+  ],
+  "profileController.js": [
+    {
+      "file": "profileController.js",
+      "line": 13,
+      "issue": "Usa .email",
+      "code": "u.email,"
+    },
+    {
+      "file": "profileController.js",
+      "line": 42,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Perfil no encontrado.' });"
+    },
+    {
+      "file": "profileController.js",
+      "line": 100,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Acción no autorizada. Solo para comercios.' });"
+    }
+  ],
+  "reviewController.js": [
+    {
+      "file": "reviewController.js",
+      "line": 68,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "`SELECT o.user_id, o.seller_id, oi.product_id, p.name as product_name"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 436,
+      "issue": "Usa seller_id (debería ser store_id)",
+      "code": "WHERE p.seller_id = $1`,"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 68,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "`SELECT o.user_id, o.seller_id, oi.product_id, p.name as product_name"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 99,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "`SELECT o.id as order_id, p.name as product_name"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 281,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "u.name as nombre_usuario,"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 284,
+      "issue": "Usa .name (debería ser .nombre)",
+      "code": "COALESCE(r.nombre_producto, p.name) as nombre_producto"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 246,
+      "issue": "Usa .email",
+      "code": "u.email as user_email,"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 282,
+      "issue": "Usa .email",
+      "code": "u.email as user_email,"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 56,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: 'La calificación debe ser entre 1 y 5.' });"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 103,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "WHERE o.user_id = $1 AND oi.product_id = $2 AND o.status IN ('ready', 'delivered', 'completed', 'con"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 145,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "res.status(201).json({"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 152,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(400).json({ msg: error.message });"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 189,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Tienda no encontrada.' });"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 266,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Acceso denegado. Solo administradores.' });"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 341,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'Acceso denegado. Solo administradores.' });"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 349,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(501).json({"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 358,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(501).json({"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 367,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(501).json({"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 386,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Reseña no encontrada.' });"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 393,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(403).json({ msg: 'No tiene permiso para eliminar esta reseña.' });"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 419,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Tienda no encontrada.' });"
+    },
+    {
+      "file": "reviewController.js",
+      "line": 470,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Reseña no encontrada o no tiene permiso.' });"
+    }
+  ],
+  "storeController.js": [
+    {
+      "file": "storeController.js",
+      "line": 56,
+      "issue": "Usa .email",
+      "code": "u.nombre AS owner_nombre, u.email AS owner_email"
+    },
+    {
+      "file": "storeController.js",
+      "line": 63,
+      "issue": "Usa .status (debería ser .estado)",
+      "code": "return res.status(404).json({ msg: 'Tienda no encontrada' });"
+    }
+  ]
+}

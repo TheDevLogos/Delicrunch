@@ -7,7 +7,7 @@ const asyncHandler = require('../middleware/asyncHandler');
 exports.getAllStores = asyncHandler(async (req, res, next) => {
     const result = await pool.query(`
         SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud, 
-               s.descripcion, s.telefono, s.horario,
+               s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url,
                COUNT(DISTINCT p.id) as total_productos,
                AVG(r.calificacion) as calificacion_promedio,
                COUNT(DISTINCT r.id) as total_resenas
@@ -32,6 +32,7 @@ exports.getStoresWithProducts = asyncHandler(async (req, res, next) => {
     // Solo tiendas con packs disponibles y ubicación
     const result = await pool.query(`
         SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud, s.descripcion,
+               s.logo_url, s.cover_url,
                COUNT(p.id) as productos_disponibles
         FROM stores s
         JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0
@@ -52,7 +53,7 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
     // Obtener datos de la tienda usando columnas del esquema actual
     const storeResult = await pool.query(`
         SELECT s.id, s.user_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
-               s.descripcion, s.telefono, s.horario,
+               s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url,
                u.nombre AS owner_nombre, u.email AS owner_email
         FROM stores s
         LEFT JOIN users u ON s.user_id = u.id
@@ -107,3 +108,43 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
         ultima_resena: lastReview,
     });
 });
+
+// @desc    Actualizar portada (cover_url) de la tienda del usuario
+// @route   PUT /api/stores/me/cover
+// @access  Privado (Solo comercios)
+exports.updateStoreCover = asyncHandler(async (req, res, next) => {
+    const userId = req.user?.id;
+    if (!userId) {
+        return res.status(401).json({ success: false, error: 'No autenticado' });
+    }
+
+    const { cover_url } = req.body;
+    if (!cover_url) {
+        return res.status(400).json({ success: false, error: 'cover_url requerido' });
+    }
+
+    // Verificar que el usuario es dueño de la tienda
+    const storeResult = await pool.query(
+        'SELECT id FROM stores WHERE user_id = $1',
+        [userId]
+    );
+
+    if (storeResult.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Tienda no encontrada' });
+    }
+
+    const storeId = storeResult.rows[0].id;
+
+    // Actualizar cover_url
+    const updateResult = await pool.query(
+        'UPDATE stores SET cover_url = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [cover_url, storeId]
+    );
+
+    res.json({
+        success: true,
+        message: 'Portada actualizada',
+        store: updateResult.rows[0]
+    });
+});
+

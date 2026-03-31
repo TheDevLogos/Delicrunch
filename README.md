@@ -296,6 +296,50 @@ npm install
 
 ---
 
+## 📚 Workflow de Desarrollo
+
+Este proyecto utiliza un **Workflow Orchestration Framework** para garantizar calidad y eficiencia.
+
+### 🎯 Revisión Diaria
+
+```bash
+# Al iniciar sesión, ejecutar:
+./workflow-review.sh
+```
+
+Este script muestra:
+- 📋 Tareas pendientes y completadas
+- 📚 Lecciones importantes aprendidas
+- 🔍 Estado del proyecto
+- 🚀 Comandos rápidos
+
+### 📁 Sistema de Gestión
+
+- **[WORKFLOW_GUIDELINES.md](WORKFLOW_GUIDELINES.md)** - Guidelines completas del workflow (300+ líneas)
+- **[tasks/todo.md](tasks/todo.md)** - Lista de tareas activas
+- **[tasks/lessons.md](tasks/lessons.md)** - Lecciones aprendidas y reglas de prevención
+- **[tasks/PROJECT_CONTEXT.md](tasks/PROJECT_CONTEXT.md)** - Estado completo del proyecto
+- **[tasks/README.md](tasks/README.md)** - Cómo usar el sistema de gestión
+
+### ⭐ Principios Clave
+
+1. **Plan Mode Default** - Planificar antes de implementar (tareas 3+ pasos)
+2. **Verification Before Done** - Nunca marcar completo sin probar
+3. **Self-Improvement Loop** - Aprender de errores y documentar lecciones
+4. **Demand Elegance** - Buscar soluciones simples y elegantes
+5. **Autonomous Bug Fixing** - Resolver bugs autónomamente
+
+### ✅ Checklist Pre-Commit
+
+Antes de cada commit:
+- [ ] ¿Funciona correctamente? (tests, logs, pruebas)
+- [ ] ¿El código es limpio y mantenible?
+- [ ] ¿Cambios mínimos y necesarios?
+- [ ] ¿Aprobaría esto un ingeniero senior?
+- [ ] ¿Actualizado `tasks/lessons.md` con aprendizajes?
+
+---
+
 ## 🤝 Contribuir
 
 1. Fork el proyecto

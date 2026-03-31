@@ -1,0 +1,279 @@
+TABLAS: 14
+admin_metrics, favorites, financial_metrics, notifications, order_items, orders, payment_intents, payment_preferences, products, profiles, reviews, saved_cards, stores, users
+
+admin_metrics:
+  id: bigint NOT NULL
+  fecha: date NOT NULL
+  total_ventas: numeric NULL
+  total_comisiones: numeric NULL
+  total_ordenes: integer NULL
+  ordenes_completadas: integer NULL
+  ordenes_canceladas: integer NULL
+  nuevos_usuarios: integer NULL
+  nuevos_comercios: integer NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  Registros: 0
+
+favorites:
+  id: bigint NOT NULL
+  user_id: bigint NULL
+  store_id: bigint NULL
+  created_at: timestamp with time zone NULL
+  FK:   store_id -> stores(id)
+  FK:   user_id -> users(id)
+  Registros: 0
+
+financial_metrics:
+  id: bigint NOT NULL
+  store_id: bigint NULL
+  fecha: date NOT NULL
+  total_ventas: numeric NULL
+  comision_plataforma: numeric NULL
+  ingreso_comercio: numeric NULL
+  numero_ordenes: integer NULL
+  ordenes_completadas: integer NULL
+  ordenes_canceladas: integer NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  FK:   store_id -> stores(id)
+  Registros: 0
+
+notifications:
+  id: bigint NOT NULL
+  user_id: bigint NULL
+  tipo: character varying(50) NOT NULL
+  titulo: character varying(255) NOT NULL
+  mensaje: text NULL
+  leido: boolean NULL
+  data: jsonb NULL
+  created_at: timestamp with time zone NULL
+  FK:   user_id -> users(id)
+  Registros: 0
+
+order_items:
+  id: bigint NOT NULL
+  order_id: bigint NULL
+  product_id: bigint NULL
+  cantidad: integer NOT NULL
+  precio_unitario: numeric NOT NULL
+  subtotal: numeric NOT NULL
+  created_at: timestamp with time zone NULL
+  FK:   order_id -> orders(id)
+  FK:   product_id -> products(id)
+  Registros: 0
+
+orders:
+  id: bigint NOT NULL
+  user_id: bigint NULL
+  store_id: bigint NULL
+  codigo_recogida: character varying(10) NOT NULL
+  subtotal: numeric NOT NULL
+  comision_plataforma: numeric NOT NULL
+  total: numeric NOT NULL
+  estado: character varying(50) NOT NULL
+  metodo_pago: character varying(50) NULL
+  stripe_payment_intent_id: character varying(255) NULL
+  stripe_transfer_id: character varying(255) NULL
+  mercadopago_payment_id: character varying(255) NULL
+  mercadopago_preference_id: character varying(255) NULL
+  fecha_pedido: timestamp with time zone NULL
+  fecha_recogida_programada: timestamp with time zone NULL
+  fecha_recogida_real: timestamp with time zone NULL
+  notas: text NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  FK:   store_id -> stores(id)
+  FK:   user_id -> users(id)
+  Registros: 0
+
+payment_intents:
+  id: bigint NOT NULL
+  stripe_payment_intent_id: character varying(255) NULL
+  mercadopago_payment_id: character varying(255) NULL
+  user_id: bigint NULL
+  product_id: bigint NULL
+  store_id: bigint NULL
+  amount: integer NOT NULL
+  currency: character varying(3) NOT NULL
+  application_fee_amount: integer NULL
+  status: character varying(50) NOT NULL
+  metadata: jsonb NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  FK:   product_id -> products(id)
+  FK:   store_id -> stores(id)
+  FK:   user_id -> users(id)
+  Registros: 0
+
+payment_preferences:
+  id: integer NOT NULL
+  mercadopago_preference_id: character varying(255) NOT NULL
+  user_id: integer NULL
+  product_id: integer NULL
+  store_id: integer NULL
+  amount: numeric NOT NULL
+  currency: character varying(3) NOT NULL
+  platform_fee_amount: numeric NULL
+  merchant_amount: numeric NULL
+  status: character varying(50) NOT NULL
+  metadata: jsonb NULL
+  external_reference: text NULL
+  created_at: timestamp without time zone NULL
+  updated_at: timestamp without time zone NULL
+  FK:   product_id -> products(id)
+  FK:   user_id -> users(id)
+  Registros: 0
+
+products:
+  id: bigint NOT NULL
+  store_id: bigint NULL
+  nombre: character varying(255) NOT NULL
+  descripcion: text NULL
+  precio_original: numeric NOT NULL
+  precio_descuento: numeric NOT NULL
+  cantidad_disponible: integer NOT NULL
+  cantidad_maxima_diaria: integer NULL
+  categoria: character varying(100) NULL
+  tipo_contenido: text NULL
+  imagen_url: text NULL
+  hora_recogida_inicio: time without time zone NULL
+  hora_recogida_fin: time without time zone NULL
+  dias_disponibles: text NULL
+  activo: boolean NULL
+  destacado: boolean NULL
+  producto_listo: boolean NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  FK:   store_id -> stores(id)
+  Registros: 9
+
+profiles:
+  id: bigint NOT NULL
+  user_id: bigint NULL
+  telefono: character varying(50) NULL
+  direccion: text NULL
+  foto_perfil: text NULL
+  ciudad: text NULL
+  preferencias_alimentarias: ARRAY NULL
+  total_pedidos: integer NULL
+  total_ahorrado: numeric NULL
+  co2_ahorrado: numeric NULL
+  total_xp: integer NULL
+  total_packs_saved: integer NULL
+  total_reviews: integer NULL
+  unlocked_badges: jsonb NULL
+  stripe_customer_id: character varying(255) NULL
+  mercadopago_customer_id: character varying(255) NULL
+  first_login_shown: boolean NULL
+  last_login_at: timestamp with time zone NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  FK:   user_id -> users(id)
+  Registros: 3
+
+reviews:
+  id: bigint NOT NULL
+  user_id: bigint NULL
+  store_id: bigint NULL
+  order_id: bigint NULL
+  calificacion: integer NOT NULL
+  comentario: text NULL
+  calidad_comida: integer NULL
+  valor_precio: integer NULL
+  experiencia_recogida: integer NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  product_id: bigint NULL
+  FK:   order_id -> orders(id)
+  FK:   product_id -> products(id)
+  FK:   store_id -> stores(id)
+  FK:   user_id -> users(id)
+  Registros: 0
+
+saved_cards:
+  id: bigint NOT NULL
+  user_id: bigint NULL
+  stripe_payment_method_id: character varying(255) NULL
+  mercadopago_card_id: character varying(255) NULL
+  brand: character varying(50) NOT NULL
+  last4: character varying(4) NOT NULL
+  exp_month: integer NOT NULL
+  exp_year: integer NOT NULL
+  is_default: boolean NULL
+  created_at: timestamp with time zone NULL
+  FK:   user_id -> users(id)
+  Registros: 0
+
+stores:
+  id: bigint NOT NULL
+  user_id: bigint NULL
+  nombre_comercio: character varying(255) NOT NULL
+  direccion: text NULL
+  latitud: numeric NULL
+  longitud: numeric NULL
+  telefono: character varying(50) NULL
+  horario: text NULL
+  descripcion: text NULL
+  logo_url: text NULL
+  cover_url: text NULL
+  categoria: character varying(100) NULL
+  stripe_account_id: character varying(255) NULL
+  stripe_onboarding_complete: boolean NULL
+  mercadopago_user_id: character varying(255) NULL
+  mercadopago_public_key: text NULL
+  mercadopago_access_token: text NULL
+  mercadopago_onboarding_complete: boolean NULL
+  comision_plataforma: numeric NULL
+  activo: boolean NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  FK:   user_id -> users(id)
+  Registros: 3
+
+users:
+  id: bigint NOT NULL
+  instance_id: uuid NULL
+  nombre: character varying(255) NOT NULL
+  id: uuid NOT NULL
+  email: character varying(255) NOT NULL
+  aud: character varying(255) NULL
+  password_hash: character varying(255) NOT NULL
+  role: character varying(255) NULL
+  email: character varying(255) NULL
+  rol: character varying(50) NOT NULL
+  password_reset_token: character varying(255) NULL
+  encrypted_password: character varying(255) NULL
+  password_reset_expires: timestamp with time zone NULL
+  email_confirmed_at: timestamp with time zone NULL
+  created_at: timestamp with time zone NULL
+  invited_at: timestamp with time zone NULL
+  confirmation_token: character varying(255) NULL
+  updated_at: timestamp with time zone NULL
+  confirmation_sent_at: timestamp with time zone NULL
+  recovery_token: character varying(255) NULL
+  recovery_sent_at: timestamp with time zone NULL
+  email_change_token_new: character varying(255) NULL
+  email_change: character varying(255) NULL
+  email_change_sent_at: timestamp with time zone NULL
+  last_sign_in_at: timestamp with time zone NULL
+  raw_app_meta_data: jsonb NULL
+  raw_user_meta_data: jsonb NULL
+  is_super_admin: boolean NULL
+  created_at: timestamp with time zone NULL
+  updated_at: timestamp with time zone NULL
+  phone: text NULL
+  phone_confirmed_at: timestamp with time zone NULL
+  phone_change: text NULL
+  phone_change_token: character varying(255) NULL
+  phone_change_sent_at: timestamp with time zone NULL
+  confirmed_at: timestamp with time zone NULL
+  email_change_token_current: character varying(255) NULL
+  email_change_confirm_status: smallint NULL
+  banned_until: timestamp with time zone NULL
+  reauthentication_token: character varying(255) NULL
+  reauthentication_sent_at: timestamp with time zone NULL
+  is_sso_user: boolean NOT NULL
+  deleted_at: timestamp with time zone NULL
+  is_anonymous: boolean NOT NULL
+  Registros: 7

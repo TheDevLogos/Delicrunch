@@ -1,0 +1,617 @@
+✅ Cliente Supabase inicializado (IPv4/IPv6 compatible)
+🔍 AUDITORÍA COMPLETA DE ESTRUCTURA DE SUPABASE
+
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+            SELECT table_name 
+            FROM i...
+
+📋 TABLAS ENCONTRADAS:
+admin_metrics, favorites, financial_metrics, notifications, order_items, orders, payment_intents, payment_preferences, products, profiles, reviews, saved_cards, stores, users
+
+====================================================================================================
+📊 TABLA: ADMIN_METRICS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('admin_metrics_id_seq'::regclass)
+  fecha                               date                      NOT NULL  
+  total_ventas                        numeric                   NULL       DEFAULT 0.00
+  total_comisiones                    numeric                   NULL       DEFAULT 0.00
+  total_ordenes                       integer                   NULL       DEFAULT 0
+  ordenes_completadas                 integer                   NULL       DEFAULT 0
+  ordenes_canceladas                  integer                   NULL       DEFAULT 0
+  nuevos_usuarios                     integer                   NULL       DEFAULT 0
+  nuevos_comercios                    integer                   NULL       DEFAULT 0
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  admin_metrics_pkey
+  admin_metrics_fecha_key
+  idx_admin_metrics_fecha
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM admin_metrics...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: FAVORITES
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('favorites_id_seq'::regclass)
+  user_id                             bigint                    NULL      
+  store_id                            bigint                    NULL      
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  store_id -> stores(id)
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  favorites_pkey
+  favorites_user_id_store_id_key
+  idx_favorites_user_id
+  idx_favorites_store_id
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM favorites...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: FINANCIAL_METRICS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('financial_metrics_id_seq'::regclass)
+  store_id                            bigint                    NULL      
+  fecha                               date                      NOT NULL  
+  total_ventas                        numeric                   NULL       DEFAULT 0.00
+  comision_plataforma                 numeric                   NULL       DEFAULT 0.00
+  ingreso_comercio                    numeric                   NULL       DEFAULT 0.00
+  numero_ordenes                      integer                   NULL       DEFAULT 0
+  ordenes_completadas                 integer                   NULL       DEFAULT 0
+  ordenes_canceladas                  integer                   NULL       DEFAULT 0
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  store_id -> stores(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  financial_metrics_pkey
+  financial_metrics_store_id_fecha_key
+  idx_financial_metrics_store_fecha
+  idx_financial_metrics_fecha
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM financial_metrics...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: NOTIFICATIONS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('notifications_id_seq'::regclass)
+  user_id                             bigint                    NULL      
+  tipo                                character varying(50)     NOT NULL  
+  titulo                              character varying(255)    NOT NULL  
+  mensaje                             text                      NULL      
+  leido                               boolean                   NULL       DEFAULT false
+  data                                jsonb                     NULL       DEFAULT '{}'::jsonb
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  notifications_pkey
+  idx_notifications_user_id
+  idx_notifications_leido
+  idx_notifications_tipo
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM notifications...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: ORDER_ITEMS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('order_items_id_seq'::regclass)
+  order_id                            bigint                    NULL      
+  product_id                          bigint                    NULL      
+  cantidad                            integer                   NOT NULL   DEFAULT 1
+  precio_unitario                     numeric                   NOT NULL  
+  subtotal                            numeric                   NOT NULL  
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  order_id -> orders(id)
+  product_id -> products(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  order_items_pkey
+  idx_order_items_order_id
+  idx_order_items_product_id
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM order_items...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: ORDERS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('orders_id_seq'::regclass)
+  user_id                             bigint                    NULL      
+  store_id                            bigint                    NULL      
+  codigo_recogida                     character varying(10)     NOT NULL  
+  subtotal                            numeric                   NOT NULL  
+  comision_plataforma                 numeric                   NOT NULL  
+  total                               numeric                   NOT NULL  
+  estado                              character varying(50)     NOT NULL   DEFAULT 'pendiente'::character varying
+  metodo_pago                         character varying(50)     NULL      
+  stripe_payment_intent_id            character varying(255)    NULL      
+  stripe_transfer_id                  character varying(255)    NULL      
+  mercadopago_payment_id              character varying(255)    NULL      
+  mercadopago_preference_id           character varying(255)    NULL      
+  fecha_pedido                        timestamp with time zone  NULL       DEFAULT now()
+  fecha_recogida_programada           timestamp with time zone  NULL      
+  fecha_recogida_real                 timestamp with time zone  NULL      
+  notas                               text                      NULL      
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  store_id -> stores(id)
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  orders_pkey
+  idx_orders_user_id
+  idx_orders_store_id
+  idx_orders_estado
+  idx_orders_codigo_recogida
+  idx_orders_fecha_pedido
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM orders...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: PAYMENT_INTENTS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('payment_intents_id_seq'::regclass)
+  stripe_payment_intent_id            character varying(255)    NULL      
+  mercadopago_payment_id              character varying(255)    NULL      
+  user_id                             bigint                    NULL      
+  product_id                          bigint                    NULL      
+  store_id                            bigint                    NULL      
+  amount                              integer                   NOT NULL  
+  currency                            character varying(3)      NOT NULL   DEFAULT 'mxn'::character varying
+  application_fee_amount              integer                   NULL      
+  status                              character varying(50)     NOT NULL  
+  metadata                            jsonb                     NULL       DEFAULT '{}'::jsonb
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  product_id -> products(id)
+  store_id -> stores(id)
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  payment_intents_pkey
+  payment_intents_stripe_payment_intent_id_key
+  idx_payment_intents_user_id
+  idx_payment_intents_stripe_id
+  idx_payment_intents_mercadopago_id
+  idx_payment_intents_status
+  idx_payment_intents_store_id
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM payment_intents...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: PAYMENT_PREFERENCES
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  integer                   NOT NULL   DEFAULT nextval('payment_preferences_id_seq'::regclass)
+  mercadopago_preference_id           character varying(255)    NOT NULL  
+  user_id                             integer                   NULL      
+  product_id                          integer                   NULL      
+  store_id                            integer                   NULL      
+  amount                              numeric                   NOT NULL  
+  currency                            character varying(3)      NOT NULL   DEFAULT 'MXN'::character varying
+  platform_fee_amount                 numeric                   NULL      
+  merchant_amount                     numeric                   NULL      
+  status                              character varying(50)     NOT NULL   DEFAULT 'pending'::character varying
+  metadata                            jsonb                     NULL      
+  external_reference                  text                      NULL      
+  created_at                          timestamp without time zone NULL       DEFAULT CURRENT_TIMESTAMP
+  updated_at                          timestamp without time zone NULL       DEFAULT CURRENT_TIMESTAMP
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  product_id -> products(id)
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  payment_preferences_pkey
+  payment_preferences_mercadopago_preference_id_key
+  idx_payment_preferences_user
+  idx_payment_preferences_product
+  idx_payment_preferences_store
+  idx_payment_preferences_status
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM payment_preferences...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: PRODUCTS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('products_id_seq'::regclass)
+  store_id                            bigint                    NULL      
+  nombre                              character varying(255)    NOT NULL  
+  descripcion                         text                      NULL      
+  precio_original                     numeric                   NOT NULL  
+  precio_descuento                    numeric                   NOT NULL  
+  cantidad_disponible                 integer                   NOT NULL   DEFAULT 0
+  cantidad_maxima_diaria              integer                   NULL       DEFAULT 10
+  categoria                           character varying(100)    NULL      
+  tipo_contenido                      text                      NULL      
+  imagen_url                          text                      NULL      
+  hora_recogida_inicio                time without time zone    NULL       DEFAULT '14:00:00'::time without time zone
+  hora_recogida_fin                   time without time zone    NULL       DEFAULT '18:00:00'::time without time zone
+  dias_disponibles                    text                      NULL       DEFAULT 'lun,mar,mie,jue,vie'::text
+  activo                              boolean                   NULL       DEFAULT true
+  destacado                           boolean                   NULL       DEFAULT false
+  producto_listo                      boolean                   NULL       DEFAULT false
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  store_id -> stores(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  products_pkey
+  idx_products_store_id
+  idx_products_activo
+  idx_products_categoria
+  idx_products_destacado
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM products...
+
+📊 Total registros: 9
+
+====================================================================================================
+📊 TABLA: PROFILES
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('profiles_id_seq'::regclass)
+  user_id                             bigint                    NULL      
+  telefono                            character varying(50)     NULL      
+  direccion                           text                      NULL      
+  foto_perfil                         text                      NULL      
+  ciudad                              text                      NULL      
+  preferencias_alimentarias           ARRAY                     NULL      
+  total_pedidos                       integer                   NULL       DEFAULT 0
+  total_ahorrado                      numeric                   NULL       DEFAULT 0.00
+  co2_ahorrado                        numeric                   NULL       DEFAULT 0.00
+  total_xp                            integer                   NULL       DEFAULT 0
+  total_packs_saved                   integer                   NULL       DEFAULT 0
+  total_reviews                       integer                   NULL       DEFAULT 0
+  unlocked_badges                     jsonb                     NULL       DEFAULT '[]'::jsonb
+  stripe_customer_id                  character varying(255)    NULL      
+  mercadopago_customer_id             character varying(255)    NULL      
+  first_login_shown                   boolean                   NULL       DEFAULT false
+  last_login_at                       timestamp with time zone  NULL      
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  profiles_pkey
+  profiles_user_id_key
+  idx_profiles_user_id
+  idx_profiles_ciudad
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM profiles...
+
+📊 Total registros: 3
+
+====================================================================================================
+📊 TABLA: REVIEWS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('reviews_id_seq'::regclass)
+  user_id                             bigint                    NULL      
+  store_id                            bigint                    NULL      
+  order_id                            bigint                    NULL      
+  calificacion                        integer                   NOT NULL  
+  comentario                          text                      NULL      
+  calidad_comida                      integer                   NULL      
+  valor_precio                        integer                   NULL      
+  experiencia_recogida                integer                   NULL      
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+  product_id                          bigint                    NULL      
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  order_id -> orders(id)
+  product_id -> products(id)
+  store_id -> stores(id)
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  reviews_pkey
+  idx_reviews_store_id
+  idx_reviews_user_id
+  idx_reviews_order_id
+  idx_reviews_product_id
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM reviews...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: SAVED_CARDS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('saved_cards_id_seq'::regclass)
+  user_id                             bigint                    NULL      
+  stripe_payment_method_id            character varying(255)    NULL      
+  mercadopago_card_id                 character varying(255)    NULL      
+  brand                               character varying(50)     NOT NULL  
+  last4                               character varying(4)      NOT NULL  
+  exp_month                           integer                   NOT NULL  
+  exp_year                            integer                   NOT NULL  
+  is_default                          boolean                   NULL       DEFAULT false
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  saved_cards_pkey
+  idx_saved_cards_user_id
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM saved_cards...
+
+📊 Total registros: 0
+
+====================================================================================================
+📊 TABLA: STORES
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('stores_id_seq'::regclass)
+  user_id                             bigint                    NULL      
+  nombre_comercio                     character varying(255)    NOT NULL  
+  direccion                           text                      NULL      
+  latitud                             numeric                   NULL      
+  longitud                            numeric                   NULL      
+  telefono                            character varying(50)     NULL      
+  horario                             text                      NULL      
+  descripcion                         text                      NULL      
+  logo_url                            text                      NULL      
+  cover_url                           text                      NULL      
+  categoria                           character varying(100)    NULL      
+  stripe_account_id                   character varying(255)    NULL      
+  stripe_onboarding_complete          boolean                   NULL       DEFAULT false
+  mercadopago_user_id                 character varying(255)    NULL      
+  mercadopago_public_key              text                      NULL      
+  mercadopago_access_token            text                      NULL      
+  mercadopago_onboarding_complete     boolean                   NULL       DEFAULT false
+  comision_plataforma                 numeric                   NULL       DEFAULT 25.00
+  activo                              boolean                   NULL       DEFAULT true
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+
+FOREIGN KEYS:
+  user_id -> users(id)
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  stores_pkey
+  idx_stores_user_id
+  idx_stores_activo
+  idx_stores_categoria
+  idx_stores_location
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM stores...
+
+📊 Total registros: 3
+
+====================================================================================================
+📊 TABLA: USERS
+====================================================================================================
+🔧 Ejecutando query via Supabase client: 
+                SELECT 
+                    colum...
+
+COLUMNAS:
+  id                                  bigint                    NOT NULL   DEFAULT nextval('users_id_seq'::regclass)
+  instance_id                         uuid                      NULL      
+  nombre                              character varying(255)    NOT NULL  
+  id                                  uuid                      NOT NULL  
+  email                               character varying(255)    NOT NULL  
+  aud                                 character varying(255)    NULL      
+  password_hash                       character varying(255)    NOT NULL  
+  role                                character varying(255)    NULL      
+  email                               character varying(255)    NULL      
+  rol                                 character varying(50)     NOT NULL  
+  password_reset_token                character varying(255)    NULL      
+  encrypted_password                  character varying(255)    NULL      
+  password_reset_expires              timestamp with time zone  NULL      
+  email_confirmed_at                  timestamp with time zone  NULL      
+  created_at                          timestamp with time zone  NULL       DEFAULT now()
+  invited_at                          timestamp with time zone  NULL      
+  confirmation_token                  character varying(255)    NULL      
+  updated_at                          timestamp with time zone  NULL       DEFAULT now()
+  confirmation_sent_at                timestamp with time zone  NULL      
+  recovery_token                      character varying(255)    NULL      
+  recovery_sent_at                    timestamp with time zone  NULL      
+  email_change_token_new              character varying(255)    NULL      
+  email_change                        character varying(255)    NULL      
+  email_change_sent_at                timestamp with time zone  NULL      
+  last_sign_in_at                     timestamp with time zone  NULL      
+  raw_app_meta_data                   jsonb                     NULL      
+  raw_user_meta_data                  jsonb                     NULL      
+  is_super_admin                      boolean                   NULL      
+  created_at                          timestamp with time zone  NULL      
+  updated_at                          timestamp with time zone  NULL      
+  phone                               text                      NULL       DEFAULT NULL::character varying
+  phone_confirmed_at                  timestamp with time zone  NULL      
+  phone_change                        text                      NULL       DEFAULT ''::character varying
+  phone_change_token                  character varying(255)    NULL       DEFAULT ''::character varying
+  phone_change_sent_at                timestamp with time zone  NULL      
+  confirmed_at                        timestamp with time zone  NULL      
+  email_change_token_current          character varying(255)    NULL       DEFAULT ''::character varying
+  email_change_confirm_status         smallint                  NULL       DEFAULT 0
+  banned_until                        timestamp with time zone  NULL      
+  reauthentication_token              character varying(255)    NULL       DEFAULT ''::character varying
+  reauthentication_sent_at            timestamp with time zone  NULL      
+  is_sso_user                         boolean                   NOT NULL   DEFAULT false
+  deleted_at                          timestamp with time zone  NULL      
+  is_anonymous                        boolean                   NOT NULL   DEFAULT false
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    tc.con...
+🔧 Ejecutando query via Supabase client: 
+                SELECT
+                    indexn...
+
+ÍNDICES:
+  users_pkey
+  users_email_key
+  idx_users_email
+  idx_users_rol
+🔧 Ejecutando query via Supabase client: SELECT COUNT(*) as total FROM users...
+
+📊 Total registros: 7
+
+====================================================================================================
+✅ AUDITORÍA COMPLETADA
+====================================================================================================
+
+📄 Reporte guardado en: ./audit-report.txt

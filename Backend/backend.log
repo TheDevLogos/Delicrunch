@@ -1,2 +1,5 @@
+nohup: ignoring input
+✅ Cliente Supabase inicializado (IPv4/IPv6 compatible)
 Servidor escuchando en el puerto 5001 en todas las interfaces
+🔧 Ejecutando query via Supabase client: SELECT NOW()...
 Conexión con la base de datos establecida exitosamente.
