@@ -4,6 +4,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // Obtener las credenciales desde las variables de entorno
 const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL || 
@@ -24,7 +25,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         storage: null, // Usar AsyncStorage para React Native
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: Platform.OS === 'web',
     },
 });
 
