@@ -76,11 +76,9 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
 
     // Obtener datos de la tienda usando columnas del esquema actual
     const storeResult = await pool.query(`
-        SELECT s.id, s.user_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
-               s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url,
-               u.nombre AS owner_nombre, u.email AS owner_email
+        SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
+               s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url
         FROM stores s
-        LEFT JOIN users u ON s.user_id = u.id
         WHERE s.id = $1
     `, [id]);
 
