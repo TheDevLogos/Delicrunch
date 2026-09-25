@@ -4,6 +4,8 @@
 
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // Obtener las credenciales desde las variables de entorno
 const supabaseUrl = Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL || 
@@ -18,32 +20,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.error('Asegúrate de tener EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_KEY en tu .env');
 }
 
+// El navegador guarda la sesión en localStorage; iOS/Android usan AsyncStorage.
+const authStorage = Platform.OS === 'web'
+    ? (typeof window !== 'undefined' ? window.localStorage : undefined)
+    : AsyncStorage;
+
 // Crear el cliente de Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-        storage: null, // Usar AsyncStorage para React Native
+        storage: authStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: Platform.OS === 'web',
     },
 });
-
-// Función para verificar la conexión
-export const checkSupabaseConnection = async () => {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('count')
-            .limit(1);
-        
-        if (error) throw error;
-        console.log('✅ Conexión con Supabase establecida exitosamente');
-        return true;
-    } catch (error) {
-        console.error('❌ Error al conectar con Supabase:', error.message);
-        return false;
-    }
-};
 
 // Exportar la instancia del cliente
 export default supabase;

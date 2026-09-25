@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Image, ScrollView, KeyboardAvoidingView, TextInput, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import NeoButton from '../components/NeoButton';
 import api, { publicApi } from '../services/api';
+import supabase from '../config/supabase';
 import logger from '../services/logger';
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '../src/constants/theme';
@@ -16,6 +17,51 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
+  const googleSessionRef = useRef(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return undefined;
+    let isMounted = true;
+
+    const finishGoogleLogin = async (session) => {
+      const accessToken = session?.access_token;
+      if (!accessToken || googleSessionRef.current === accessToken) return;
+      googleSessionRef.current = accessToken;
+      setGoogleLoading(true);
+
+      try {
+        const response = await publicApi.post('/auth/google', { accessToken });
+        const appToken = response.data?.token;
+        if (!appToken || typeof appToken !== 'string') {
+          throw new Error('El servidor no devolvió un token de acceso válido.');
+        }
+        await signIn(appToken);
+      } catch (error) {
+        logger.error(error, 'LoginScreen.googleLogin');
+        await supabase.auth.signOut();
+        Alert.alert('No se pudo iniciar sesión', error?.response?.data?.msg || 'Intenta nuevamente en unos minutos.');
+      } finally {
+        if (isMounted) setGoogleLoading(false);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) throw error;
+      return finishGoogleLogin(data?.session);
+    }).catch((error) => logger.error(error, 'LoginScreen.googleSession'));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        setTimeout(() => finishGoogleLogin(session), 0);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [signIn]);
 
   // Función interna que realiza el login dado email y password (útil para quickLogin)
   const doLogin = async (emailToUse, passwordToUse) => {
@@ -67,6 +113,24 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     await doLogin(email, password);
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: { prompt: 'select_account' },
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      logger.error(error, 'LoginScreen.startGoogleLogin');
+      Alert.alert('Google no está disponible', 'Configura el proveedor Google en Supabase e inténtalo de nuevo.');
+      setGoogleLoading(false);
+    }
   };
 
   // Quick login helpers (solo visibles en desarrollo)
@@ -135,6 +199,21 @@ const LoginScreen = ({ navigation }) => {
                 iconName="rocket"
               />
             </View>
+
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                onPress={handleGoogleLogin}
+                style={styles.googleButton}
+                disabled={loading || googleLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Continuar con Google"
+              >
+                <Ionicons name="logo-google" size={20} color="#4285F4" />
+                <Text style={styles.googleButtonText}>
+                  {googleLoading ? 'Conectando con Google…' : 'Continuar con Google'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             {/* Quick Login Buttons (dev only) */}
             {__DEV__ && (
@@ -388,6 +467,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     backgroundColor: COLORS.primary,
+  },
+
+  googleButton: {
+    minHeight: 48,
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DADCE0',
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  googleButtonText: {
+    color: '#202124',
+    fontSize: 15,
+    fontWeight: '700',
   },
 
   // FORGOT PASSWORD
