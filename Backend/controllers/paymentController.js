@@ -210,7 +210,8 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
                 ]
             );
         } catch (dbError) {
-            console.warn('⚠️ Could not save preference to DB', { error: dbError.message });
+            console.error('❌ Could not save preference to DB; refusing to return checkout URL', { error: dbError.message });
+            throw dbError;
         }
 
         // 6. Responder al frontend
@@ -268,40 +269,59 @@ exports.handleWebhook = asyncHandler(async (req, res, next) => {
                 metadata: payment.metadata
             });
 
-            // Parsear external_reference y metadata
+            // Order data is loaded from our saved checkout preference inside the transaction.
             let orderData = {};
-            
-            // Intentar obtener datos de metadata primero (más confiable)
-            if (payment.metadata && typeof payment.metadata === 'object') {
-                orderData = {
-                    user_id: payment.metadata.user_id,
-                    product_id: payment.metadata.product_id,
-                    store_id: payment.metadata.store_id,
-                    cantidad: payment.metadata.cantidad || 1,
-                    coupon_discount: payment.metadata.coupon_discount || 0,
-                    subtotal: payment.metadata.subtotal || payment.transaction_amount,
-                    total: payment.metadata.total || payment.transaction_amount,
-                    platform_fee: payment.metadata.platform_fee || 0,
-                    merchant_amount: payment.metadata.merchant_amount || payment.transaction_amount,
-                };
-            } else if (payment.external_reference) {
-                // Fallback: parsear external_reference
-                // Formato: DC_userId_productId_timestamp
-                const parts = payment.external_reference.split('_');
-                if (parts.length >= 4 && parts[0] === 'DC') {
-                    orderData.user_id = parseInt(parts[1]);
-                    orderData.product_id = parseInt(parts[2]);
-                    orderData.total = payment.transaction_amount;
-                }
-            }
-            
-            console.log('📦 Order data extracted:', orderData);
 
             // Actualizar o crear orden según el estado del pago
             if (payment.status === 'approved') {
                 const client = await pool.connect();
                 try {
                     await client.query('BEGIN');
+
+                    if (!payment.external_reference) {
+                        await client.query('ROLLBACK');
+                        console.warn('⚠️ Approved payment without external reference', { paymentId: payment.id });
+                        return res.status(200).json({ received: true, invalidPayment: true });
+                    }
+
+                    const savedPreferenceResult = await client.query(
+                        `SELECT user_id, product_id, store_id, amount, currency, metadata
+                         FROM payment_preferences
+                         WHERE external_reference = $1
+                         LIMIT 1
+                         FOR UPDATE`,
+                        [payment.external_reference]
+                    );
+
+                    const savedPreference = savedPreferenceResult.rows[0];
+                    const paymentAmountInCents = Math.round(Number(payment.transaction_amount) * 100);
+                    const expectedAmountInCents = Math.round(Number(savedPreference?.amount) * 100);
+                    if (
+                        !savedPreference ||
+                        !savedPreference.user_id ||
+                        !savedPreference.product_id ||
+                        payment.currency_id !== savedPreference.currency ||
+                        paymentAmountInCents !== expectedAmountInCents
+                    ) {
+                        await client.query('ROLLBACK');
+                        console.warn('⚠️ Approved payment does not match a saved checkout preference', { paymentId: payment.id });
+                        return res.status(200).json({ received: true, invalidPayment: true });
+                    }
+
+                    const savedMetadata = typeof savedPreference.metadata === 'string'
+                        ? JSON.parse(savedPreference.metadata)
+                        : (savedPreference.metadata || {});
+                    orderData = {
+                        user_id: savedPreference.user_id,
+                        product_id: savedPreference.product_id,
+                        store_id: savedPreference.store_id,
+                        cantidad: Number(savedMetadata.cantidad) || 1,
+                        coupon_discount: Number(savedMetadata.coupon_discount) || 0,
+                        subtotal: Number(savedMetadata.subtotal) || Number(savedPreference.amount),
+                        total: Number(savedPreference.amount),
+                        platform_fee: Number(savedMetadata.platform_fee) || 0,
+                        merchant_amount: Number(savedMetadata.merchant_amount) || Number(savedPreference.amount),
+                    };
 
                     // Idempotencia: verificar si ya existe una orden para este pago
                     const existingOrder = await client.query(
