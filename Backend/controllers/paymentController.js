@@ -427,8 +427,30 @@ exports.handleWebhook = asyncHandler(async (req, res, next) => {
 exports.getPaymentStatus = asyncHandler(async (req, res, next) => {
     const { paymentId } = req.params;
 
+    // Mercado Pago payment IDs are numeric. Reject malformed IDs before calling the provider.
+    if (!/^\d+$/.test(String(paymentId || ''))) {
+        return res.status(404).json({ msg: 'Pago no encontrado.' });
+    }
+
     try {
         const payment = await paymentClient.get({ id: paymentId });
+
+        // A payment status is private to the account that created its checkout preference.
+        // Fail closed when Mercado Pago or our saved preference cannot prove ownership.
+        if (!payment.preference_id) {
+            return res.status(404).json({ msg: 'Pago no encontrado.' });
+        }
+
+        const preferenceResult = await pool.query(
+            `SELECT id FROM payment_preferences
+             WHERE mercadopago_preference_id = $1 AND user_id = $2
+             LIMIT 1`,
+            [payment.preference_id, req.user.id]
+        );
+
+        if (preferenceResult.rows.length === 0) {
+            return res.status(404).json({ msg: 'Pago no encontrado.' });
+        }
 
         res.json({
             id: payment.id,
@@ -446,7 +468,6 @@ exports.getPaymentStatus = asyncHandler(async (req, res, next) => {
         res.status(500).json({ msg: 'Error al obtener estado del pago.' });
     }
 });
-
 /**
  * @desc    Configurar cuenta de Mercado Pago para comercio
  * @route   POST /api/payments/merchant-setup
