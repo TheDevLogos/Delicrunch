@@ -27,9 +27,7 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
     try {
       const userData = { email: emailToUse, password: passwordToUse };
-      console.log('Enviando credenciales:', userData);
       const response = await publicApi.post('/auth/login', userData);
-      console.log('Respuesta login:', { status: response.status, data: response.data });
       const { token } = response.data || {};
 
       if (!token || typeof token !== 'string') {
@@ -40,17 +38,11 @@ const LoginScreen = ({ navigation }) => {
       await signIn(token);
       return token;
     } catch (error) {
-      logger.error(error, 'handleLogin');
+      logger.warn('Login request failed', status || 'network');
       // Mejor logging para depuración rápida
       const resp = error?.response;
       const status = resp?.status;
       const backendMsg = resp?.data?.msg || resp?.data || null;
-      console.log('API login error details:', {
-        status: status,
-        data: resp?.data,
-        headers: resp?.headers,
-        url: resp?.config?.url,
-      });
 
       let message = 'No se pudo conectar con el servidor.';
       // Considerar 400 como credenciales inválidas (muchos endpoints usan 400 para esto)
@@ -67,20 +59,6 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     await doLogin(email, password);
-  };
-
-  // Quick login helpers (solo visibles en desarrollo)
-  const quickLogin = async (preset) => {
-    const presets = {
-      comprador: { email: 'comprador@delicrunch.com', password: 'Password123' },
-      comercio: { email: 'comercio@delicrunch.com', password: 'Password123' },
-      admin: { email: 'admin@delicrunch.com', password: 'Password123' },
-    };
-    const creds = presets[preset];
-    if (!creds) return;
-    setEmail(creds.email);
-    setPassword(creds.password);
-    await doLogin(creds.email, creds.password);
   };
 
   return (
@@ -135,30 +113,6 @@ const LoginScreen = ({ navigation }) => {
                 iconName="rocket"
               />
             </View>
-
-            {/* Quick Login Buttons (dev only) */}
-            {__DEV__ && (
-              <View style={styles.quickLoginContainer}>
-                <Text style={styles.devNote}>🧪 Modo desarrollo: Inicia sesión rápido</Text>
-                <View style={styles.quickButtonsRow}>
-                  <TouchableOpacity onPress={() => quickLogin('comprador')} style={[styles.quickButton, styles.quickButtonBuyer]}>
-                    <Ionicons name="cart" size={16} color="#FFF" style={{marginBottom: 2}} />
-                    <Text style={styles.quickButtonText}>Comprador</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => quickLogin('comercio')} style={[styles.quickButton, styles.quickButtonSeller]}>
-                    <Ionicons name="storefront" size={16} color="#FFF" style={{marginBottom: 2}} />
-                    <Text style={styles.quickButtonText}>🌮 Taquería</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => quickLogin('admin')} style={[styles.quickButton, styles.quickButtonAdmin]}>
-                    <Ionicons name="shield-checkmark" size={16} color="#FFF" style={{marginBottom: 2}} />
-                    <Text style={styles.quickButtonText}>Admin</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.devCredentials}>
-                  🔐 Password: Password123
-                </Text>
-              </View>
-            )}
 
             {/* Forgot Password Link */}
             <TouchableOpacity 
