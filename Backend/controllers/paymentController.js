@@ -193,8 +193,8 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
             await pool.query(
                 `INSERT INTO payment_preferences (
                     mercadopago_preference_id, user_id, product_id, store_id,
-                    amount, currency, status, platform_fee_amount, metadata
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    amount, currency, status, platform_fee_amount, metadata, external_reference
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 ON CONFLICT (mercadopago_preference_id) DO NOTHING`,
                 [
                     preference.id,
@@ -206,6 +206,7 @@ exports.createPreference = asyncHandler(async (req, res, next) => {
                     'pending',
                     platformFeeAmount,
                     JSON.stringify(preferenceData.metadata),
+                    externalRef,
                 ]
             );
         } catch (dbError) {
@@ -437,15 +438,15 @@ exports.getPaymentStatus = asyncHandler(async (req, res, next) => {
 
         // A payment status is private to the account that created its checkout preference.
         // Fail closed when Mercado Pago or our saved preference cannot prove ownership.
-        if (!payment.preference_id) {
+        if (!payment.external_reference) {
             return res.status(404).json({ msg: 'Pago no encontrado.' });
         }
 
         const preferenceResult = await pool.query(
             `SELECT id FROM payment_preferences
-             WHERE mercadopago_preference_id = $1 AND user_id = $2
+             WHERE external_reference = $1 AND user_id = $2
              LIMIT 1`,
-            [payment.preference_id, req.user.id]
+            [payment.external_reference, req.user.id]
         );
 
         if (preferenceResult.rows.length === 0) {
