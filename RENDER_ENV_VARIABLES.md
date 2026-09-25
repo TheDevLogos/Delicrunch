@@ -1,123 +1,54 @@
-# Variables de Entorno para Render
+# Variables de entorno de Delicrunch
 
-## 📱 FRONTEND (Expo Web Service)
+Esta guía describe **nombres** de variables. Los valores reales se configuran directamente en Vercel, Render o Supabase; nunca se guardan aquí ni se envían por chat. Si alguna credencial real estuvo en GitHub, quitarla del archivo no basta: hay que revocarla/rotarla y actualizar el servicio que la usa.
 
-```bash
-# URL del Backend desplegado en Render
-# ⚠️ IMPORTANTE: Actualizar después del primer deploy del backend
-EXPO_PUBLIC_API_URL=https://tu-backend-delicrunch.onrender.com/api
+## Vercel — Frontend
 
-# Mercado Pago (solo PUBLIC KEY)
-EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY=APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa
+Configura en el proyecto Vercel, para Preview y Production según corresponda:
 
-# Deep linking
-EXPO_PUBLIC_APP_SCHEME=delicrunch
+- `EXPO_PUBLIC_API_URL`: URL base de la API de Render, con `/api`.
+- `EXPO_PUBLIC_SUPABASE_URL`: URL pública del proyecto Supabase.
+- `EXPO_PUBLIC_SUPABASE_KEY`: clave publishable/anon de Supabase. Nunca usar la clave secreta o `service_role`.
+- `EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY`: clave pública de Mercado Pago, solo si la interfaz la necesita.
+- `EXPO_PUBLIC_APP_SCHEME`: esquema de enlaces de la app, si se usa.
 
-# Supabase (solo ANON KEY en cliente)
-EXPO_PUBLIC_SUPABASE_URL=https://pruesizqytpscldieivb.supabase.co
-EXPO_PUBLIC_SUPABASE_KEY=sb_publishable_iIRMgAQGgWka6eYNPN9i6w_GFNwfKuX
-```
+Build: `cd Frontend && npm ci`. Configura el comando de build indicado por el proyecto Expo/Vercel.
 
-## 🖥️ BACKEND (Node.js Web Service)
+## Render — Backend
 
-```bash
-# Puerto (Render lo asigna automáticamente)
-PORT=5001
+Define estas variables en **Render → Environment**. No las copies a Vercel ni al código del navegador:
 
-# Supabase Database - Session Pooler (puerto 5432)
-DB_USER=postgres.pruesizqytpscldieivb
-DB_HOST=aws-0-us-west-2.pooler.supabase.com
-DB_DATABASE=postgres
-DB_PASSWORD=bfOJpzZtcoGhAJdP
-DB_PORT=5432
+- `DATABASE_URL`: conexión de Postgres de Supabase para el backend.
+- `SUPABASE_URL`: URL del proyecto.
+- `SUPABASE_SERVICE_KEY`: clave secreta de Supabase usada exclusivamente por servidor.
+- `JWT_SECRET`: secreto de firma de los JWT propios de la API.
+- `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`: configuración de correo si la función está habilitada.
+- `MERCADOPAGO_ACCESS_TOKEN`: token privado, solo si pagos están habilitados.
+- `GOOGLE_ADMIN_EMAIL`: correo exacto que recibirá el rol administrador al registrarse con Google OAuth.
+- `FRONTEND_URL`, `BACKEND_URL`, `APP_SCHEME` y `PORT`: orígenes y puerto del servicio según el despliegue.
 
-# DATABASE_URL completa
-DATABASE_URL=postgresql://postgres.pruesizqytpscldieivb:bfOJpzZtcoGhAJdP@aws-0-us-west-2.pooler.supabase.com:5432/postgres
+Build: `cd Backend && npm ci`. Start: `cd Backend && npm start`.
 
-# Supabase API Keys
-SUPABASE_URL=https://pruesizqytpscldieivb.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_iIRMgAQGgWka6eYNPN9i6w_GFNwfKuX
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydWVzaXpxeXRwc2NsZGllaXZiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTc4MzAyNCwiZXhwIjoyMDg1MzU5MDI0fQ.8KRuUKFFaDZK1pBUuPKi6KKSV1zWxLeyu2KTKJYyJaY
+## Supabase Auth — Google
 
-# JWT Secret
-JWT_SECRET=un_secreto_secretoso_jamas_contado1234
+Configura Client ID y Client Secret en Supabase → Authentication → Sign In / Providers → Google. No los guardes en variables públicas ni en el repositorio. Autoriza el origen de producción en Google Cloud y registra como redirect URI el callback exacto que muestra el panel de Supabase. En Supabase URL Configuration permite la URL de la aplicación.
 
-# Email (Gmail)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=465
-EMAIL_USER=implanibot@gmail.com
-EMAIL_PASS=qfjz gfrv qswq blss
+## Rotación de credenciales expuestas
 
-# Mercado Pago (Backend necesita ACCESS_TOKEN)
-MERCADOPAGO_PUBLIC_KEY=APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa
-MERCADOPAGO_ACCESS_TOKEN=APP_USR-7758657589560258-012213-ab05386993b304ffec8f442dd78d7b68-3151906188
+El repositorio es público y una versión de este documento incluyó valores que parecen credenciales de base de datos, Supabase, JWT, correo y pagos. Considera esos valores comprometidos:
 
-# URLs
-FRONTEND_URL=delicrunch://
-APP_SCHEME=delicrunch
-BACKEND_URL=https://tu-backend-delicrunch.onrender.com
-```
+1. Cambia la contraseña de Postgres en Supabase y actualiza `DATABASE_URL` en Render.
+2. Rota la clave secreta de Supabase siguiendo la estrategia de claves del proyecto; actualiza Render y confirma qué servicios siguen usando la clave anterior antes de revocarla.
+3. Cambia `JWT_SECRET`; las sesiones firmadas con la clave anterior dejarán de ser válidas y los usuarios tendrán que iniciar sesión otra vez.
+4. Revoca y vuelve a emitir la credencial SMTP/app password y el token privado de Mercado Pago; actualiza Render.
+5. Retira los valores del historial Git según la política del repositorio. La rotación sigue siendo necesaria porque quitar un secreto de la rama actual no elimina las copias históricas.
+6. Comprueba los logs de acceso/proveedor y verifica health check, login, pagos y correo tras actualizar.
 
-## 🚀 Orden de Deploy
+Coordina los cambios de DB y claves con la actualización de Render para evitar dejar la API sin conexión. Nunca publiques los valores nuevos en issues, commits o chats.
 
-### 1. Despliega el BACKEND primero:
-- Copia las variables de la sección **BACKEND**
-- Build Command: `cd Backend && npm ci`
-- Start Command: `cd Backend && npm start`
-- **Guarda la URL generada** (ej: `https://delicrunch-backend-abc123.onrender.com`)
+## Verificación de despliegue
 
-### 2. Actualiza el FRONTEND con la URL del backend:
-- Copia las variables de la sección **FRONTEND**
-- **Actualiza `EXPO_PUBLIC_API_URL`** con la URL del paso 1 + `/api`
-  ```
-  EXPO_PUBLIC_API_URL=https://delicrunch-backend-abc123.onrender.com/api
-  ```
-- Build Command: `cd Frontend && npm ci`
-- Start Command: `cd Frontend && npm start`
-
-## 📝 Notas Importantes
-
-### Puerto de Supabase: 5432 vs 6543
-
-**✅ Usamos puerto 5432 (Session Pooler)** porque:
-- Render es un servidor persistente (no serverless)
-- Session mode es recomendado para conexiones de larga duración
-- Soporta prepared statements
-- Siempre usa IPv4 (compatible con Render)
-
-**Port 6543 (Transaction Pooler)** es para:
-- Serverless functions (AWS Lambda, Vercel Edge, etc.)
-- Conexiones cortas y transaccionales
-- No soporta prepared statements
-
-### Seguridad
-
-**❌ NUNCA expongas en el Frontend:**
-- `SUPABASE_SERVICE_KEY`
-- `MERCADOPAGO_ACCESS_TOKEN`
-- `EMAIL_PASS`
-- `JWT_SECRET`
-- Variables de base de datos (`DB_*`)
-
-**✅ Solo en Frontend:**
-- Variables con prefijo `EXPO_PUBLIC_*`
-- Keys públicas (ANON_KEY, PUBLIC_KEY)
-
-## 🔍 Verificación
-
-Después del deploy, verifica:
-
-1. **Backend Health Check:**
-   ```
-   https://tu-backend.onrender.com/health
-   ```
-   Debe responder: `{"success": true, "status": "healthy"}`
-
-2. **Frontend conecta al Backend:**
-   Revisa los logs de Render para verificar que no hay errores de conexión
-
-3. **Base de datos conecta:**
-   Revisa los logs del backend para confirmar:
-   ```
-   Conexión con la base de datos establecida exitosamente.
-   ```
+1. Comprueba la salud de Render en la ruta de health configurada por el backend.
+2. Comprueba que el frontend desplegado conecta a la API.
+3. Comprueba autenticación y, cuando estén activados, correo y pagos.
+4. Mantén las claves privadas solo en Render/Supabase; en el navegador solo van URL y claves publishable con permisos mínimos.
