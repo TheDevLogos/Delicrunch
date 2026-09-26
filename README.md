@@ -152,8 +152,8 @@ Delicrunch/
 
 **Backend** (`Backend/.env`):
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/delicrunch
-JWT_SECRET=tu_jwt_secret_aqui
+DATABASE_URL=CONFIGURE_IN_PROVIDER
+JWT_SECRET=CONFIGURE_IN_PROVIDER
 STRIPE_SECRET_KEY=tu_stripe_secret_key
 STRIPE_WEBHOOK_SECRET=tu_stripe_webhook_secret
 PORT=3000

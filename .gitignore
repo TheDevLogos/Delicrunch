@@ -1,1 +1,9 @@
 node_modules
+
+# Local environment files; keep only the sanitized examples in Git
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
