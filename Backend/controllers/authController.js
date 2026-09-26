@@ -26,8 +26,12 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
     if (dbRole === 'buyer') dbRole = 'comprador';
     if (dbRole === 'seller') dbRole = 'comercio';
     if (dbRole === 'administrador') dbRole = 'admin';
+    // El rol admin nunca se acepta desde el endpoint público de registro.
+    if (dbRole === 'admin') {
+        return res.status(403).json({ msg: 'El rol administrador solo puede asignarlo el equipo de Delicrunch.' });
+    }
     // Si no es un rol válido, usar comprador por defecto
-    if (!['comprador', 'comercio', 'admin'].includes(dbRole)) dbRole = 'comprador';
+    if (!['comprador', 'comercio'].includes(dbRole)) dbRole = 'comprador';
     
     // Validación adicional para comercios/sellers
     if (['comercio', 'seller'].includes(userRole.toLowerCase())) {
@@ -120,30 +124,21 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
 exports.loginUser = asyncHandler(async (req, res, next) => {
     const { email, password } = req.body;
     
-    // Log para debugging
-    console.log('🔐 Intento de login:', { email, passwordLength: password?.length, body: req.body });
-    
-    // Validación básica
+        // Validación básica
     if (!email || !password) {
-        console.log('❌ Validación falló: email o password faltante');
         return res.status(400).json({ msg: 'Por favor, incluye email y contraseña.' });
     }
 
     // 1. Buscar al usuario por email
     const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (userResult.rows.length === 0) {
-        console.log('❌ Usuario no encontrado:', email);
         return res.status(400).json({ msg: 'Credenciales inválidas.' });
     }
 
     const user = userResult.rows[0];
-    console.log('✅ Usuario encontrado:', { id: user.id, email: user.email, rol: user.rol });
-
     // 2. Comparar la contraseña enviada con la hasheada en la DB
     const isMatch = await bcrypt.compare(password, user.password_hash);
-    console.log('🔑 Comparación de contraseña:', { isMatch, hashPreview: user.password_hash ? user.password_hash.substring(0, 20) : 'NULL' });
     if (!isMatch) {
-        console.log('❌ Contraseña incorrecta');
         return res.status(400).json({ msg: 'Credenciales inválidas.' });
     }
 
@@ -171,7 +166,8 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
 // @desc    Manejar "Olvidé mi contraseña" y enviar email
 exports.forgotPassword = asyncHandler(async (req, res, next) => {
     const { email } = req.body;
-    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const userResult = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [normalizedEmail]);
     if (userResult.rows.length === 0) {
         // Por seguridad, no revelamos si el email existe.
         return res.status(200).json({ msg: 'Si existe una cuenta con este email, recibirás un enlace para restablecer tu contraseña.' });
@@ -180,15 +176,16 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const passwordResetExpires = new Date(Date.now() + 3600000); // 1 hora
     await pool.query(
-        'UPDATE users SET reset_password_token = $1, reset_password_expires = $2 WHERE email = $3',
-        [passwordResetToken, passwordResetExpires, email]
+        'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
+        [passwordResetToken, passwordResetExpires, userResult.rows[0].id]
     );
-    const resetUrl = `http://localhost:8081/reset-password/${resetToken}`;
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://delicrunch.vercel.app').replace(/\\/+$/, '');
+    const resetUrl = frontendUrl + '/reset-password/' + encodeURIComponent(resetToken);
     
     const transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST,
         port: process.env.EMAIL_PORT,
-        secure: true, // true para el puerto 465 (SSL)
+        secure: Number(process.env.EMAIL_PORT || 465) === 465,
         auth: {
             user: process.env.EMAIL_USER,
             pass: process.env.EMAIL_PASS,
@@ -196,7 +193,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     });
 
     const mailOptions = {
-        from: '"Delicrunch Support" <support@delicrunch.com>',
+        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
         to: email,
         subject: 'Restablecimiento de Contraseña de Delicrunch',
         text: `Has recibido este email porque solicitaste un restablecimiento de contraseña. Por favor, haz clic en el siguiente enlace, o pégalo en tu navegador para completar el proceso: \n\n ${resetUrl}`
@@ -214,7 +211,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     const userResult = await pool.query(
-        'SELECT * FROM users WHERE reset_password_token = $1 AND reset_password_expires > NOW()',
+        'SELECT id, password_hash FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW()',
         [passwordResetToken]
     );
 
@@ -224,6 +221,9 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
 
     const user = userResult.rows[0];
     const { password } = req.body;
+    if (typeof password !== 'string' || password.length < 12) {
+        return res.status(400).json({ msg: 'La nueva contraseña debe tener al menos 12 caracteres.' });
+    }
 
     const isSamePassword = await bcrypt.compare(password, user.password_hash);
 
@@ -233,10 +233,13 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    await pool.query(
-        'UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2',
-        [passwordHash, user.id]
+    const result = await pool.query(
+        'UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2 AND password_reset_token = $3 AND password_reset_expires > NOW() RETURNING id',
+        [passwordHash, user.id, passwordResetToken]
     );
+    if (result.rows.length === 0) {
+        return res.status(400).json({ msg: 'El enlace para restablecer la contraseña no es válido o ha expirado.' });
+    }
     
     res.status(200).json({ msg: 'Contraseña actualizada exitosamente.' });
 });
