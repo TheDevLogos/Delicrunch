@@ -180,12 +180,12 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
         'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
         [passwordResetToken, passwordResetExpires, userResult.rows[0].id]
     );
-    const frontendUrl = (process.env.FRONTEND_URL || 'https://delicrunch.vercel.app').replace(/\\/+$/, '');
+    const frontendUrl = (process.env.FRONTEND_URL || 'https://delicrunch.vercel.app').replace(/\/+$/, '');
     const resetUrl = frontendUrl + '/reset-password/' + encodeURIComponent(resetToken);
     
     const transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST,
-        port: process.env.EMAIL_PORT,
+        port: Number(process.env.EMAIL_PORT || 465),
         secure: Number(process.env.EMAIL_PORT || 465) === 465,
         auth: {
             user: process.env.EMAIL_USER,
@@ -195,12 +195,12 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
 
     const mailOptions = {
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-        to: email,
+        to: normalizedEmail,
         subject: 'Restablecimiento de Contraseña de Delicrunch',
         text: `Has recibido este email porque solicitaste un restablecimiento de contraseña. Por favor, haz clic en el siguiente enlace, o pégalo en tu navegador para completar el proceso: \n\n ${resetUrl}`
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    await transporter.sendMail(mailOptions);
 
     res.status(200).json({ msg: 'Email enviado.' });
 });
