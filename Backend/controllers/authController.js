@@ -123,14 +123,15 @@ exports.registerUser = asyncHandler(async (req, res, next) => {
 // Función para iniciar sesión
 exports.loginUser = asyncHandler(async (req, res, next) => {
     const { email, password } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     
         // Validación básica
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
         return res.status(400).json({ msg: 'Por favor, incluye email y contraseña.' });
     }
 
     // 1. Buscar al usuario por email
-    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const userResult = await pool.query('SELECT * FROM users WHERE lower(email) = lower($1)', [normalizedEmail]);
     if (userResult.rows.length === 0) {
         return res.status(400).json({ msg: 'Credenciales inválidas.' });
     }
@@ -200,7 +201,6 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("Email de recuperación enviado exitosamente a:", email, "Message ID:", info.messageId);
 
     res.status(200).json({ msg: 'Email enviado.' });
 });
