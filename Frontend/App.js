@@ -9,6 +9,15 @@ import { LocationProvider } from './contexts/LocationContext';
 import { GamificationProvider } from './contexts/GamificationContext';
 // import { NotificationProvider } from './contexts/NotificationContext'; // DESACTIVADO: causaba error con ExpoPushTokenManager
 
+const linking = {
+  prefixes: ['https://delicrunch.vercel.app', 'delicrunch://'],
+  config: {
+    screens: {
+      ResetPassword: 'reset-password/:token',
+    },
+  },
+};
+
 export default function App() {
   const navigationRef = useRef(null);
 
@@ -70,7 +79,7 @@ export default function App() {
       <AuthProvider>
         <LocationProvider>
           <GamificationProvider>
-            <NavigationContainer ref={navigationRef}>
+            <NavigationContainer ref={navigationRef} linking={linking}>
               <AppNavigator /> 
             </NavigationContainer>
           </GamificationProvider>

@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../app/LoginScreen';
 import RegisterScreen from '../app/RegisterScreen';
 import ForgotPasswordScreen from '../app/ForgotPasswordScreen';
+import ResetPasswordScreen from '../app/ResetPasswordScreen';
 import ProductDetailScreen from '../app/ProductDetailScreen';
 import OrderConfirmationScreen from '../app/OrderConfirmationScreen';
 import AddProductScreen from '../app/AddProductScreen';
@@ -60,6 +61,7 @@ const AuthStack = () => (
     <Stack.Screen name="DeveloperMenu" component={DeveloperMenu} />
     <Stack.Screen name="Register" component={RegisterScreen} />
     <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+    <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
     <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Detalles del Pack', headerShown: false }} />
     <Stack.Screen name="StoreProfile" component={StoreProfileScreen} options={{ title: 'Tienda', headerShown: false }} />
