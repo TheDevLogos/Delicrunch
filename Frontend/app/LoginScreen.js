@@ -27,9 +27,7 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
     try {
       const userData = { email: emailToUse, password: passwordToUse };
-      console.log('Enviando credenciales:', userData);
       const response = await publicApi.post('/auth/login', userData);
-      console.log('Respuesta login:', { status: response.status, data: response.data });
       const { token } = response.data || {};
 
       if (!token || typeof token !== 'string') {
@@ -45,12 +43,6 @@ const LoginScreen = ({ navigation }) => {
       const resp = error?.response;
       const status = resp?.status;
       const backendMsg = resp?.data?.msg || resp?.data || null;
-      console.log('API login error details:', {
-        status: status,
-        data: resp?.data,
-        headers: resp?.headers,
-        url: resp?.config?.url,
-      });
 
       let message = 'No se pudo conectar con el servidor.';
       // Considerar 400 como credenciales inválidas (muchos endpoints usan 400 para esto)
