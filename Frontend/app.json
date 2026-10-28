@@ -27,7 +27,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.delicrunch.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
@@ -59,6 +59,14 @@
           "ios": {
             "newArchEnabled": true
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite elegir una foto para tu perfil o la imagen de tu comercio.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       "expo-font"

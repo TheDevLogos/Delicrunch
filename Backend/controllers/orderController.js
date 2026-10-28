@@ -372,11 +372,23 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
             );
         }
 
+        // Delicrunch solo emite tickets para pagar en efectivo en el comercio.
+        // Cuando se cierra un ticket, elimina su detalle dentro de esta misma
+        // transacción; la respuesta aún devuelve el estado final al cliente.
+        const closedOrder = updateResult.rows[0];
+        if (estado === 'recogido' || estado === 'cancelado') {
+            await client.query('DELETE FROM order_items WHERE order_id = $1', [id]);
+            await client.query(
+                "DELETE FROM orders WHERE id = $1 AND metodo_pago = 'efectivo'",
+                [id]
+            );
+        }
+
         await client.query('COMMIT');
 
         res.json({
             msg: 'Estado actualizado exitosamente',
-            order: updateResult.rows[0]
+            order: closedOrder
         });
 
     } catch (error) {

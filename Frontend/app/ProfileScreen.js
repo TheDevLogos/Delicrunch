@@ -6,13 +6,13 @@ import {
   ActivityIndicator, 
   ScrollView,
   TouchableOpacity,
-  Platform,
   StatusBar,
   Image,
   Switch,
   Alert,
   Linking,
   Modal,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -26,6 +26,9 @@ import PromotionalOnboardingModal from '../components/PromotionalOnboardingModal
 import { COLORS, SPACING, SHADOWS, LAYOUT } from '../src/constants/theme';
 import { getAvatarById } from '../src/constants/profileAvatars';
 import { formatNumber } from '../src/utils/format';
+
+const PRIVACY_POLICY_URL = 'https://delicrunch.vercel.app/privacy-policy.html';
+const ACCOUNT_DELETION_URL = 'https://delicrunch.vercel.app/delete-account.html';
 
 // Helper para formatear calificación de forma segura
 const formatRating = (rating) => {
@@ -77,11 +80,15 @@ const ProfileScreen = () => {
   // Función para seleccionar logo del comercio
   const pickLogo = async () => {
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.status !== 'granted') {
-        Alert.alert('Permiso Requerido', 'Necesitamos permiso para acceder a tus fotos.');
-        return;
+      // Android abre el selector del sistema para la imagen elegida y no
+      // necesita acceso general a toda la biblioteca multimedia.
+      if (Platform.OS === 'ios') {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (permissionResult.status !== 'granted') {
+          Alert.alert('Permiso Requerido', 'Necesitamos permiso para elegir una foto.');
+          return;
+        }
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -155,7 +162,7 @@ const ProfileScreen = () => {
       options.push({
         icon: 'bag-handle-outline',
         label: 'Mis Pedidos',
-        subtitle: 'Historial de compras',
+        subtitle: 'Reservas activas',
         onPress: () => navigation.navigate('MyOrders'),
         color: COLORS.primary,
       });
@@ -205,7 +212,7 @@ const ProfileScreen = () => {
       options.push({
         icon: 'bag-handle-outline',
         label: 'Mis Pedidos',
-        subtitle: 'Historial de compras',
+        subtitle: 'Reservas activas',
         onPress: () => navigation.navigate('MyOrders'),
         color: COLORS.primary,
       });
@@ -517,18 +524,25 @@ const ProfileScreen = () => {
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.settingItem} onPress={() => {
-                Alert.alert(
-                  'Política de Privacidad',
-                  'Delicrunch respeta tu privacidad y protege tus datos personales según la normativa vigente.\n\nPuedes consultar nuestra política completa en:\nwww.delicrunch.com/privacy',
-                  [
-                    { text: 'Cerrar', style: 'cancel' },
-                    { text: 'Abrir enlace', onPress: () => Linking.openURL('https://www.delicrunch.com/privacy') }
-                  ]
-                );
+                Linking.openURL(PRIVACY_POLICY_URL).catch(() => {
+                  Alert.alert('No se pudo abrir el enlace', 'Intenta de nuevo más tarde.');
+                });
               }}>
                 <View style={styles.settingLeft}>
                   <Ionicons name="eye-off-outline" size={20} color={COLORS.text} />
                   <Text style={styles.settingLabel}>Política de privacidad</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.settingItem} onPress={() => {
+                Linking.openURL(ACCOUNT_DELETION_URL).catch(() => {
+                  Alert.alert('No se pudo abrir el enlace', 'Intenta de nuevo más tarde.');
+                });
+              }}>
+                <View style={styles.settingLeft}>
+                  <Ionicons name="trash-outline" size={20} color={COLORS.text} />
+                  <Text style={styles.settingLabel}>Eliminar cuenta y mis datos</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={COLORS.textLight} />
               </TouchableOpacity>
@@ -661,10 +675,6 @@ const ProfileScreen = () => {
                   answer: 'Absolutamente. Todos los comercios deben cumplir con estándares de seguridad alimentaria. La comida está fresca y es segura para el consumo, solo que no se vendió durante el día regular.'
                 },
                 {
-                  question: '¿Cómo puedo dejar una reseña?',
-                  answer: 'Después de recoger tu pedido, puedes calificar tu experiencia y dejar comentarios en la sección "Mis Pedidos". Esto ayuda a otros usuarios y a los comercios a mejorar.'
-                },
-                {
                   question: '¿Qué pasa si hay un problema con mi pedido?',
                   answer: 'Si tienes algún problema con tu pedido, contáctanos inmediatamente a través del chat en la app o por email. Nuestro equipo te ayudará a resolver cualquier inconveniente.'
                 }
@@ -700,21 +710,14 @@ const ProfileScreen = () => {
               <TouchableOpacity
                 style={styles.contactButton}
                 onPress={() => {
-                  Linking.openURL('mailto:admin@delicrunch.com?subject=Soporte%20Delicrunch&body=Hola%2C%20necesito%20ayuda%20con...');
+                  Linking.openURL('mailto:alonsovl.logos@gmail.com?subject=Soporte%20Delicrunch').catch(() => {
+                    Alert.alert('No se pudo abrir el correo', 'Intenta de nuevo más tarde.');
+                  });
                 }}
               >
                 <Ionicons name="mail" size={24} color={COLORS.white} />
-                <Text style={styles.contactButtonText}>admin@delicrunch.com</Text>
+                <Text style={styles.contactButtonText}>alonsovl.logos@gmail.com</Text>
               </TouchableOpacity>
-              
-              <View style={styles.contactInfo}>
-                <Text style={styles.contactInfoText}>
-                  Tiempo de respuesta: 24-48 horas
-                </Text>
-                <Text style={styles.contactInfoText}>
-                  Horario de atención: Lunes a Viernes 9:00 - 18:00
-                </Text>
-              </View>
             </View>
           </ScrollView>
         </SafeAreaView>

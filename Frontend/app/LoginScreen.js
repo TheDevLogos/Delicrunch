@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Image, ScrollView, KeyboardAvoidingView, TextInput, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import NeoButton from '../components/NeoButton';
-import api, { publicApi } from '../services/api';
+import { publicApi } from '../services/api';
 import logger from '../services/logger';
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '../src/constants/theme';
@@ -17,7 +16,7 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
 
-  // Función interna que realiza el login dado email y password (útil para quickLogin)
+  // Función interna que realiza el inicio de sesión con email y contraseña.
   const doLogin = async (emailToUse, passwordToUse) => {
     if (!emailToUse || !passwordToUse) {
       Alert.alert('⚠️ Error', 'Por favor, introduce tu email y contraseña.');
@@ -59,20 +58,6 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     await doLogin(email, password);
-  };
-
-  // Quick login helpers (solo visibles en desarrollo)
-  const quickLogin = async (preset) => {
-    const presets = {
-      comprador: { email: 'comprador@delicrunch.com', password: 'Password123' },
-      comercio: { email: 'comercio@delicrunch.com', password: 'Password123' },
-      admin: { email: 'admin@delicrunch.com', password: 'Password123' },
-    };
-    const creds = presets[preset];
-    if (!creds) return;
-    setEmail(creds.email);
-    setPassword(creds.password);
-    await doLogin(creds.email, creds.password);
   };
 
   return (
@@ -127,30 +112,6 @@ const LoginScreen = ({ navigation }) => {
                 iconName="rocket"
               />
             </View>
-
-            {/* Quick Login Buttons (dev only) */}
-            {__DEV__ && (
-              <View style={styles.quickLoginContainer}>
-                <Text style={styles.devNote}>🧪 Modo desarrollo: Inicia sesión rápido</Text>
-                <View style={styles.quickButtonsRow}>
-                  <TouchableOpacity onPress={() => quickLogin('comprador')} style={[styles.quickButton, styles.quickButtonBuyer]}>
-                    <Ionicons name="cart" size={16} color="#FFF" style={{marginBottom: 2}} />
-                    <Text style={styles.quickButtonText}>Comprador</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => quickLogin('comercio')} style={[styles.quickButton, styles.quickButtonSeller]}>
-                    <Ionicons name="storefront" size={16} color="#FFF" style={{marginBottom: 2}} />
-                    <Text style={styles.quickButtonText}>🌮 Taquería</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => quickLogin('admin')} style={[styles.quickButton, styles.quickButtonAdmin]}>
-                    <Ionicons name="shield-checkmark" size={16} color="#FFF" style={{marginBottom: 2}} />
-                    <Text style={styles.quickButtonText}>Admin</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.devCredentials}>
-                  🔐 Password: Password123
-                </Text>
-              </View>
-            )}
 
             {/* Forgot Password Link */}
             <TouchableOpacity 
@@ -284,56 +245,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#444',
     fontWeight: '600',
-  },
-
-  quickLoginContainer: {
-    marginTop: 0,
-    marginBottom: SPACING.xs,
-    padding: SPACING.sm,
-    borderRadius: BORDERS.radius.small,
-    backgroundColor: '#F0F8FF',
-    borderWidth: 1,
-    borderColor: '#E0E8F0',
-    borderStyle: 'dashed',
-  },
-  devNote: {
-    color: COLORS.text,
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  devCredentials: {
-    color: COLORS.muted,
-    fontSize: 11,
-    marginTop: SPACING.xs,
-    textAlign: 'center',
-  },
-  quickButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  quickButton: {
-    flex: 1,
-    marginHorizontal: 4,
-    paddingVertical: 10,
-    borderRadius: BORDERS.radius.small,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickButtonBuyer: {
-    backgroundColor: '#4CAF50', // Verde para comprador
-  },
-  quickButtonSeller: {
-    backgroundColor: '#FF9800', // Naranja para taquería
-  },
-  quickButtonAdmin: {
-    backgroundColor: '#2196F3', // Azul para admin
-  },
-  quickButtonText: {
-    color: COLORS.white,
-    fontWeight: '700',
-    fontSize: 12,
   },
 
   // FORM SECTION

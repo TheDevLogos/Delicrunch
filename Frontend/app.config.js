@@ -26,13 +26,19 @@ module.exports = ({ config }) => {
     package: "com.delicrunch.app",
     permissions: [
       "ACCESS_FINE_LOCATION",
-      "ACCESS_COARSE_LOCATION",
-      "RECEIVE_BOOT_COMPLETED",
-      "VIBRATE",
-      "WAKE_LOCK",
-      "POST_NOTIFICATIONS",
-      "SCHEDULE_EXACT_ALARM",
-      "USE_EXACT_ALARM"
+      "ACCESS_COARSE_LOCATION"
+    ],
+    // La app no usa alarmas ni notificaciones programadas. Estas pueden
+    // reaparecer por dependencias nativas, así que se excluyen del manifiesto.
+    blockedPermissions: [
+      "android.permission.SCHEDULE_EXACT_ALARM",
+      "android.permission.USE_EXACT_ALARM",
+      "android.permission.RECEIVE_BOOT_COMPLETED",
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.CAMERA",
+      "android.permission.RECORD_AUDIO",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE"
     ]
   };
   
