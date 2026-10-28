@@ -15,6 +15,7 @@
 - Exportación web de Expo: correcta.
 - Revisión de sintaxis de los controladores y rutas modificados: correcta.
 - No se creó un pedido real ni se validó una entrega real porque la conexión Supabase disponible no tiene acceso al proyecto de Delicrunch.
+- La vista previa de Vercel publicó el HTML con respuesta 200. La variable `EXPO_PUBLIC_API_URL` solo existe en producción; por ello la vista previa requiere una API de pruebas antes de probar reservas sin tocar datos reales.
 - La revisión de dependencias pasó de 43 a 18 avisos en la web y de 9 a 1 en la API mediante actualizaciones compatibles. Quedan 2 avisos altos en la web y 1 alto en la API; sus soluciones propuestas cambian versiones mayores y requieren una actualización separada.
 
 ## Antes de publicar
