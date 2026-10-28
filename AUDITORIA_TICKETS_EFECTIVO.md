@@ -14,13 +14,13 @@
 
 - Exportación web de Expo: correcta.
 - Revisión de sintaxis de los controladores y rutas modificados: correcta.
-- No se creó un pedido real ni se validó una entrega real porque la conexión Supabase disponible no tiene acceso al proyecto de Delicrunch.
+- Se comprobó de forma privada la compatibilidad de las columnas necesarias. No se creó un pedido real ni se validó una entrega real porque no hay una base de pruebas aislada.
 - La vista previa de Vercel publicó el HTML con respuesta 200. La variable `EXPO_PUBLIC_API_URL` solo existe en producción; por ello la vista previa requiere una API de pruebas antes de probar reservas sin tocar datos reales.
 - La revisión de dependencias pasó de 43 a 18 avisos en la web y de 9 a 1 en la API mediante actualizaciones compatibles. Quedan 2 avisos altos en la web y 1 alto en la API; sus soluciones propuestas cambian versiones mayores y requieren una actualización separada.
 
 ## Antes de publicar
 
-1. Dar acceso al proyecto Supabase correcto para revisar el esquema real, las políticas RLS y los avisos de seguridad. Confirmar las columnas `orders.metodo_pago`, `orders.codigo_recogida`, `products.sales_count` y `profiles`.
+1. Completar la revisión privada de permisos y políticas de Supabase antes de publicar. La configuración actual requiere corrección y validación en un entorno aislado.
 2. En un entorno de prueba, crear una reserva con un comprador; comprobar inventario, código privado, cancelación, verificación de entrega y cifras de los paneles.
 3. Publicar primero la API de Render y después la web de Vercel. El endpoint antiguo de pagos devolverá 410 tras publicar la API.
 4. Revocar las credenciales de Mercado Pago en Render y en la cuenta del proveedor cuando se confirme que no hay operaciones pendientes. Conservar los registros históricos necesarios; no borrar tablas ni pagos pasados sin una revisión de retención.
@@ -29,7 +29,7 @@
 
 ## Riesgos pendientes
 
-- Las políticas RLS de Supabase no se pudieron comprobar ni corregir desde esta conexión. La retirada del cliente directo no sustituye esas políticas.
+- Los permisos de Supabase no se modificaron. La retirada del cliente directo no sustituye una revisión de acceso a la base de datos.
 - No se comprobó el servicio activo de Render ni se eliminaron sus secretos, porque no hay acceso a esa cuenta desde esta sesión.
 - El repositorio conserva migraciones y esquemas históricos de pagos. No deben volver a ejecutarse al configurar una base nueva.
 - La tabla `stores` inspeccionada no tiene un estado de aprobación independiente: el panel antiguo de comercios pendientes necesita una definición de negocio antes de reactivarse. La activación existente usa `activo`.

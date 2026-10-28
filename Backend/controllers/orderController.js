@@ -354,11 +354,6 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
 
         // Si la orden se completa (recogido), actualizar métricas si existen funciones
         if (estado === 'recogido' && order.estado !== 'recogido') {
-            await client.query(
-                `UPDATE products p SET sales_count = COALESCE(p.sales_count, 0) + oi.cantidad
-                 FROM order_items oi WHERE oi.order_id = $1 AND oi.product_id = p.id`,
-                [id]
-            );
             const delivered = await client.query(
                 `SELECT oi.cantidad, p.categoria, p.precio_original, oi.precio_unitario
                  FROM order_items oi JOIN products p ON p.id = oi.product_id
