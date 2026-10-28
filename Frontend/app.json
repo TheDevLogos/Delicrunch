@@ -61,12 +61,10 @@
           }
         }
       ],
-      "expo-font",
-      "expo-web-browser"
+      "expo-font"
     ],
     "extra": {
       "apiUrl": "https://delicrunch.onrender.com/api",
-      "mercadoPagoPublicKey": "APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa",
       "eas": {
         "projectId": "266fa507-5eba-4cf8-b44f-0aa42d08a694"
       }

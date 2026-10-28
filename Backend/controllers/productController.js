@@ -142,7 +142,7 @@ exports.getAllAvailableProducts = asyncHandler(async (req, res, next) => {
             s.telefono
         FROM products p
         LEFT JOIN stores s ON  p.store_id = s.id
-        WHERE p.cantidad_disponible > 0 AND p.activo = true
+        WHERE p.cantidad_disponible > 0 AND p.activo = true AND s.activo = true
         ORDER BY p.created_at DESC`
     );
     res.json(products.rows);

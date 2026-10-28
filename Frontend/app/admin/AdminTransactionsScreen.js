@@ -43,26 +43,19 @@ const AdminTransactionsScreen = () => {
     try {
       setIsLoading(true);
       
-      // Cargar pedidos (transacciones)
-      let allOrders = [];
-      try {
-        const response = await api.get('/admin/transactions');
-        allOrders = response.data || [];
-      } catch (e) {
-        // Datos de demostración
-        allOrders = generateDemoTransactions();
-      }
+      const response = await api.get('/admin/transactions');
+      const allOrders = response.data || [];
 
       // Mapear pedidos a transacciones
       const transactionsData = allOrders.map(order => ({
         id: order.id,
-        tipo: 'compra',
+        tipo: 'reserva',
         monto: parseFloat(order.total || 0),
-        estado: order.payment_status || order.estado || 'completado',
+        estado: order.estado || 'pendiente',
         fecha: order.created_at || new Date().toISOString(),
         usuario: order.buyer_name || order.usuario_nombre || 'Usuario',
         comercio: order.store_name || order.comercio_nombre || 'Comercio',
-        metodo_pago: order.payment_method || 'Tarjeta',
+        metodo_pago: order.metodo_pago === 'efectivo' ? 'Efectivo en comercio' : (order.metodo_pago || 'Sin dato'),
         productos: order.items?.length || 1,
       }));
 
@@ -74,30 +67,6 @@ const AdminTransactionsScreen = () => {
       setIsLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const generateDemoTransactions = () => {
-    const now = new Date();
-    const transactions = [];
-    
-    // Generar transacciones de demostración
-    for (let i = 0; i < 50; i++) {
-      const daysAgo = Math.floor(Math.random() * 365);
-      const date = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
-      
-      transactions.push({
-        id: i + 1,
-        total: (Math.random() * 500 + 50).toFixed(2),
-        payment_status: Math.random() > 0.1 ? 'completado' : 'fallido',
-        created_at: date.toISOString(),
-        buyer_name: ['Ana García', 'Carlos López', 'María Pérez', 'Juan Rodríguez', 'Laura Martínez'][Math.floor(Math.random() * 5)],
-        store_name: ['La Casa del Pan', 'Frutería El Sol', 'Café Express', 'Green Market', 'Sushi Roll'][Math.floor(Math.random() * 5)],
-        payment_method: ['Tarjeta', 'Efectivo', 'PayPal'][Math.floor(Math.random() * 3)],
-        items: [{ id: 1 }, { id: 2 }].slice(0, Math.floor(Math.random() * 3) + 1),
-      });
-    }
-    
-    return transactions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   };
 
   const applyPeriodFilter = (transactionsList, period, query) => {
@@ -134,7 +103,7 @@ const AdminTransactionsScreen = () => {
     }
 
     // Calcular métricas
-    const completedTransactions = filtered.filter(t => t.estado === 'completado');
+    const completedTransactions = filtered.filter(t => t.estado === 'recogido');
     const totalAmount = completedTransactions.reduce((sum, t) => sum + t.monto, 0);
     const avgAmount = completedTransactions.length > 0 ? totalAmount / completedTransactions.length : 0;
     const maxAmount = completedTransactions.length > 0 ? Math.max(...completedTransactions.map(t => t.monto)) : 0;
@@ -193,8 +162,10 @@ const AdminTransactionsScreen = () => {
 
   const getStatusStyle = (status) => {
     switch (status) {
-      case 'completado':
-        return { color: '#34C759', bg: '#E8F5E9', icon: 'checkmark-circle', label: 'Completado' };
+      case 'recogido':
+        return { color: '#34C759', bg: '#E8F5E9', icon: 'checkmark-circle', label: 'Entregado' };
+      case 'confirmado':
+        return { color: '#007AFF', bg: '#E8F0FF', icon: 'ticket', label: 'Reservado' };
       case 'pendiente':
         return { color: '#FF9500', bg: '#FFF3E0', icon: 'time', label: 'Pendiente' };
       case 'fallido':
@@ -283,7 +254,7 @@ const AdminTransactionsScreen = () => {
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Cargando transacciones...</Text>
+          <Text style={styles.loadingText}>Cargando tickets...</Text>
         </View>
       </SafeAreaView>
     );
@@ -297,8 +268,8 @@ const AdminTransactionsScreen = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Transacciones</Text>
-        <Text style={styles.headerSubtitle}>Historial de pagos y ventas</Text>
+        <Text style={styles.headerTitle}>Tickets</Text>
+        <Text style={styles.headerSubtitle}>Reservas y entregas. Los pagos se realizan en el comercio.</Text>
       </View>
 
       {/* Period Tabs */}
@@ -334,7 +305,7 @@ const AdminTransactionsScreen = () => {
             <Ionicons name="cash" size={18} color="#34C759" />
           </View>
           <Text style={styles.metricValue}>{formatCurrency(periodMetrics.total)}</Text>
-          <Text style={styles.metricLabel}>Total</Text>
+          <Text style={styles.metricLabel}>Valor entregado</Text>
         </View>
         
         <View style={styles.metricCard}>
@@ -342,7 +313,7 @@ const AdminTransactionsScreen = () => {
             <Ionicons name="receipt" size={18} color="#007AFF" />
           </View>
           <Text style={styles.metricValue}>{periodMetrics.count}</Text>
-          <Text style={styles.metricLabel}>Transacciones</Text>
+          <Text style={styles.metricLabel}>Tickets</Text>
         </View>
         
         <View style={styles.metricCard}>

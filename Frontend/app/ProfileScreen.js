@@ -22,7 +22,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ReadOnlyStarRating from '../components/ReadOnlyStarRating';
-import MercadoPagoOnboarding from '../components/MercadoPagoOnboarding';
 import PromotionalOnboardingModal from '../components/PromotionalOnboardingModal';
 import { COLORS, SPACING, SHADOWS, LAYOUT } from '../src/constants/theme';
 import { getAvatarById } from '../src/constants/profileAvatars';
@@ -167,13 +166,6 @@ const ProfileScreen = () => {
         onPress: () => navigation.navigate('MyReviews'),
         color: COLORS.primary,
       });
-      options.push({
-        icon: 'card-outline',
-        label: 'Métodos de Pago',
-        subtitle: 'Gestiona tus tarjetas y MercadoPago',
-        onPress: () => navigation.navigate('ManageCards'),
-        color: COLORS.primary,
-      });
     }
     
     // Opciones para COMERCIOS
@@ -200,13 +192,6 @@ const ProfileScreen = () => {
         color: COLORS.primary,
       });
       options.push({
-        icon: 'wallet-outline',
-        label: 'Cuentas para Cobrar',
-        subtitle: 'Configura Mercado Pago',
-        onPress: () => navigation.navigate('MerchantPaymentSettings'),
-        color: COLORS.primary,
-      });
-      options.push({
         icon: 'analytics-outline',
         label: 'Estadísticas',
         subtitle: 'Rendimiento de tu tienda',
@@ -229,20 +214,6 @@ const ProfileScreen = () => {
         label: 'Mis Reseñas',
         subtitle: 'Opiniones que has dejado',
         onPress: () => navigation.navigate('MyReviews'),
-        color: COLORS.primary,
-      });
-      options.push({
-        icon: 'card-outline',
-        label: 'Métodos de Pago',
-        subtitle: 'Gestiona tus tarjetas',
-        onPress: () => navigation.navigate('ManageCards'),
-        color: COLORS.primary,
-      });
-      options.push({
-        icon: 'wallet-outline',
-        label: 'Cuentas para Cobrar',
-        subtitle: 'Configura Mercado Pago',
-        onPress: () => navigation.navigate('MerchantPaymentSettings'),
         color: COLORS.primary,
       });
     }
@@ -395,85 +366,7 @@ const ProfileScreen = () => {
           <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
         </TouchableOpacity>
 
-        {/* Mercado Pago Onboarding - para comercios */}
-        {isComercio && (
-          <View style={styles.stripeSection}>
-            <View style={styles.mercadoPagoHeader}>
-              <MaterialCommunityIcons name="cash-multiple" size={24} color={COLORS.primary} />
-              <Text style={styles.mercadoPagoTitle}>Configuración de Cobros</Text>
-            </View>
-            <MercadoPagoOnboarding />
-          </View>
-        )}
-
-        {/* Información de pagos para compradores */}
-        {isComprador && (
-          <View style={styles.mercadoPagoInfoSection}>
-            <View style={styles.mercadoPagoInfoHeader}>
-              <MaterialCommunityIcons name="credit-card-check-outline" size={24} color={COLORS.primary} />
-              <Text style={styles.mercadoPagoInfoTitle}>Métodos de Pago</Text>
-            </View>
-            
-            <View style={styles.mercadoPagoFeaturesList}>
-              <View style={styles.mercadoPagoFeature}>
-                <Ionicons name="shield-checkmark" size={20} color={COLORS.success} />
-                <Text style={styles.mercadoPagoFeatureText}>Pago 100% seguro con MercadoPago</Text>
-              </View>
-              <View style={styles.mercadoPagoFeature}>
-                <Ionicons name="card-outline" size={20} color={COLORS.success} />
-                <Text style={styles.mercadoPagoFeatureText}>Tarjetas de crédito y débito</Text>
-              </View>
-              <View style={styles.mercadoPagoFeature}>
-                <Ionicons name="wallet-outline" size={20} color={COLORS.success} />
-                <Text style={styles.mercadoPagoFeatureText}>Pagos con OXXO y otros métodos</Text>
-              </View>
-              <View style={styles.mercadoPagoFeature}>
-                <Ionicons name="lock-closed" size={20} color={COLORS.success} />
-                <Text style={styles.mercadoPagoFeatureText}>Protección al comprador</Text>
-              </View>
-            </View>
-            
-            <Text style={styles.mercadoPagoInfoDescription}>
-              Al completar tu primera compra, tus datos de pago quedarán guardados de forma segura 
-              para futuras transacciones más rápidas. MercadoPago protege tu información financiera 
-              con encriptación de nivel bancario.
-            </Text>
-            
-            <TouchableOpacity
-              style={styles.mercadoPagoLearnMoreBtn}
-              onPress={() => {
-                Alert.alert(
-                  'Pagos con MercadoPago',
-                  '🔒 Seguridad Garantizada:\n\n' +
-                  '• Encriptación SSL de 256 bits\n' +
-                  '• Protocolos PCI DSS Level 1\n' +
-                  '• Protección contra fraudes\n' +
-                  '• Soporte 24/7\n\n' +
-                  '💳 Métodos de pago aceptados:\n\n' +
-                  '• Tarjetas de crédito (Visa, Mastercard, AMEX)\n' +
-                  '• Tarjetas de débito\n' +
-                  '• OXXO y otros comercios\n' +
-                  '• Transferencias bancarias\n' +
-                  '• Saldo en MercadoPago\n\n' +
-                  '✅ Primera compra:\n' +
-                  'Al realizar tu primer pago, tus datos quedarán guardados de forma segura ' +
-                  'para que las siguientes compras sean más rápidas y convenientes.',
-                  [
-                    { text: 'Cerrar', style: 'cancel' },
-                    { 
-                      text: 'Más información', 
-                      onPress: () => Linking.openURL('https://www.mercadopago.com.mx/developers/es/docs/your-integrations/credentials')
-                    }
-                  ]
-                );
-              }}
-            >
-              <Text style={styles.mercadoPagoLearnMoreText}>Más información sobre pagos</Text>
-              <Ionicons name="arrow-forward" size={16} color={COLORS.primary} />
-            </TouchableOpacity>
-          </View>
-        )}
-
+        {/* Los pagos se realizan en efectivo en el comercio. */}
         {/* Panel de administración para admins */}
         {isAdmin && (
           <View style={styles.adminSection}>
@@ -484,13 +377,6 @@ const ProfileScreen = () => {
             <Text style={styles.adminText}>
               Tienes acceso completo a todas las funciones de la plataforma.
             </Text>
-            <TouchableOpacity 
-              style={styles.adminButton}
-              onPress={() => navigation.navigate('MerchantPaymentSettings')}
-            >
-              <MaterialCommunityIcons name="cog" size={20} color={COLORS.white} />
-              <Text style={styles.adminButtonText}>Configurar MercadoPago</Text>
-            </TouchableOpacity>
           </View>
         )}
 
@@ -744,7 +630,7 @@ const ProfileScreen = () => {
               {[
                 {
                   question: '¿Cómo funciona Delicrunch?',
-                  answer: 'Delicrunch te permite rescatar comida de restaurantes y comercios que de otra manera se desperdiciaría. Simplemente busca packs sorpresa cerca de ti, realiza tu compra y recógela en el horario indicado.'
+                  answer: 'Busca un pack, reserva en la app y muestra el código del ticket al recogerlo. Paga en efectivo directamente en el comercio.'
                 },
                 {
                   question: '¿Qué es un pack sorpresa?',
@@ -752,15 +638,15 @@ const ProfileScreen = () => {
                 },
                 {
                   question: '¿Cómo puedo pagar mi pedido?',
-                  answer: 'Puedes pagar con tarjeta de crédito, débito, OXXO y más métodos directamente desde la app. Todos los pagos son procesados de forma segura a través de Mercado Pago.'
+                  answer: 'Paga en efectivo directamente en el comercio cuando recojas tu pedido. Delicrunch no cobra dentro de la app.'
                 },
                 {
                   question: '¿Puedo cancelar mi pedido?',
-                  answer: 'Puedes cancelar tu pedido hasta 2 horas antes del horario de recogida sin penalización. Después de ese tiempo, se aplicará una política de cancelación.'
+                  answer: 'Contacta al comercio si necesitas cancelar una reserva. La app todavía no ofrece cancelación directa al comprador.'
                 },
                 {
                   question: '¿Qué hago si no puedo recoger mi pedido?',
-                  answer: 'Si no puedes recoger tu pedido, contáctanos lo antes posible. En casos excepcionales, podemos ayudarte a reprogramar o reembolsar tu compra.'
+                  answer: 'Contacta al comercio lo antes posible si no puedes recoger tu pedido.'
                 },
                 {
                   question: '¿Cómo funcionan los puntos y recompensas?',
@@ -768,7 +654,7 @@ const ProfileScreen = () => {
                 },
                 {
                   question: '¿Puedo registrar mi negocio en Delicrunch?',
-                  answer: 'Sí, los comercios pueden registrarse para vender sus excedentes de comida. Necesitas completar el proceso de verificación y configurar tu cuenta de pagos.'
+                  answer: 'Sí, los comercios pueden registrarse para vender sus excedentes de comida. Necesitas completar el proceso de verificación del comercio.'
                 },
                 {
                   question: '¿Es seguro comer la comida de los packs?',

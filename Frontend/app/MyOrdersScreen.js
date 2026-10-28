@@ -25,8 +25,10 @@ const STATUS_CONFIG = {
   pendiente: { color: '#FF9500', icon: 'time-outline', label: 'Pendiente' },
   confirmado: { color: '#007AFF', icon: 'checkmark-circle-outline', label: 'Confirmado' },
   preparando: { color: '#5856D6', icon: 'restaurant-outline', label: 'Preparando' },
+  en_preparacion: { color: '#5856D6', icon: 'restaurant-outline', label: 'Preparando' },
   listo: { color: COLORS.primary, icon: 'bag-check-outline', label: 'Listo para recoger' },
   entregado: { color: '#34C759', icon: 'checkmark-done-circle', label: 'Entregado' },
+  recogido: { color: '#34C759', icon: 'checkmark-done-circle', label: 'Entregado' },
   cancelado: { color: '#FF3B30', icon: 'close-circle-outline', label: 'Cancelado' },
 };
 
@@ -89,13 +91,15 @@ const OrderItem = ({ item }) => {
       {/* Footer con precio y acción */}
       <View style={styles.orderFooter}>
         <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Total pagado</Text>
+          <Text style={styles.priceLabel}>
+            {item.metodo_pago === 'efectivo' ? 'Pagar en efectivo en el comercio' : 'Total del pedido'}
+          </Text>
           <Text style={styles.priceValue}>
             ${formatPrice(item.total || item.precio_total || 0)}
           </Text>
         </View>
         
-        {statusKey === 'entregado' && !item.tiene_resena && (
+        {(statusKey === 'entregado' || statusKey === 'recogido') && !item.tiene_resena && (
           <TouchableOpacity 
             style={styles.reviewButton}
             onPress={() => navigation.navigate('LeaveReview', { 

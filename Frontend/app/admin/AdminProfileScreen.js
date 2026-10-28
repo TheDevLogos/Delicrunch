@@ -112,7 +112,7 @@ const AdminProfileScreen = () => {
             { icon: 'shield-checkmark-outline', label: 'Dashboard Admin', subtitle: 'Panel principal', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminDashboard' }), color: '#6366f1' },
             { icon: 'storefront-outline', label: 'Gestionar Comercios', subtitle: 'Ver y moderar tiendas', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminStores' }), color: '#8b5cf6' },
             { icon: 'chatbubbles-outline', label: 'Moderar Reseñas', subtitle: 'Aprobar/eliminar reviews', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminReviews' }), color: '#ec4899' },
-            { icon: 'card-outline', label: 'Transacciones', subtitle: 'Historial de pagos', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminTransactions' }), color: '#14b8a6' },
+            { icon: 'receipt-outline', label: 'Tickets', subtitle: 'Historial de reservas', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminTransactions' }), color: '#14b8a6' },
             { icon: 'bar-chart-outline', label: 'Métricas', subtitle: 'Estadísticas globales', onPress: () => navigation.navigate('AdminMetrics'), color: '#f59e0b' },
           ]
         },
@@ -133,7 +133,6 @@ const AdminProfileScreen = () => {
             { icon: 'heart-outline', label: 'Mis Favoritos', subtitle: 'Tiendas guardadas', onPress: () => navigation.navigate('Favoritos'), color: '#ef4444' },
             { icon: 'bag-handle-outline', label: 'Mis Pedidos', subtitle: 'Historial de compras', onPress: () => navigation.navigate('MyOrders'), color: '#8b5cf6' },
             { icon: 'star-outline', label: 'Mis Reseñas', subtitle: 'Opiniones dejadas', onPress: () => navigation.navigate('MyReviews'), color: '#f59e0b' },
-            { icon: 'card-outline', label: 'Métodos de Pago', subtitle: 'Gestionar tarjetas', onPress: () => navigation.navigate('PaymentMethods'), color: '#14b8a6' },
             { icon: 'trophy-outline', label: 'Recompensas', subtitle: 'Puntos y premios', onPress: () => navigation.navigate('Recompensas'), color: '#eab308' },
           ]
         }

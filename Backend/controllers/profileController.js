@@ -149,7 +149,7 @@ exports.updateStoreProfile = asyncHandler(async (req, res, next) => {
         updatedStore = await pool.query(
             `INSERT INTO stores (user_id, nombre_comercio, direccion, descripcion, horario, activo)
              VALUES ($1, $2, $3, $4, $5, true)
-             RETURNING *`,
+             RETURNING id, user_id, nombre_comercio, direccion, descripcion, horario, activo, updated_at`,
             [userId, nombre_comercio, direccion, descripcion, horario_recogida || horario]
         );
     } else {
@@ -162,7 +162,7 @@ exports.updateStoreProfile = asyncHandler(async (req, res, next) => {
                 horario = COALESCE($4, horario),
                 updated_at = NOW()
              WHERE user_id = $5 
-             RETURNING *`,
+             RETURNING id, user_id, nombre_comercio, direccion, descripcion, horario, activo, updated_at`,
             [nombre_comercio, direccion, descripcion, horario_recogida || horario, userId]
         );
     }

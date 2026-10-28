@@ -295,9 +295,7 @@ const AdminStoresScreen = () => {
   const handleApproveStore = async (storeId) => {
     try {
       setActionLoading(true);
-      await api.put('/admin/stores/' + storeId + '/approve').catch(() => {
-        console.log('Simulating store approval:', storeId);
-      });
+      await api.put('/admin/stores/' + storeId + '/approve');
       
       const updatedStores = stores.map(s => 
         s.id === storeId ? { ...s, estado: 'activo', activo: true } : s
@@ -328,9 +326,7 @@ const AdminStoresScreen = () => {
           onPress: async () => {
             try {
               setActionLoading(true);
-              await api.put('/admin/stores/' + storeId + '/toggle', { activo: newStatus }).catch(() => {
-                console.log('Simulating store toggle:', storeId, newStatus);
-              });
+              await api.put('/admin/stores/' + storeId + '/toggle', { activo: newStatus });
               
               const updatedStores = stores.map(s => 
                 s.id === storeId ? { ...s, activo: newStatus } : s
@@ -436,7 +432,7 @@ const AdminStoresScreen = () => {
         <Text style={styles.summaryLabel}>Total Pedidos</Text>
       </View>
       
-      {/* Ingresos Totales */}
+      {/* Valor de tickets entregados */}
       <View style={[styles.summaryCard, { backgroundColor: '#E8F5E9' }]}>
         <View style={[styles.summaryIconContainer, { backgroundColor: '#4CAF50' }]}>
           <Ionicons name="cash" size={18} color="#fff" />
@@ -444,7 +440,7 @@ const AdminStoresScreen = () => {
         <Text style={styles.summaryValue}>
           ${(stats.totalRevenueRaw / 1000).toFixed(1)}k
         </Text>
-        <Text style={styles.summaryLabel}>Ingresos Totales</Text>
+        <Text style={styles.summaryLabel}>Valor de tickets entregados</Text>
       </View>
 
       {/* Promedio Pedidos/Tienda */}
@@ -480,7 +476,7 @@ const AdminStoresScreen = () => {
     {/* Sección de ingresos semanales y top comercios */}
     <View style={styles.revenueSection}>
       <View style={styles.wowBox}>
-        <Text style={styles.wowLabel}>Ingresos esta semana</Text>
+        <Text style={styles.wowLabel}>Tickets entregados esta semana</Text>
         <Text style={styles.wowValue}>
           ${stats.weekThis > 0 ? (stats.weekThis / 1000).toFixed(1) + 'k' : '0'}
         </Text>
@@ -501,7 +497,7 @@ const AdminStoresScreen = () => {
       </View>
 
       <View style={styles.topStoresBox}>
-        <Text style={styles.topStoresTitle}>🏆 Top 5 Comercios por Ingresos</Text>
+        <Text style={styles.topStoresTitle}>🏆 Top 5 Comercios por tickets entregados</Text>
         {stats.topStoresByRevenue && stats.topStoresByRevenue.length > 0 ? (
           stats.topStoresByRevenue.map((s, idx) => (
             <View key={s.id || idx} style={styles.topStoreRow}>
@@ -678,7 +674,7 @@ const AdminStoresScreen = () => {
             <View style={styles.quickStatsRow}>
               <Text style={styles.quickStat}>Pedidos: <Text style={styles.quickStatValue}>{store.total_orders || 0}</Text></Text>
               <Text style={styles.quickStat}>Productos: <Text style={styles.quickStatValue}>{store.total_productos || 0}</Text></Text>
-              <Text style={styles.quickStat}>Ingresos: <Text style={styles.quickStatValue}>${((store.total_revenue||0)/1000).toFixed(1)}k</Text></Text>
+              <Text style={styles.quickStat}>Tickets: <Text style={styles.quickStatValue}>${((store.total_revenue||0)/1000).toFixed(1)}k</Text></Text>
             </View>
 
             <View style={styles.quickActionRow}>
@@ -916,7 +912,7 @@ const AdminStoresScreen = () => {
                   <Text style={styles.modalStatValue}>
                     {'$' + ((selectedStore.total_revenue || 0) / 1000).toFixed(1) + 'k'}
                   </Text>
-                  <Text style={styles.modalStatLabel}>Ingresos</Text>
+                  <Text style={styles.modalStatLabel}>Valor entregado</Text>
                 </View>
               </View>
 

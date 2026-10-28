@@ -76,11 +76,9 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
 
     // Obtener datos de la tienda usando columnas del esquema actual
     const storeResult = await pool.query(`
-        SELECT s.id, s.user_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
-               s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url,
-               u.nombre AS owner_nombre, u.email AS owner_email
+        SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
+               s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url
         FROM stores s
-        LEFT JOIN users u ON s.user_id = u.id
         WHERE s.id = $1
     `, [id]);
 
@@ -161,7 +159,7 @@ exports.updateStoreCover = asyncHandler(async (req, res, next) => {
 
     // Actualizar cover_url
     const updateResult = await pool.query(
-        'UPDATE stores SET cover_url = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        'UPDATE stores SET cover_url = $1, updated_at = NOW() WHERE id = $2 RETURNING id, nombre_comercio, cover_url, updated_at',
         [cover_url, storeId]
     );
 

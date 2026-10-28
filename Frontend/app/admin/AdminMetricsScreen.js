@@ -58,26 +58,22 @@ const AdminMetricsScreen = () => {
       setIsLoading(true);
 
       // Cargar datos base
-      const [storesRes, productsRes] = await Promise.all([
+      const [storesRes, productsRes, ordersRes, usersRes] = await Promise.all([
         api.get('/stores').catch(() => ({ data: [] })),
         api.get('/products').catch(() => ({ data: [] })),
+        api.get('/admin/transactions'),
+        api.get('/admin/users'),
       ]);
 
-      const stores = storesRes.data || [];
+      const stores = Array.isArray(storesRes.data) ? storesRes.data : (storesRes.data?.data || []);
       const products = productsRes.data || [];
 
-      // Cargar pedidos
-      let orders = [];
-      try {
-        const ordersRes = await api.get('/orders/all');
-        orders = ordersRes.data || [];
-      } catch (e) {
-        orders = generateDemoOrders();
-      }
+      const orders = ordersRes.data || [];
+      const users = usersRes.data || [];
 
       // Calcular métricas generales
-      const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
-      const completedOrders = orders.filter(o => o.estado !== 'cancelado');
+      const completedOrders = orders.filter(o => o.estado === 'recogido');
+      const totalRevenue = completedOrders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
       const avgOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
 
       // Calcular crecimiento (comparar con período anterior - demo)
@@ -93,8 +89,8 @@ const AdminMetricsScreen = () => {
         return date.getMonth() === lastMonthDate.getMonth() && date.getFullYear() === lastMonthDate.getFullYear();
       });
       
-      const thisMonthRevenue = thisMonth.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
-      const lastMonthRevenue = lastMonth.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+      const thisMonthRevenue = thisMonth.filter(o => o.estado === 'recogido').reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+      const lastMonthRevenue = lastMonth.filter(o => o.estado === 'recogido').reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
       const growthRate = lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
 
       setGeneralMetrics({
@@ -102,9 +98,9 @@ const AdminMetricsScreen = () => {
         totalOrders: orders.length,
         totalProducts: products.length,
         totalStores: stores.length,
-        totalUsers: Math.floor(orders.length * 0.7), // Aproximación
+        totalUsers: users.length,
         avgOrderValue,
-        conversionRate: 3.2, // Demo
+        conversionRate: orders.length ? (completedOrders.length / orders.length) * 100 : 0,
         growthRate,
       });
 
@@ -126,7 +122,7 @@ const AdminMetricsScreen = () => {
           const city = store.ciudad || 'Sin ciudad';
           if (citiesMap[city]) {
             citiesMap[city].orders++;
-            citiesMap[city].revenue += parseFloat(order.total || 0);
+            if (order.estado === 'recogido') citiesMap[city].revenue += parseFloat(order.total || 0);
           }
         }
       });
@@ -139,17 +135,17 @@ const AdminMetricsScreen = () => {
       // Calcular métricas por comercio
       const storeMetricsArray = stores.map(store => {
         const storeOrders = orders.filter(o => o.store_id === store.id);
-        const storeRevenue = storeOrders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+        const storeRevenue = storeOrders.filter(o => o.estado === 'recogido').reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
         const storeProducts = products.filter(p => p.store_id === store.id).length;
 
         return {
           id: store.id,
-          nombre: store.nombre,
+          nombre: store.nombre_comercio || store.nombre,
           ciudad: store.ciudad || 'Sin ciudad',
           productos: store.total_productos || storeProducts,
           ordenes: storeOrders.length,
           revenue: storeRevenue,
-          rating: store.rating || Math.random() * 2 + 3, // Demo
+          rating: Number(store.rating || 0),
           activo: store.activo !== false,
         };
       }).sort((a, b) => b.revenue - a.revenue);
@@ -166,28 +162,21 @@ const AdminMetricsScreen = () => {
         });
         last7Days.push({
           day: date.toLocaleDateString('es-MX', { weekday: 'short' }),
-          sales: dayOrders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0),
+          sales: dayOrders.filter(o => o.estado === 'recogido').reduce((sum, o) => sum + parseFloat(o.total || 0), 0),
           orders: dayOrders.length,
         });
       }
 
-      setTrends({
-        dailySales: last7Days,
-        topCategories: [
-          { name: 'Panadería', percentage: 35 },
-          { name: 'Frutas', percentage: 25 },
-          { name: 'Comida preparada', percentage: 20 },
-          { name: 'Lácteos', percentage: 12 },
-          { name: 'Otros', percentage: 8 },
-        ],
-        peakHours: [
-          { hour: '12:00', orders: 45 },
-          { hour: '13:00', orders: 62 },
-          { hour: '18:00', orders: 58 },
-          { hour: '19:00', orders: 71 },
-          { hour: '20:00', orders: 55 },
-        ],
+      const hourCounts = new Map();
+      orders.forEach(order => {
+        const hour = new Date(order.created_at).getHours();
+        if (!Number.isNaN(hour)) hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
       });
+      const peakHours = [...hourCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([hour, count]) => ({ hour: `${String(hour).padStart(2, '0')}:00`, orders: count }));
+      setTrends({ dailySales: last7Days, topCategories: [], peakHours });
 
     } catch (error) {
       console.error('Error loading metrics:', error);
@@ -195,26 +184,6 @@ const AdminMetricsScreen = () => {
       setIsLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const generateDemoOrders = () => {
-    const orders = [];
-    const now = new Date();
-    
-    for (let i = 0; i < 100; i++) {
-      const daysAgo = Math.floor(Math.random() * 60);
-      const date = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
-      
-      orders.push({
-        id: i + 1,
-        total: (Math.random() * 400 + 50).toFixed(2),
-        estado: Math.random() > 0.1 ? 'completado' : 'cancelado',
-        created_at: date.toISOString(),
-        store_id: Math.floor(Math.random() * 10) + 1,
-      });
-    }
-    
-    return orders;
   };
 
   useFocusEffect(
@@ -247,7 +216,7 @@ const AdminMetricsScreen = () => {
             <Ionicons name="cash" size={28} color="#34C759" />
           </View>
           <Text style={styles.kpiValue}>{formatCurrency(generalMetrics.totalRevenue)}</Text>
-          <Text style={styles.kpiLabel}>Ingresos Totales</Text>
+          <Text style={styles.kpiLabel}>Valor de tickets entregados</Text>
           <View style={styles.kpiGrowth}>
             <Ionicons 
               name={generalMetrics.growthRate >= 0 ? 'trending-up' : 'trending-down'} 
@@ -300,7 +269,7 @@ const AdminMetricsScreen = () => {
 
       {/* Sales Trend Chart (simplified) */}
       <View style={styles.chartSection}>
-        <Text style={styles.sectionTitle}>Ventas Últimos 7 Días</Text>
+        <Text style={styles.sectionTitle}>Tickets entregados en 7 días</Text>
         <View style={styles.barChart}>
           {trends.dailySales.map((day, index) => {
             const maxSales = Math.max(...trends.dailySales.map(d => d.sales), 1);
@@ -321,7 +290,8 @@ const AdminMetricsScreen = () => {
 
       {/* Top Categories */}
       <View style={styles.chartSection}>
-        <Text style={styles.sectionTitle}>Categorías Más Vendidas</Text>
+        <Text style={styles.sectionTitle}>Categorías de tickets</Text>
+        {trends.topCategories.length === 0 && <Text>Sin desglose por categoría disponible.</Text>}
         {trends.topCategories.map((category, index) => (
           <View key={index} style={styles.categoryRow}>
             <View style={styles.categoryInfo}>
@@ -401,7 +371,7 @@ const AdminMetricsScreen = () => {
 
   const renderStoresTab = () => (
     <View style={styles.tabContent}>
-      <Text style={styles.sectionTitle}>Top Comercios por Ventas</Text>
+      <Text style={styles.sectionTitle}>Comercios por valor de tickets</Text>
       
       {storeMetrics.length > 0 ? (
         storeMetrics.slice(0, 20).map((store, index) => (
@@ -433,7 +403,7 @@ const AdminMetricsScreen = () => {
             <View style={styles.storeMetrics}>
               <View style={styles.storeMetric}>
                 <Text style={styles.storeMetricValue}>{formatCurrency(store.revenue)}</Text>
-                <Text style={styles.storeMetricLabel}>Ventas</Text>
+                <Text style={styles.storeMetricLabel}>Valor tickets</Text>
               </View>
               <View style={styles.storeMetric}>
                 <Text style={styles.storeMetricValue}>{store.ordenes}</Text>

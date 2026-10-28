@@ -19,6 +19,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../services/api';
+import PickupVerificationModal from '../components/PickupVerificationModal';
 
 // TGTG Design System
 const COLORS = {
@@ -129,12 +130,12 @@ const OrderItem = ({ item, onUpdateStatus, onPress }) => {
         <Text style={styles.priceValue}>${precio.toFixed(2)} MXN</Text>
       </View>
 
-      {/* Código de recogida prominente */}
+      {/* El código solo lo conoce el cliente hasta la entrega */}
       <View style={styles.pickupCodeContainer}>
         <Ionicons name="key-outline" size={20} color={COLORS.primary} />
         <View style={styles.pickupCodeContent}>
           <Text style={styles.pickupCodeLabel}>Código de recogida</Text>
-          <Text style={styles.pickupCode}>{item.codigo_recogida}</Text>
+          <Text style={styles.pickupCode}>Solicitar al cliente</Text>
         </View>
       </View>
 
@@ -195,7 +196,7 @@ const OrderItem = ({ item, onUpdateStatus, onPress }) => {
           {isReady && (
             <TouchableOpacity 
               style={[styles.actionButton, styles.deliverButton]}
-              onPress={() => onUpdateStatus(item.id, 'recogido')}
+              onPress={() => onPress(item)}
             >
               <Ionicons name="checkmark-done" size={18} color={COLORS.background} />
               <Text style={styles.actionButtonText}>Marcar entregado</Text>
@@ -214,6 +215,7 @@ const MerchantOrdersScreen = ({ navigation }) => {
   const [filter, setFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [pickupOrderId, setPickupOrderId] = useState(null);
   const [statsPeriod, setStatsPeriod] = useState('today'); // today, week, month, year
 
   // Mapeo de estados frontend -> backend
@@ -407,7 +409,7 @@ const MerchantOrdersScreen = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalTitle}>Pedido #{selectedOrder.id}</Text>
-                <Text style={styles.modalSubtitle}>{selectedOrder.codigo_recogida}</Text>
+                <Text style={styles.modalSubtitle}>Código disponible en el ticket del cliente</Text>
               </View>
               <TouchableOpacity onPress={closeOrderModal} style={styles.modalCloseButton}>
                 <Ionicons name="close" size={24} color={COLORS.text} />
@@ -497,12 +499,12 @@ const MerchantOrdersScreen = ({ navigation }) => {
               {/* Método de Pago */}
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>
-                  <Ionicons name="card" size={16} color={COLORS.textSecondary} /> Método de Pago
+                  <Ionicons name="cash" size={16} color={COLORS.textSecondary} /> Forma de entrega
                 </Text>
                 <View style={styles.paymentMethodBadge}>
                   <Ionicons name="card-outline" size={20} color={COLORS.primary} />
                   <Text style={styles.paymentMethodText}>
-                    {selectedOrder.metodo_pago === 'mercadopago' ? 'Mercado Pago' : selectedOrder.metodo_pago || 'No especificado'}
+                    {selectedOrder.metodo_pago === 'efectivo' ? 'Pago en efectivo al recoger' : 'Pedido anterior'}
                   </Text>
                 </View>
               </View>
@@ -564,7 +566,7 @@ const MerchantOrdersScreen = ({ navigation }) => {
                     <TouchableOpacity 
                       style={[styles.modalActionButton, { backgroundColor: COLORS.success }]}
                       onPress={() => {
-                        handleUpdateOrderStatus(selectedOrder.id, 'recogido');
+                        setPickupOrderId(selectedOrder.id);
                         closeOrderModal();
                       }}
                     >
@@ -669,7 +671,7 @@ const MerchantOrdersScreen = ({ navigation }) => {
           <View style={styles.heroStat}>
             <Ionicons name="cash" size={20} color="#4ADE80" />
             <Text style={styles.heroStatNumber}>${totalRevenue.toFixed(0)}</Text>
-            <Text style={styles.heroStatLabel}>Ingresos</Text>
+            <Text style={styles.heroStatLabel}>Valor tickets</Text>
           </View>
         </View>
       </LinearGradient>
@@ -700,6 +702,12 @@ const MerchantOrdersScreen = ({ navigation }) => {
       
       {/* Modal de detalle de orden */}
       {renderOrderDetailModal()}
+      <PickupVerificationModal
+        orderId={pickupOrderId}
+        onClose={() => setPickupOrderId(null)}
+        onVerified={() => { setPickupOrderId(null); fetchStoreOrders(); }}
+        onError={(message) => Alert.alert('Código no válido', message)}
+      />
     </SafeAreaView>
   );
 };

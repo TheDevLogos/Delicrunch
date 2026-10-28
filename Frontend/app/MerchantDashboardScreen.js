@@ -45,7 +45,6 @@ const MerchantDashboardScreen = () => {
   const [showTips, setShowTips] = useState(false);
   const [showCoverModal, setShowCoverModal] = useState(false);
   const [storeInfo, setStoreInfo] = useState(null);
-  const [mercadoPagoStatus, setMercadoPagoStatus] = useState(null);
   const [metrics, setMetrics] = useState({
     totalVentas: 0,
     ventasHoy: 0,
@@ -102,14 +101,6 @@ const MerchantDashboardScreen = () => {
       // Cargar info de tienda
       const profileRes = await api.get('/profiles/me');
       setStoreInfo(profileRes.data);
-
-      // Cargar estado de Mercado Pago
-      try {
-        const mpRes = await api.get('/payments/merchant-status');
-        setMercadoPagoStatus(mpRes.data);
-      } catch (e) {
-        console.log('Error loading Mercado Pago status:', e);
-      }
 
       // Cargar 
       // Cargar métricas de productos
@@ -316,7 +307,7 @@ const MerchantDashboardScreen = () => {
               <View style={styles.heroStats}>
                 <View style={styles.heroStat}>
                   <Text style={styles.heroStatValue}>${formatPrice(metrics.ventasHoy)}</Text>
-                  <Text style={styles.heroStatLabel}>Ventas hoy</Text>
+                  <Text style={styles.heroStatLabel}>Tickets hoy</Text>
                 </View>
                 <View style={styles.heroStatDivider} />
                 <View style={styles.heroStat}>
@@ -332,33 +323,6 @@ const MerchantDashboardScreen = () => {
             </LinearGradient>
           </ImageBackground>
         </View>
-
-        {/* Warning de Mercado Pago - Si no está configurado */}
-        {mercadoPagoStatus && !mercadoPagoStatus.chargesEnabled && (
-          <View style={styles.stripeWarningContainer}>
-            <TouchableOpacity
-              style={styles.stripeWarning}
-              onPress={() => navigation.navigate('MerchantPaymentSettings')}
-            >
-              <View style={styles.stripeWarningIcon}>
-                <Ionicons name="warning" size={24} color="#FF9500" />
-              </View>
-              <View style={styles.stripeWarningContent}>
-                <Text style={styles.stripeWarningTitle}>
-                  {mercadoPagoStatus.hasMercadoPagoAccount 
-                    ? 'Completa tu configuración de pagos'
-                    : 'Configura tu cuenta para recibir pagos'}
-                </Text>
-                <Text style={styles.stripeWarningText}>
-                  {mercadoPagoStatus.hasMercadoPagoAccount 
-                    ? 'Falta información para activar tu cuenta'
-                    : 'Vincula tu cuenta de Mercado Pago'}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Métricas Principales */}
         <View style={styles.metricsContainer}>
@@ -376,7 +340,7 @@ const MerchantDashboardScreen = () => {
                 </View>
               </View>
               <Text style={styles.metricValueLarge}>${formatPrice(metrics.totalVentas)}</Text>
-              <Text style={styles.metricLabel}>Ingresos Totales</Text>
+              <Text style={styles.metricLabel}>Valor de tickets entregados</Text>
               <View style={styles.metricSubRow}>
                 <Text style={styles.metricSubGreen}>Hoy: ${formatPrice(metrics.ventasHoy)}</Text>
                 <Text style={styles.metricSubGray}>Meta: 75% lograda</Text>
@@ -478,7 +442,7 @@ const MerchantDashboardScreen = () => {
                 onPress={() => navigation.navigate('Pedidos')}
               >
                 <View style={styles.orderHeader}>
-                  <Text style={styles.orderCode}>#{order.codigo_recogida}</Text>
+                  <Text style={styles.orderCode}>Pedido #{order.id}</Text>
                   <View style={[
                     styles.orderStatus,
                     { backgroundColor: getStatusColor(order.estado) + '20' }
@@ -525,16 +489,6 @@ const MerchantDashboardScreen = () => {
                 <Ionicons name="pricetags" size={22} color={COLORS.white} />
               </View>
               <Text style={styles.quickActionText}>Productos</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.quickAction}
-              onPress={() => navigation.navigate('PaymentSettings')}
-            >
-              <View style={[styles.quickActionIcon, { backgroundColor: '#5856D6' }]}>
-                <Ionicons name="card" size={22} color={COLORS.white} />
-              </View>
-              <Text style={styles.quickActionText}>Pagos</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 

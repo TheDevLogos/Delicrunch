@@ -56,16 +56,15 @@ const AdminDashboardScreen = () => {
 
       // Cargar tiendas
       const storesRes = await api.get('/stores').catch(() => ({ data: [] }));
-      const stores = storesRes.data || [];
+      const stores = Array.isArray(storesRes.data) ? storesRes.data : (storesRes.data?.data || []);
       
-      // Cargar usuarios (simulado - el endpoint real sería /admin/users)
+      // Cargar usuarios reales
       let users = [];
       try {
         const usersRes = await api.get('/admin/users');
         users = usersRes.data || [];
       } catch (e) {
-        // Si no existe el endpoint, usar datos de demostración
-        users = [{ rol: 'comprador' }, { rol: 'comprador' }, { rol: 'comercio' }];
+        users = [];
       }
 
       // Cargar pedidos
@@ -93,12 +92,12 @@ const AdminDashboardScreen = () => {
       // Calcular métricas
       const today = new Date().toDateString();
       const ordersToday = orders.filter(o => new Date(o.created_at).toDateString() === today);
-      const totalRevenue = orders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
-      const revenueToday = ordersToday.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+      const totalRevenue = orders.filter(o => o.estado === 'recogido').reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+      const revenueToday = ordersToday.filter(o => o.estado === 'recogido').reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
 
       setMetrics({
         totalStores: stores.length,
-        pendingStores: stores.filter(s => s.estado === 'pendiente').length,
+        pendingStores: 0,
         activeStores: stores.filter(s => s.activo !== false).length,
         inactiveStores: stores.filter(s => s.activo === false).length,
         totalUsers: users.length,
@@ -114,7 +113,7 @@ const AdminDashboardScreen = () => {
 
       // Generar alertas
       const newAlerts = [];
-      const pendingStores = stores.filter(s => s.estado === 'pendiente');
+      const pendingStores = [];
       if (pendingStores.length > 0) {
         newAlerts.push({
           id: 'pending_stores',
@@ -201,7 +200,7 @@ const AdminDashboardScreen = () => {
     {
       id: 'transactions',
       icon: 'card',
-      label: 'Transacciones',
+      label: 'Tickets',
       color: '#34C759',
       onPress: () => navigation.navigate('AdminTransactions'),
     },
@@ -276,7 +275,7 @@ const AdminDashboardScreen = () => {
               <Ionicons name="cash" size={24} color="#34C759" />
             </View>
             <Text style={styles.metricValue}>{formatCurrency(metrics.totalRevenue)}</Text>
-            <Text style={styles.metricLabel}>Ingresos Totales</Text>
+            <Text style={styles.metricLabel}>Valor de tickets entregados</Text>
             <View style={styles.metricSubRow}>
               <Text style={styles.metricSubValue}>Hoy: {formatCurrency(metrics.revenueToday)}</Text>
             </View>
@@ -402,7 +401,7 @@ const AdminDashboardScreen = () => {
             </View>
             <View style={styles.statusItem}>
               <View style={[styles.statusDot, { backgroundColor: '#34C759' }]} />
-              <Text style={styles.statusText}>Pagos habilitados</Text>
+              <Text style={styles.statusText}>Tickets en efectivo</Text>
             </View>
           </View>
         </View>

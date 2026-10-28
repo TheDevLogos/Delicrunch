@@ -383,7 +383,9 @@ const OrderDetailScreen = () => {
             )}
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
-              <Text style={styles.totalLabel}>Total pagado</Text>
+              <Text style={styles.totalLabel}>
+                {order.metodo_pago === 'efectivo' ? 'Pagar en efectivo al recoger' : 'Total del pedido'}
+              </Text>
               <Text style={styles.totalValue}>${formatPrice(order.total)}</Text>
             </View>
           </View>

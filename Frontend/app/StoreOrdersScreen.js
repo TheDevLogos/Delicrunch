@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
+import PickupVerificationModal from '../components/PickupVerificationModal';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
 import { formatPrice } from '../src/utils/format';
 
@@ -32,7 +33,7 @@ const getStatusInfo = (status) => {
   }
 };
 
-const OrderItem = ({ item, onStatusChange }) => {
+const OrderItem = ({ item, onStatusChange, onPickup }) => {
   const statusInfo = getStatusInfo(item.estado);
   
   const handleConfirm = () => {
@@ -47,14 +48,7 @@ const OrderItem = ({ item, onStatusChange }) => {
   };
 
   const handleMarkPickedUp = () => {
-    Alert.alert(
-      'Marcar como Recogido',
-      `¿El cliente ha recogido el pedido?\nCódigo: ${item.codigo_recogida}`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sí, recogido', onPress: () => onStatusChange(item.id, 'recogido') },
-      ]
-    );
+    onPickup(item.id);
   };
   
   return (
@@ -77,7 +71,7 @@ const OrderItem = ({ item, onStatusChange }) => {
       <View style={styles.productInfo}>
         <Text style={styles.productName} numberOfLines={1}>{item.nombre_producto}</Text>
         <Text style={styles.productPrice}>
-          ${formatPrice(item.precio_total || item.precio_descuento || 0)}
+          ${formatPrice(item.total || item.precio_unitario || 0)}
         </Text>
       </View>
 
@@ -91,7 +85,7 @@ const OrderItem = ({ item, onStatusChange }) => {
       <View style={styles.pickupCodeContainer}>
         <Text style={styles.pickupCodeLabel}>Código de Recogida</Text>
         <View style={styles.pickupCodeBox}>
-          <Text style={styles.pickupCode}>{item.codigo_recogida}</Text>
+          <Text style={styles.pickupCode}>Solicítalo al cliente al entregar</Text>
         </View>
       </View>
 
@@ -118,7 +112,7 @@ const OrderItem = ({ item, onStatusChange }) => {
         </View>
       )}
       
-      {item.estado === 'confirmado' && (
+      {['confirmado', 'en_preparacion', 'listo'].includes(item.estado) && (
         <View style={styles.actionsRow}>
           <TouchableOpacity 
             style={styles.pickupButton}
@@ -137,6 +131,7 @@ const StoreOrdersScreen = () => {
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [pickupOrderId, setPickupOrderId] = useState(null);
 
   const fetchStoreOrders = async () => {
     try {
@@ -152,7 +147,7 @@ const StoreOrdersScreen = () => {
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {
-      await api.put(`/orders/${orderId}/status`, { estado: newStatus });
+      await api.patch(`/orders/${orderId}`, { estado: newStatus });
       // Recargar pedidos
       fetchStoreOrders();
     } catch (error) {
@@ -174,7 +169,7 @@ const StoreOrdersScreen = () => {
 
   // Separar pedidos por estado
   const pendingOrders = orders.filter(o => o.estado === 'pendiente');
-  const confirmedOrders = orders.filter(o => o.estado === 'confirmado');
+  const confirmedOrders = orders.filter(o => ['confirmado', 'en_preparacion', 'listo'].includes(o.estado));
   const completedOrders = orders.filter(o => ['recogido', 'cancelado'].includes(o.estado));
 
   const renderHeader = () => (
@@ -226,7 +221,7 @@ const StoreOrdersScreen = () => {
         data={orders}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <OrderItem item={item} onStatusChange={handleStatusChange} />
+          <OrderItem item={item} onStatusChange={handleStatusChange} onPickup={setPickupOrderId} />
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
@@ -234,6 +229,12 @@ const StoreOrdersScreen = () => {
         showsVerticalScrollIndicator={false}
         refreshing={refreshing}
         onRefresh={onRefresh}
+      />
+      <PickupVerificationModal
+        orderId={pickupOrderId}
+        onClose={() => setPickupOrderId(null)}
+        onVerified={() => { setPickupOrderId(null); fetchStoreOrders(); }}
+        onError={(message) => Alert.alert('Código no válido', message)}
       />
     </SafeAreaView>
   );

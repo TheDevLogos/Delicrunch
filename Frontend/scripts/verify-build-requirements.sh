@@ -126,11 +126,6 @@ if [ -f ".env" ]; then
         echo -e "   ${YELLOW}⚠${NC} EXPO_PUBLIC_API_URL no definida en .env"
     fi
     
-    if grep -q "EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY" .env; then
-        echo -e "   ${GREEN}✓${NC} Mercado Pago Key configurada"
-    else
-        echo -e "   ${YELLOW}⚠${NC} EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY no definida"
-    fi
 else
     echo -e "   ${YELLOW}⚠${NC} .env NO existe (se usarán valores de eas.json)"
 fi
