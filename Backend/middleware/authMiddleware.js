@@ -6,7 +6,7 @@ require('dotenv').config();
  * Middleware de protección de rutas
  * Verifica que el usuario tenga un token JWT válido
  */
-const protect = function (req, res, next) {
+const protect = async function (req, res, next) {
     // 1. Obtener el token del encabezado de la solicitud
     // Soportamos dos formatos: 'x-auth-token' y 'Authorization: Bearer <token>'
     let token = req.header('x-auth-token');
@@ -26,23 +26,41 @@ const protect = function (req, res, next) {
     }
 
     // 3. Si hay un token, verificar su validez
+    let decoded;
     try {
         // jwt.verify() decodifica el token. Si es válido, nos devuelve el 'payload'
         // que nosotros mismos creamos al registrar/loguear al usuario.
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        // 4. Añadir el usuario del payload al objeto de la solicitud (req)
-        // Esto es MUY importante. Al hacer esto, todas las rutas que usen este
-        // middleware tendrán acceso a la información del usuario logueado.
-        req.user = decoded.user;
-
-        // 5. Llamar a next() para que la solicitud continúe hacia la ruta final
-        next();
-
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
         // Si el token no es válido (ha expirado, está manipulado, etc.),
         // jwt.verify() lanzará un error que capturamos aquí.
-        res.status(401).json({ msg: 'Token no es válido.' });
+        return res.status(401).json({ msg: 'Token no es válido.' });
+    }
+
+    try {
+        // Los JWT de administrador antiguos no fueron emitidos después de una
+        // autenticación Google. Comprueba también que el rol no haya cambiado.
+        if (decoded.user?.rol === 'admin') {
+            const allowedAdminEmail = (process.env.GOOGLE_ADMIN_EMAIL || '').trim().toLowerCase();
+            if (!allowedAdminEmail || decoded.user.authProvider !== 'google') {
+                return res.status(401).json({ msg: 'La sesión administradora debe renovarse con Google.' });
+            }
+
+            const result = await pool.query(
+                'SELECT lower(email) AS email, rol FROM users WHERE id = $1',
+                [decoded.user.id]
+            );
+            const currentUser = result.rows[0];
+            if (!currentUser || currentUser.rol !== 'admin' || currentUser.email !== allowedAdminEmail) {
+                return res.status(401).json({ msg: 'La sesión administradora ya no es válida.' });
+            }
+        }
+
+        req.user = decoded.user;
+        next();
+    } catch (error) {
+        console.error('Error al validar la sesión:', error);
+        res.status(500).json({ msg: 'Error del servidor al validar la sesión.' });
     }
 };
 

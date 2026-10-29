@@ -1,7 +1,6 @@
 // app.config.js - Configuración dinámica de Expo
 // Lee variables de entorno desde .env y las inyecta en extra
 const path = require('path');
-const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 module.exports = ({ config }) => {
@@ -10,13 +9,14 @@ module.exports = ({ config }) => {
   
   console.log('📱 [app.config.js] API URL:', apiUrl);
   
-  // Verificar si existe google-services.json
-  const googleServicesPath = path.join(__dirname, 'google-services.json');
-  const hasGoogleServices = fs.existsSync(googleServicesPath);
+  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+    '1042705451323-i8afmbpbg4jb59b6cg5udlj5vkrb0k77.apps.googleusercontent.com';
+  const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
+  const iosUrlScheme = googleIosClientId
+    ? `com.googleusercontent.apps.${googleIosClientId.replace('.apps.googleusercontent.com', '')}`
+    : null;
   
-  console.log('📱 [app.config.js] Google Services:', hasGoogleServices ? '✅ Encontrado' : '⚠️  No encontrado (usando placeholder)');
-  
-  // Configuración de Android con google-services condicional
+  // Configuración nativa de Android
   const androidConfig = {
     ...config.android,
     adaptiveIcon: {
@@ -42,17 +42,23 @@ module.exports = ({ config }) => {
     ]
   };
   
-  // Solo agregar googleServicesFile si el archivo existe
-  if (hasGoogleServices) {
-    androidConfig.googleServicesFile = "./google-services.json";
-  }
-  
   return {
     ...config,
     android: androidConfig,
+    plugins: [
+      ...(config.plugins || []),
+      ...(iosUrlScheme ? [[
+        '@react-native-google-signin/google-signin',
+        { iosUrlScheme },
+      ]] : []),
+    ],
     extra: {
       ...(config.extra || {}),
       apiUrl: apiUrl,
+      googleAuth: {
+        webClientId: googleWebClientId,
+        iosClientId: googleIosClientId,
+      },
       eas: {
         projectId: config.extra?.eas?.projectId,
       },

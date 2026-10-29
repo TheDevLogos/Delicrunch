@@ -6,7 +6,7 @@
 - ✅ `eas.json` configurado con perfil `development`
 - ✅ `app.json` con `package: com.delicrunch.app`
 - ✅ `app.config.js` lee variables de entorno correctamente
-- ✅ `google-services.json` existe (placeholder válido para dev)
+- ⚠️ El acceso nativo con Google requiere clientes OAuth para el certificado EAS y la firma de Google Play.
 - ✅ EAS Project ID: `266fa507-5eba-4cf8-b44f-0aa42d08a694`
 
 ### Variables de Entorno
@@ -176,13 +176,9 @@ Download: https://expo.dev/accounts/alonsovl88/projects/delicrunch-frontend/buil
 
 ## 🔥 Solución de Problemas Comunes
 
-### Error: "google-services.json not found"
+### Error: el acceso nativo de Google no inicia sesión
 
-**Solución:** Ya tienes el placeholder correcto. Si persiste:
-```bash
-cd Frontend
-ls google-services.json  # Debe existir
-```
+**Solución:** Comprueba que el ID de cliente web esté configurado y que el certificado SHA-1 de la compilación esté registrado como cliente Android en Google Cloud. Para las instalaciones descargadas de Google Play se necesita también el certificado SHA-1 de firma de Play.
 
 ### Error: "Unable to resolve module"
 
@@ -240,7 +236,7 @@ Antes de ejecutar el build, verifica:
 - [ ] Endpoint `/api/stores` retorna datos
 - [ ] Login funciona con Postman
 - [ ] Variables de entorno actualizadas en `.env`
-- [ ] `google-services.json` existe en Frontend/
+- [ ] Clientes OAuth Android creados para los certificados de firma usados en pruebas y Google Play
 - [ ] `app.json` tiene `apiUrl` correcto
 - [ ] Git commit y push realizados
 
@@ -272,7 +268,7 @@ eas build --profile development --platform android --non-interactive
 - **Development Client**: Permite hot reload y debugging avanzado
 - **Preview APK**: Build rápido para testing standalone
 - **Production**: Requiere configuración adicional y Google Play signing
-- **google-services.json**: Placeholder es suficiente para dev, pero necesitas el real para notificaciones push en producción
+- **Google Sign-In**: no necesita `google-services.json`; si se agrega Firebase Messaging, debe usarse el archivo real descargado del proyecto Firebase y nunca un placeholder.
 
 ---
 
