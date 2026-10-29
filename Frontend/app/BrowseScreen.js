@@ -39,16 +39,6 @@ try {
   WebView = null;
 }
 
-// Fallback manual para mostrar markers si la API no responde
-const FALLBACK_STORES = [
-  { id: 9001, nombre_comercio: 'Taquería Las Delicias', latitud: 28.1910, longitud: -105.4708 },
-  { id: 9002, nombre_comercio: 'El Borrego de Oro', latitud: 28.1875, longitud: -105.4685 },
-  { id: 9003, nombre_comercio: 'Chilaquiles La Carreta', latitud: 28.1945, longitud: -105.4752 },
-  { id: 9004, nombre_comercio: "Pizza Orsini's", latitud: 28.1898, longitud: -105.4721 },
-  { id: 9005, nombre_comercio: 'Dr. Sushi', latitud: 28.1962, longitud: -105.4635 },
-  { id: 9006, nombre_comercio: 'Café Placeres', latitud: 28.1922, longitud: -105.4695 },
-];
-
 // Categorías de comercio disponibles
 const CATEGORIES = [
   { id: 'all', name: 'Todos', icon: 'grid-outline' },
@@ -189,11 +179,11 @@ const BrowseScreen = () => {
       const userCity = userLocation.city.toLowerCase();
       filtered = filtered.filter(p => {
         const productCity = (p.ciudad || '').toLowerCase();
-        return productCity.includes(userCity) || userCity.includes(productCity);
+        return !productCity || productCity.includes(userCity) || userCity.includes(productCity);
       });
       filteredS = filteredS.filter(s => {
         const storeCity = (s.ciudad || '').toLowerCase();
-        return storeCity.includes(userCity) || userCity.includes(storeCity);
+        return !storeCity || storeCity.includes(userCity) || userCity.includes(storeCity);
       });
     }
     
@@ -238,6 +228,10 @@ const BrowseScreen = () => {
       filtered = filtered.filter(p => (p.distancia || 999) <= selectedDistance);
       filteredS = filteredS.filter(s => (s.distancia || 999) <= selectedDistance);
     }
+
+    // Los marcadores deben representar comercios con packs que pasaron los filtros.
+    const visibleStoreIds = new Set(filtered.map(p => p.store_id));
+    filteredS = filteredS.filter(s => visibleStoreIds.has(s.id));
     
     // Ordenar por distancia
     filtered.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
@@ -546,7 +540,7 @@ const BrowseScreen = () => {
   // Renderizado del mapa
   const renderMapView = () => {
     // Mapa Leaflet por WebView
-    if (!WebView) {
+    if (!WebView && Platform.OS !== 'web') {
       return (
         <View style={styles.mapPlaceholder}>
           <Ionicons name="map-outline" size={64} color={COLORS.primary} />
@@ -563,10 +557,10 @@ const BrowseScreen = () => {
 
     const userLatVal = (userLocation && userLocation.latitude) ? userLocation.latitude : region.latitude;
     const userLngVal = (userLocation && userLocation.longitude) ? userLocation.longitude : region.longitude;
-    const storesSource = (filteredStores.length ? filteredStores : FALLBACK_STORES)
+    const storesSource = filteredStores
       .map((s) => ({ id: s.id, name: s.nombre_comercio, lat: parseFloat(s.latitud), lng: parseFloat(s.longitud) }))
       .filter((s) => !isNaN(s.lat) && !isNaN(s.lng));
-    const storesJson = JSON.stringify(storesSource);
+    const storesJson = JSON.stringify(storesSource).replace(/</g, '\\u003c');
 
     const leafletHtml = [
       '<!DOCTYPE html>',
@@ -591,7 +585,8 @@ const BrowseScreen = () => {
       '    L.circleMarker([userLat, userLng], { radius: 6, color: "#2E86DE" }).addTo(map).bindPopup("Tu ubicación");',
       '    stores.forEach(function(s){',
       '      if (isNaN(s.lat) || isNaN(s.lng)) return;',
-      '      var m = L.marker([s.lat, s.lng]).addTo(map).bindPopup(s.name || "Tienda");',
+      '      var label = document.createElement("div"); label.textContent = s.name || "Tienda";',
+      '      var m = L.marker([s.lat, s.lng]).addTo(map).bindPopup(label);',
       '      m.on("click", function(){',
       '        if (window.ReactNativeWebView) {',
       '          window.ReactNativeWebView.postMessage(JSON.stringify({ type: "markerPress", storeId: s.id }));',
@@ -602,6 +597,19 @@ const BrowseScreen = () => {
       '</body>',
       '</html>'
     ].join('\n');
+
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.mapContainer}>
+          {React.createElement('iframe', {
+            title: 'Mapa de comercios disponibles',
+            srcDoc: leafletHtml,
+            sandbox: 'allow-scripts',
+            style: { width: '100%', height: '100%', border: 0 },
+          })}
+        </View>
+      );
+    }
 
     return (
       <View style={styles.mapContainer}>
@@ -614,9 +622,9 @@ const BrowseScreen = () => {
             try {
               const msg = JSON.parse(event.nativeEvent.data);
               if (msg.type === 'markerPress') {
-                const store = filteredStores.find(s => s.id === msg.storeId) || FALLBACK_STORES.find(s => s.id === msg.storeId);
+                const store = filteredStores.find(s => s.id === msg.storeId);
                 setSelectedStore(store || null);
-                if (store && store.id < 9000) {
+                if (store) {
                   try {
                     const res = await publicApi.get('/stores/' + store.id);
                     setSelectedStoreDetails(res.data);

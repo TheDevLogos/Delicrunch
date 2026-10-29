@@ -65,12 +65,14 @@ router.get('/users/:id', protect, adminOnly, asyncHandler(async (req, res) => {
 router.get('/stores', protect, adminOnly, asyncHandler(async (req, res) => {
   const result = await pool.query(`
     SELECT 
-      s.*,
+      s.id, s.user_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
+      s.telefono, s.horario, s.descripcion, s.logo_url, s.cover_url,
+      s.categoria, s.activo, s.created_at, s.updated_at,
       u.nombre as owner_name,
       u.email as owner_email,
       (SELECT COUNT(*) FROM products WHERE store_id = s.id) as total_products,
       (SELECT COUNT(*) FROM orders WHERE store_id = s.id) as total_orders,
-      (SELECT COALESCE(SUM(total), 0) FROM orders WHERE store_id = s.id) as total_revenue
+      (SELECT COALESCE(SUM(total), 0) FROM orders WHERE store_id = s.id AND estado = 'recogido') as total_revenue
     FROM stores s
     LEFT JOIN users u ON s.user_id = u.id
     ORDER BY s.created_at DESC
@@ -87,8 +89,8 @@ router.get('/stores/revenues/weekly', protect, adminOnly, asyncHandler(async (re
   const result = await pool.query(`
     SELECT
       s.id as store_id,
-      COALESCE(SUM(o.total) FILTER (WHERE o.created_at >= CURRENT_DATE - INTERVAL '7 days'), 0) as revenue_this_week,
-      COALESCE(SUM(o.total) FILTER (WHERE o.created_at >= CURRENT_DATE - INTERVAL '14 days' AND o.created_at < CURRENT_DATE - INTERVAL '7 days'), 0) as revenue_prev_week
+      COALESCE(SUM(o.total) FILTER (WHERE o.estado = 'recogido' AND o.created_at >= CURRENT_DATE - INTERVAL '7 days'), 0) as revenue_this_week,
+      COALESCE(SUM(o.total) FILTER (WHERE o.estado = 'recogido' AND o.created_at >= CURRENT_DATE - INTERVAL '14 days' AND o.created_at < CURRENT_DATE - INTERVAL '7 days'), 0) as revenue_prev_week
     FROM stores s
     LEFT JOIN orders o ON o.store_id = s.id
     GROUP BY s.id
@@ -107,9 +109,10 @@ router.put('/stores/:id/approve', protect, adminOnly, asyncHandler(async (req, r
 
   const result = await pool.query(`
     UPDATE stores 
-    SET estado = 'activo', activo = true, updated_at = NOW()
+    SET activo = true, updated_at = NOW()
     WHERE id = $1
-    RETURNING *
+    RETURNING id, user_id, nombre_comercio, direccion, telefono, horario,
+              descripcion, logo_url, cover_url, categoria, activo, created_at, updated_at
   `, [id]);
 
   if (result.rows.length === 0) {
@@ -134,7 +137,8 @@ router.put('/stores/:id/toggle', protect, adminOnly, asyncHandler(async (req, re
     UPDATE stores 
     SET activo = $1, updated_at = NOW()
     WHERE id = $2
-    RETURNING *
+    RETURNING id, user_id, nombre_comercio, direccion, telefono, horario,
+              descripcion, logo_url, cover_url, categoria, activo, created_at, updated_at
   `, [activo, id]);
 
   if (result.rows.length === 0) {
@@ -156,7 +160,7 @@ router.delete('/stores/:id', protect, adminOnly, asyncHandler(async (req, res) =
 
   // Verificar que no tenga pedidos activos
   const ordersCheck = await pool.query(`
-    SELECT COUNT(*) FROM orders WHERE store_id = $1 AND estado NOT IN ('completado', 'cancelado')
+    SELECT COUNT(*) FROM orders WHERE store_id = $1 AND estado NOT IN ('recogido', 'cancelado', 'reembolsado')
   `, [id]);
 
   if (parseInt(ordersCheck.rows[0].count) > 0) {

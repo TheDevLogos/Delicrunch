@@ -1,4 +1,7 @@
 const pool = require('../db');
+const { randomInt } = require('crypto');
+const { calculateCO2Saved } = require('../utils/co2Factors');
+const LEVEL_XP = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
 const asyncHandler = require('../middleware/asyncHandler');
 
 /**
@@ -8,50 +11,44 @@ const generatePickupCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Sin I, O para evitar confusión
     const nums = '0123456789';
     let code = '';
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+    code += chars.charAt(randomInt(chars.length));
+    code += chars.charAt(randomInt(chars.length));
     code += '-';
-    code += nums.charAt(Math.floor(Math.random() * nums.length));
-    code += nums.charAt(Math.floor(Math.random() * nums.length));
-    code += nums.charAt(Math.floor(Math.random() * nums.length));
+    for (let i = 0; i < 5; i += 1) code += nums.charAt(randomInt(nums.length));
     return code;
 };
 
-/**
- * Calcula la comisión de la plataforma (25% por defecto)
- */
-const calculatePlatformFee = (total, feePercentage = 25) => {
-    return Math.round(total * (feePercentage / 100) * 100) / 100;
-};
-
-// @desc    Crear un nuevo pedido (después de pago exitoso)
+// @desc    Reservar un producto y emitir un ticket para pago en efectivo en tienda
 // @route   POST /api/orders
 // @access  Privado (comprador)
 exports.createOrder = asyncHandler(async (req, res, next) => {
-    // Aceptar tanto inglés como español para compatibilidad
-    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    const roleResult = await pool.query('SELECT rol FROM users WHERE id = $1', [req.user.id]);
+    const userRole = (roleResult.rows[0]?.rol || '').toLowerCase();
     if (!['buyer', 'comprador', 'admin'].includes(userRole)) {
         return res.status(403).json({ msg: 'Solo los compradores pueden realizar pedidos.' });
     }
 
-    const { productId, cantidad = 1, stripePaymentIntentId } = req.body;
+    const { productId, cantidad = 1, couponId = null } = req.body;
     const userId = req.user.id;
 
-    if (!productId) {
-        return res.status(400).json({ msg: 'Se requiere el ID del producto.' });
+    if (!Number.isSafeInteger(Number(productId)) || Number(productId) <= 0 ||
+        !Number.isSafeInteger(Number(cantidad)) || Number(cantidad) <= 0 || Number(cantidad) > 100 ||
+        (couponId !== null && (!Number.isSafeInteger(Number(couponId)) || Number(couponId) <= 0))) {
+        return res.status(400).json({ msg: 'Producto o cantidad inválida.' });
     }
 
     const client = await pool.connect();
+    let committed = false;
 
     try {
         await client.query('BEGIN');
 
         // 1. Obtener producto con bloqueo para evitar race conditions
         const productResult = await client.query(
-            `SELECT p.*, s.nombre_comercio as seller_name, s.user_id as seller_user_id 
+            `SELECT p.*, s.nombre_comercio as seller_name, s.direccion as store_address, s.activo as store_active
              FROM products p 
              LEFT JOIN stores s ON p.store_id = s.id 
-             WHERE p.id = $1 FOR UPDATE`,
+             WHERE p.id = $1 FOR UPDATE OF p`,
             [productId]
         );
         
@@ -61,45 +58,75 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         const product = productResult.rows[0];
 
+        if (!product.activo || !product.store_id || !product.store_active) {
+            throw new Error('Producto no disponible.');
+        }
+
         // 2. Verificar stock
         if (product.cantidad_disponible < cantidad) {
             throw new Error(`Stock insuficiente. Solo hay ${product.cantidad_disponible} disponibles.`);
         }
 
         // 3. Calcular totales
-        const subtotal = parseFloat(product.precio_descuento) * cantidad;
-        const comisionPorcentaje = 18; // 18% para admin, 82% para comercio
-        const comisionPlataforma = calculatePlatformFee(subtotal, comisionPorcentaje);
-        const total = subtotal;
+        const subtotal = parseFloat(product.precio_descuento) * Number(cantidad);
+        if (!Number.isFinite(subtotal) || subtotal < 0) {
+            throw new Error('Precio del producto inválido.');
+        }
+        // Delicrunch no cobra ni transfiere dinero en reservas en efectivo.
+        const comisionPlataforma = 0;
+        let discount = 0;
+        if (couponId !== null) {
+            const couponResult = await client.query(
+                `SELECT * FROM user_coupons WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+                [couponId, userId]
+            );
+            const coupon = couponResult.rows[0];
+            if (!coupon || coupon.status !== 'active' || new Date(coupon.expires_at) <= new Date() ||
+                Number(coupon.min_purchase || 0) > subtotal ||
+                !['ALL', String(product.categoria || '').toUpperCase()].includes(String(coupon.category || 'ALL').toUpperCase())) {
+                throw new Error('Cupón no válido para este producto.');
+            }
+            const cap = Number(coupon.max_discount ?? subtotal);
+            const value = Number(coupon.value);
+            if (!Number.isFinite(cap) || !Number.isFinite(value) || cap < 0 || value < 0) {
+                throw new Error('Cupón inválido.');
+            }
+            if (coupon.type === 'percentage') discount = subtotal * Math.min(value, 100) / 100;
+            else if (coupon.type === 'fixed' || coupon.type === 'fixed_amount') discount = value;
+            else if (coupon.type === '2x1') {
+                if (Number(cantidad) < 2) throw new Error('El cupón 2x1 requiere al menos dos unidades.');
+                discount = Math.floor(Number(cantidad) / 2) * Number(product.precio_descuento);
+            } else if (coupon.type === 'free_item') discount = Number(product.precio_descuento);
+            else throw new Error('Tipo de cupón inválido.');
+            discount = Math.round(Math.min(discount, cap, subtotal) * 100) / 100;
+        }
+        const total = Math.round((subtotal - discount) * 100) / 100;
 
         // 4. Generar código de recogida único
         let codigoRecogida;
         let codigoUnico = false;
-        while (!codigoUnico) {
+        for (let attempt = 0; attempt < 20 && !codigoUnico; attempt += 1) {
             codigoRecogida = generatePickupCode();
             const existe = await client.query(
-                "SELECT id FROM orders WHERE codigo_recogida = $1 AND estado NOT IN ('recogido', 'cancelado', 'reembolsado')",
+                "SELECT id FROM orders WHERE codigo_recogida = $1",
                 [codigoRecogida]
             );
             if (existe.rows.length === 0) codigoUnico = true;
         }
+        if (!codigoUnico) throw new Error('No se pudo emitir un código de recogida.');
 
-        // 5. Fecha de recogida (hoy)
-        const hoy = new Date();
-        const fechaRecogida = new Date(hoy);
-
-        // 6. Actualizar stock
+        // 5. Reservar stock
         await client.query(
             'UPDATE products SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2',
             [cantidad, productId]
         );
 
-        // 7. Crear el pedido
+        // 6. Crear el pedido
         const orderResult = await client.query(
             `INSERT INTO orders (
                 user_id, store_id, codigo_recogida, subtotal, 
-                total, comision_plataforma, estado, metodo_pago, mercadopago_payment_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+                total, comision_plataforma, estado, metodo_pago, coupon_id, coupon_discount
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING *`,
             [
                 userId, 
@@ -108,63 +135,56 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
                 subtotal, 
                 total,
                 comisionPlataforma,
-                'confirmado', 
-                'mercadopago',
-                stripePaymentIntentId || null
+                'confirmado',
+                'efectivo',
+                couponId,
+                discount
             ]
         );
 
         const newOrder = orderResult.rows[0];
+        if (couponId !== null) {
+            await client.query(
+                `UPDATE user_coupons SET status = 'used', used_at = NOW(), used_in_order_id = $1
+                 WHERE id = $2 AND user_id = $3`,
+                [newOrder.id, couponId, userId]
+            );
+        }
 
-        // 8. Crear items del pedido
+        // 7. Crear items del pedido
         await client.query(
             `INSERT INTO order_items (order_id, product_id, cantidad, precio_unitario, subtotal)
              VALUES ($1, $2, $3, $4, $5)`,
             [newOrder.id, productId, cantidad, product.precio_descuento, subtotal]
         );
 
-        // 9. Actualizar estadísticas del comprador (si existe tabla profiles)
+        // El ahorro se acredita cuando el comercio verifica la entrega.
         const ahorro = (parseFloat(product.precio_original || product.precio_descuento) - parseFloat(product.precio_descuento)) * cantidad;
-        
-        // Calcular CO2 según categoría del producto
-        const { calculateCO2Saved } = require('../utils/co2Factors');
         const co2Ahorrado = calculateCO2Saved(product.categoria || 'otros', cantidad);
-        
-        await client.query(
-            `UPDATE profiles SET 
-                total_pedidos = COALESCE(total_pedidos, 0) + 1,
-                total_ahorrado = COALESCE(total_ahorrado, 0) + $1,
-                co2_ahorrado = COALESCE(co2_ahorrado, 0) + $2
-             WHERE user_id = $3`,
-            [ahorro, co2Ahorrado, userId]
-        );
 
         await client.query('COMMIT');
-
-        // 10. Obtener datos completos para la respuesta
-        const orderComplete = await pool.query(
-            `SELECT o.*, s.nombre_comercio as seller_name, s.direccion as street, s.telefono as phone, s.latitud as latitude, s.longitud as longitude,
-                    p.nombre AS product_name, p.imagen_url
-             FROM orders o
-             LEFT JOIN stores s ON o.store_id = s.id
-             JOIN order_items oi ON oi.order_id = o.id
-             JOIN products p ON oi.product_id = p.id
-             WHERE o.id = $1`,
-            [newOrder.id]
-        );
+        committed = true;
 
         res.status(201).json({
-            ...orderComplete.rows[0],
+            ...newOrder,
+            nombre_comercio: product.seller_name,
+            direccion_comercio: product.store_address,
+            nombre_producto: product.nombre,
+            imagen_url: product.imagen_url,
+            cantidad: Number(cantidad),
             ahorro_total: ahorro,
             co2_ahorrado: co2Ahorrado,
-            precio_total: total // Alias para compatibilidad con frontend
+            precio_total: total,
+            ahorro,
+            pago_pendiente_en_comercio: true
         });
 
     } catch (error) {
-        await client.query('ROLLBACK');
+        if (!committed) await client.query('ROLLBACK');
         console.error('Error en la transacción:', error.message);
         
-        if (error.message.includes('Stock insuficiente') || error.message.includes('no encontrado')) {
+        if (error.message.includes('Stock insuficiente') || error.message.includes('no encontrado') ||
+            error.message.includes('no disponible') || error.message.includes('inválido') || error.message.includes('Cupón') || error.message.includes('cupón')) {
             return res.status(400).json({ msg: error.message });
         }
         next(error);
@@ -179,7 +199,8 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 exports.getOrderById = asyncHandler(async (req, res, next) => {
     const { id } = req.params;
     const userId = req.user.id;
-    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    const roleResult = await pool.query('SELECT rol FROM users WHERE id = $1', [userId]);
+    const userRole = (roleResult.rows[0]?.rol || '').toLowerCase();
 
     const orderResult = await pool.query(
         `SELECT o.*,  
@@ -224,6 +245,8 @@ exports.getMyOrders = asyncHandler(async (req, res, next) => {
             o.store_id,
             o.created_at as fecha_pedido,
             o.created_at as fecha_recogida,
+            o.codigo_recogida,
+            o.metodo_pago,
             -- Mapear estado 'recogido' a 'Recogido' para el frontend
             CASE WHEN o.estado = 'recogido' THEN 'Recogido' ELSE o.estado END AS estado,
             -- Alias del total para compatibilidad con frontend
@@ -254,8 +277,6 @@ exports.getStoreOrders = asyncHandler(async (req, res, next) => {
         return res.status(400).json({ msg: 'Store ID no disponible' });
     }
     
-    console.log('🏪 getStoreOrders - storeId:', storeId, 'userId:', req.user.id, 'role:', req.user.rol);
-    
     // Obtener todos los pedidos de esa tienda con información completa (COLUMNAS EN ESPAÑOL)
     const orders = await pool.query(
         `SELECT 
@@ -275,8 +296,9 @@ exports.getStoreOrders = asyncHandler(async (req, res, next) => {
         [storeId]
     );
     
-    console.log('📦 Found', orders.rows.length, 'orders for store', storeId);
-    res.json(orders.rows);
+    // The code is the customer's proof of pickup, so it must not be sent in
+    // the merchant order list before the customer presents it.
+    res.json(orders.rows.map(({ codigo_recogida, ...order }) => order));
 });
 
 // @desc    Actualizar el estado de un pedido (comercio puede marcar como listo/recogido)
@@ -284,12 +306,13 @@ exports.getStoreOrders = asyncHandler(async (req, res, next) => {
 // @access  Privado (Comercio o Admin)
 exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { estado } = req.body;
+    const { estado, codigo_recogida } = req.body;
     const userId = req.user.id;
-    const userRole = (req.user.rol || req.user.role || '').toLowerCase();
+    const roleResult = await pool.query('SELECT rol FROM users WHERE id = $1', [userId]);
+    const userRole = (roleResult.rows[0]?.rol || '').toLowerCase();
 
     // Validar estado - usar nombres en español del schema
-    const estadosPermitidos = ['pendiente', 'pagado', 'confirmado', 'en_preparacion', 'listo', 'recogido', 'cancelado', 'reembolsado'];
+    const estadosPermitidos = ['en_preparacion', 'listo', 'recogido', 'cancelado'];
     if (!estadosPermitidos.includes(estado)) {
         return res.status(400).json({ msg: 'Estado inválido.' });
     }
@@ -301,7 +324,7 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
 
         // Obtener la orden con store_id
         const orderResult = await client.query(
-            'SELECT o.*, o.store_id FROM orders o WHERE o.id = $1',
+            'SELECT o.* FROM orders o WHERE o.id = $1 FOR UPDATE',
             [id]
         );
 
@@ -320,8 +343,44 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
             );
             
             if (storeOwner.rows.length === 0 || storeOwner.rows[0].user_id !== userId) {
+                await client.query('ROLLBACK');
                 return res.status(403).json({ msg: 'No tienes permisos para actualizar este pedido.' });
             }
+        }
+
+        if (order.metodo_pago !== 'efectivo') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ msg: 'Los pedidos de pago anteriores son de solo lectura.' });
+        }
+        const transitions = {
+            confirmado: ['en_preparacion', 'listo', 'recogido', 'cancelado'],
+            en_preparacion: ['listo', 'recogido', 'cancelado'],
+            listo: ['recogido', 'cancelado'],
+        };
+        if (!transitions[order.estado]?.includes(estado)) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ msg: 'Este cambio de estado no está permitido para el ticket.' });
+        }
+        if (estado === 'recogido' &&
+            String(codigo_recogida || '').trim().toUpperCase() !== order.codigo_recogida) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ msg: 'El código de recogida no coincide.' });
+        }
+
+        if (estado === 'cancelado' && order.estado !== 'cancelado') {
+            if (order.coupon_id) {
+                await client.query(
+                    `UPDATE user_coupons SET status = CASE WHEN expires_at > NOW() THEN 'active' ELSE 'expired' END,
+                         used_at = NULL, used_in_order_id = NULL
+                     WHERE id = $1 AND used_in_order_id = $2`,
+                    [order.coupon_id, id]
+                );
+            }
+            await client.query(
+                `UPDATE products p SET cantidad_disponible = p.cantidad_disponible + oi.cantidad
+                 FROM order_items oi WHERE oi.order_id = $1 AND oi.product_id = p.id`,
+                [id]
+            );
         }
 
         // Actualizar fecha de recogida real si el estado es 'recogido'
@@ -340,11 +399,44 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
 
         // Si la orden se completa (recogido), actualizar métricas si existen funciones
         if (estado === 'recogido' && order.estado !== 'recogido') {
-            // Actualizar sales_count del producto
+            const delivered = await client.query(
+                `SELECT oi.cantidad, p.categoria, p.precio_original, oi.precio_unitario
+                 FROM order_items oi JOIN products p ON p.id = oi.product_id
+                 WHERE oi.order_id = $1`, [id]
+            );
+            const ahorro = delivered.rows.reduce((sum, item) =>
+                sum + Math.max(0, (Number(item.precio_original || item.precio_unitario) - Number(item.precio_unitario)) * item.cantidad), 0);
+            const co2Ahorrado = delivered.rows.reduce((sum, item) =>
+                sum + calculateCO2Saved(item.categoria || 'otros', item.cantidad), 0);
+            const packsSaved = delivered.rows.reduce((sum, item) => sum + Number(item.cantidad), 0);
+            const baseXp = packsSaved * 32 + Math.floor(ahorro * 0.65) + Math.floor(co2Ahorrado * 6.5);
+            const multiplier = packsSaved >= 3 ? 1.3 : packsSaved >= 2 ? 1.1 : 1;
+            const xp = Math.floor(baseXp * multiplier);
+            await client.query('INSERT INTO profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [order.user_id]);
+            const profileResult = await client.query(
+                `UPDATE profiles SET total_pedidos = COALESCE(total_pedidos, 0) + 1,
+                    total_packs_saved = COALESCE(total_packs_saved, 0) + $1,
+                    total_ahorrado = COALESCE(total_ahorrado, 0) + $2,
+                    co2_ahorrado = COALESCE(co2_ahorrado, 0) + $3,
+                    total_xp = COALESCE(total_xp, 0) + $4,
+                    current_streak = CASE
+                        WHEN last_purchase_date = CURRENT_DATE THEN COALESCE(current_streak, 0)
+                        WHEN last_purchase_date = CURRENT_DATE - 1 THEN COALESCE(current_streak, 0) + 1
+                        ELSE 1 END,
+                    last_purchase_date = CURRENT_DATE
+                 WHERE user_id = $5 RETURNING total_xp, current_streak, best_streak`,
+                [packsSaved, ahorro, co2Ahorrado, xp, order.user_id]
+            );
+            const profile = profileResult.rows[0];
+            const newLevel = LEVEL_XP.reduce((level, required, index) => Number(profile.total_xp) >= required ? index + 1 : level, 1);
             await client.query(
-                `UPDATE products SET sales_count = sales_count + 1 
-                 WHERE id IN (SELECT product_id FROM order_items WHERE order_id = $1)`,
-                [id]
+                'UPDATE profiles SET current_level = $1, best_streak = GREATEST(COALESCE(best_streak, 0), $2) WHERE user_id = $3',
+                [newLevel, profile.current_streak, order.user_id]
+            );
+            await client.query(
+                `INSERT INTO xp_transactions (user_id, amount, reason, type, description, order_id, multiplier)
+                 VALUES ($1, $2, 'pickup', 'pickup', 'Pedido recogido y pagado en efectivo', $3, $4)`,
+                [order.user_id, xp, order.id, multiplier]
             );
         }
 
@@ -375,6 +467,10 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
     // El middleware getStoreId asigna storeId
     const storeId = req.storeId;
     const { days = 30 } = req.query;
+    const daysCount = Number(days);
+    if (!Number.isInteger(daysCount) || daysCount < 1 || daysCount > 365) {
+        return res.status(400).json({ msg: 'Periodo inválido.' });
+    }
 
     if (!storeId) {
         return res.status(400).json({ msg: 'Store ID no disponible' });
@@ -388,25 +484,25 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
             COUNT(CASE WHEN estado = 'cancelado' THEN 1 END) as ordenes_canceladas,
             COUNT(CASE WHEN estado IN ('confirmado', 'en_preparacion', 'listo') THEN 1 END) as ordenes_pendientes,
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas_totales,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.18, 2) ELSE 0 END), 0) as comisiones_totales,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.82, 2) ELSE 0 END), 0) as ingresos_netos
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN comision_plataforma ELSE 0 END), 0) as comisiones_totales,
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN (total - comision_plataforma) ELSE 0 END), 0) as ingresos_netos
          FROM orders 
-         WHERE store_id = $1 AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`,
-        [storeId]
+         WHERE store_id = $1 AND COALESCE(fecha_recogida_real, created_at) >= NOW() - ($2::int * INTERVAL '1 day')`,
+        [storeId, daysCount]
     );
 
     // Métricas por día (últimos 30 días)
     const dailyMetrics = await pool.query(
         `SELECT 
-            DATE(created_at) as fecha,
+            DATE(COALESCE(fecha_recogida_real, created_at)) as fecha,
             COUNT(*) as ordenes,
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.82, 2) ELSE 0 END), 0) as ingresos
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN (total - comision_plataforma) ELSE 0 END), 0) as ingresos
          FROM orders 
-         WHERE store_id = $1 AND created_at >= NOW() - INTERVAL '30 days'
-         GROUP BY DATE(created_at)
+         WHERE store_id = $1 AND COALESCE(fecha_recogida_real, created_at) >= NOW() - ($2::int * INTERVAL '1 day')
+         GROUP BY DATE(COALESCE(fecha_recogida_real, created_at))
          ORDER BY fecha DESC`,
-        [storeId]
+        [storeId, daysCount]
     );
 
     // Productos más vendidos
@@ -415,15 +511,15 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
             p.id, p.nombre AS nombre, 
             COUNT(oi.id) as veces_vendido,
             SUM(oi.cantidad) as unidades_vendidas,
-            COALESCE(SUM(oi.subtotal), 0) as ingresos_totales
+            COALESCE(SUM(oi.subtotal * o.total / NULLIF(o.subtotal, 0)), 0) as ingresos_totales
          FROM order_items oi
          JOIN orders o ON oi.order_id = o.id
          JOIN products p ON oi.product_id = p.id
-         WHERE o.store_id = $1 AND o.estado = 'recogido' AND o.created_at >= NOW() - INTERVAL '${parseInt(days)} days'
+         WHERE o.store_id = $1 AND o.estado = 'recogido' AND COALESCE(o.fecha_recogida_real, o.created_at) >= NOW() - ($2::int * INTERVAL '1 day')
          GROUP BY p.id, p.nombre
          ORDER BY veces_vendido DESC
          LIMIT 5`,
-        [storeId]
+        [storeId, daysCount]
     );
 
     res.json({
@@ -440,6 +536,10 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
     // Usar store_id en lugar de seller_id
     const storeId = req.storeId; // Proporcionado por el middleware getStoreId
     const { period = '30' } = req.query; // días
+    const periodDays = Number(period);
+    if (!Number.isInteger(periodDays) || periodDays < 1 || periodDays > 365) {
+        return res.status(400).json({ msg: 'Periodo inválido.' });
+    }
 
     if (!storeId) {
         return res.status(400).json({ msg: 'Store ID no disponible' });
@@ -453,13 +553,13 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             COUNT(DISTINCT CASE WHEN o.estado = 'cancelado' THEN o.id END) as pedidos_cancelados,
             COUNT(DISTINCT CASE WHEN o.estado IN ('pendiente', 'confirmado', 'listo') THEN o.id END) as pedidos_activos,
             COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.total ELSE 0 END), 0) as ventas_totales,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN ROUND(o.total * 0.18, 2) ELSE 0 END), 0) as comisiones_totales,
-            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN ROUND(o.total * 0.82, 2) ELSE 0 END), 0) as ingresos_netos,
+            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.comision_plataforma ELSE 0 END), 0) as comisiones_totales,
+            COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN (o.total - o.comision_plataforma) ELSE 0 END), 0) as ingresos_netos,
             COALESCE(AVG(CASE WHEN o.estado = 'recogido' THEN o.total END), 0) as ticket_promedio,
             COUNT(DISTINCT o.user_id) as clientes_unicos
          FROM orders o
-         WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'`,
-        [storeId]
+         WHERE o.store_id = $1 AND o.created_at >= NOW() - ($2::int * INTERVAL '1 day')`,
+        [storeId, periodDays]
     );
 
     // 2. Tendencia diaria (últimos 30 días)
@@ -468,13 +568,13 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             DATE(o.created_at) as fecha,
             COUNT(*) as pedidos,
             COUNT(CASE WHEN o.estado = 'recogido' THEN 1 END) as completados,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.18, 2) ELSE 0 END), 0) as comision,
-            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN ROUND(total * 0.82, 2) ELSE 0 END), 0) as ingreso
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN comision_plataforma ELSE 0 END), 0) as comision,
+            COALESCE(SUM(CASE WHEN estado = 'recogido' THEN (total - comision_plataforma) ELSE 0 END), 0) as ingreso
          FROM orders o
-         WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '30 days'
+         WHERE o.store_id = $1 AND o.created_at >= NOW() - ($2::int * INTERVAL '1 day')
          GROUP BY DATE(o.created_at)
          ORDER BY fecha ASC`,
-        [storeId]
+        [storeId, periodDays]
     );
 
     // 3. Top productos - usando campos correctos del schema
@@ -488,12 +588,12 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN oi.precio_unitario * oi.cantidad ELSE 0 END), 0) as ingresos
          FROM products p
          LEFT JOIN order_items oi ON oi.product_id = p.id
-         LEFT JOIN orders o ON oi.order_id = o.id AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'
+         LEFT JOIN orders o ON oi.order_id = o.id AND o.created_at >= NOW() - ($2::int * INTERVAL '1 day')
          WHERE p.store_id = $1
          GROUP BY p.id, p.nombre, p.imagen_url
          ORDER BY pedidos DESC NULLS LAST, ingresos DESC
          LIMIT 10`,
-        [storeId]
+        [storeId, periodDays]
     );
 
     // 4. Distribución por estado
@@ -503,10 +603,10 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             COUNT(*) as cantidad,
             ROUND(COUNT(*) * 100.0 / NULLIF(SUM(COUNT(*)) OVER(), 0), 1) as porcentaje
          FROM orders o
-         WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'
+         WHERE o.store_id = $1 AND o.created_at >= NOW() - ($2::int * INTERVAL '1 day')
          GROUP BY o.estado
          ORDER BY cantidad DESC`,
-        [storeId]
+        [storeId, periodDays]
     );
 
     // 5. Horarios de mayor demanda
@@ -516,10 +616,10 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             COUNT(*) as pedidos,
             COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.total ELSE 0 END), 0) as ventas
          FROM orders o
-         WHERE o.store_id = $1 AND o.created_at >= NOW() - INTERVAL '${parseInt(period)} days'
+         WHERE o.store_id = $1 AND o.created_at >= NOW() - ($2::int * INTERVAL '1 day')
          GROUP BY hora
          ORDER BY pedidos DESC`,
-        [storeId]
+        [storeId, periodDays]
     );
 
     // 6. Tasa de conversión (pedidos completados vs totales)
@@ -534,9 +634,9 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas_anteriores
          FROM orders
          WHERE store_id = $1 
-           AND created_at >= NOW() - INTERVAL '${parseInt(period) * 2} days'
-           AND created_at < NOW() - INTERVAL '${parseInt(period)} days'`,
-        [storeId]
+           AND created_at >= NOW() - ($2::int * INTERVAL '2 days')
+           AND created_at < NOW() - ($2::int * INTERVAL '1 day')`,
+        [storeId, periodDays]
     );
 
     const prevData = previousPeriod.rows[0];

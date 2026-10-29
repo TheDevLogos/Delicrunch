@@ -145,7 +145,7 @@ const MyReviewsScreen = () => {
             <Ionicons name="chatbubbles-outline" size={80} color={COLORS.primary} />
             <Text style={styles.emptyTitle}>Sin reseñas aún</Text>
             <Text style={styles.emptySubtitle}>
-              Cuando dejes una reseña después de recoger tu pedido, aparecerá aquí
+              Aquí aparecerán las reseñas que hayas publicado.
             </Text>
           </View>
         }

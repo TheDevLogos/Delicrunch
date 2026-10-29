@@ -29,13 +29,15 @@ exports.createProduct = asyncHandler(async (req, res, next) => {
     // Mapear a nombres reales de la BD (inglés)
     const productName = nombre || name;
     const productDescription = descripcion || description || '';
-    const productPrice = parseFloat(precio_descuento || price || 0);
-    const productComparePrice = parseFloat(precio_original || compare_price || productPrice);
-    const productStock = parseInt(cantidad_disponible || cantidad_inicial || stock || 0);
+    const productPrice = Number(precio_descuento ?? price);
+    const productComparePrice = Number(precio_original ?? compare_price ?? productPrice);
+    const productStock = Number(cantidad_disponible ?? cantidad_inicial ?? stock ?? 0);
     const productCategory = categoria || category || 'Otros';
 
     // Validación básica
-    if (!productName || !productPrice || productStock < 0) {
+    if (!String(productName || '').trim() || !Number.isFinite(productPrice) || productPrice <= 0 ||
+        !Number.isFinite(productComparePrice) || productComparePrice < productPrice ||
+        !Number.isSafeInteger(productStock) || productStock < 0) {
         return res.status(400).json({ msg: 'Por favor, complete todos los campos obligatorios (nombre, precio, cantidad).' });
     }
     
@@ -142,7 +144,7 @@ exports.getAllAvailableProducts = asyncHandler(async (req, res, next) => {
             s.telefono
         FROM products p
         LEFT JOIN stores s ON  p.store_id = s.id
-        WHERE p.cantidad_disponible > 0 AND p.activo = true
+        WHERE p.cantidad_disponible > 0 AND p.activo = true AND s.activo = true
         ORDER BY p.created_at DESC`
     );
     res.json(products.rows);
@@ -213,6 +215,12 @@ exports.updateProduct = asyncHandler(async (req, res, next) => {
     const finalCantidadDisponible = cantidad_disponible !== undefined ? cantidad_disponible : current.cantidad_disponible;
     const finalCategoria = categoria || current.categoria;
     const finalActivo = activo !== undefined ? activo : current.activo;
+    if (!Number.isFinite(Number(finalPrecioDescuento)) || Number(finalPrecioDescuento) <= 0 ||
+        !Number.isFinite(Number(finalPrecioOriginal)) || Number(finalPrecioOriginal) < Number(finalPrecioDescuento) ||
+        !Number.isSafeInteger(Number(finalCantidadDisponible)) || Number(finalCantidadDisponible) < 0 ||
+        typeof finalActivo !== 'boolean') {
+        return res.status(400).json({ msg: 'Precio, cantidad o disponibilidad inválidos.' });
+    }
 
     // Actualizar producto con columnas en español
     const updatedProduct = await pool.query(
@@ -282,20 +290,10 @@ exports.deleteProduct = asyncHandler(async (req, res, next) => {
         return res.status(404).json({ msg: 'Producto no encontrado o no tienes permiso para eliminarlo.' });
     }
 
-    // Eliminar imagen si existe
-    const imageUrl = productResult.rows[0].imagen_url;
-    if (imageUrl && imageUrl.startsWith('/uploads/')) {
-        const imagePath = path.join(__dirname, '..', imageUrl);
-        fs.unlink(imagePath, (err) => {
-            if (err) console.error(`Error al eliminar imagen: ${imagePath}`, err);
-            else console.log(`Imagen eliminada: ${imagePath}`);
-        });
-    }
-
-    // Eliminar el producto
-    await pool.query('DELETE FROM products WHERE id = $1', [productId]);
+    // Conservar los items históricos para reseñas y estadísticas de ventas.
+    await pool.query('UPDATE products SET activo = false, updated_at = NOW() WHERE id = $1', [productId]);
     
-    res.json({ msg: 'Producto eliminado exitosamente.' });
+    res.json({ msg: 'Producto desactivado exitosamente.' });
 });
 
 
@@ -326,7 +324,7 @@ exports.getProductById = asyncHandler(async (req, res, next) => {
             s.longitud
         FROM products p
         LEFT JOIN stores s ON p.store_id = s.id
-        WHERE p.id = $1`,
+        WHERE p.id = $1 AND p.activo = true AND p.cantidad_disponible > 0 AND s.activo = true`,
         [productId]
     );
 
@@ -403,7 +401,7 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
                 s.longitud
              FROM products p
              LEFT JOIN stores s ON p.store_id = s.id
-             WHERE p.cantidad_disponible > 0 AND p.activo = true
+             WHERE p.cantidad_disponible > 0 AND p.activo = true AND s.activo = true
              ORDER BY RANDOM()
              LIMIT 20`
         );
@@ -428,7 +426,7 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
             s.longitud
          FROM products p
          LEFT JOIN stores s ON p.store_id = s.id
-         WHERE p.categoria = ANY($1) AND p.cantidad_disponible > 0 AND p.activo = true
+         WHERE p.categoria = ANY($1) AND p.cantidad_disponible > 0 AND p.activo = true AND s.activo = true
          ORDER BY p.created_at DESC
          LIMIT 20`,
         [categories]
@@ -459,7 +457,7 @@ exports.getReadyProducts = asyncHandler(async (req, res, next) => {
             s.longitud
          FROM products p
          LEFT JOIN stores s ON p.store_id = s.id
-         WHERE (p.destacado = true OR p.producto_listo = true) AND p.cantidad_disponible > 0 AND p.activo = true
+         WHERE (p.destacado = true OR p.producto_listo = true) AND p.cantidad_disponible > 0 AND p.activo = true AND s.activo = true
          ORDER BY p.created_at DESC
          LIMIT 20`
     );
@@ -489,7 +487,7 @@ exports.getNewProducts = asyncHandler(async (req, res, next) => {
             s.created_at as store_created_at
          FROM products p
          LEFT JOIN stores s ON p.store_id = s.id
-         WHERE p.cantidad_disponible > 0 AND p.activo = true
+         WHERE p.cantidad_disponible > 0 AND p.activo = true AND s.activo = true
          AND (p.created_at >= CURRENT_DATE OR s.created_at >= CURRENT_DATE - INTERVAL '7 days')
          ORDER BY p.created_at DESC
          LIMIT 20`

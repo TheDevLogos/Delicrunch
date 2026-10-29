@@ -222,14 +222,6 @@ const StoreReviewsScreen = () => {
         </View>
       )}
 
-      {/* Código de pedido */}
-      {item.codigo_recogida && (
-        <View style={styles.orderTag}>
-          <Ionicons name="receipt-outline" size={12} color={COLORS.textSecondary} />
-          <Text style={styles.orderTagText}>Pedido #{item.codigo_recogida}</Text>
-        </View>
-      )}
-
       <Text style={styles.reviewComment}>
         {item.comentario || 'Sin comentario'}
       </Text>

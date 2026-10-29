@@ -250,7 +250,7 @@ const OrderDetailScreen = () => {
   const statusInfo = STATUS_CONFIG[statusKey] || STATUS_CONFIG.pendiente;
   
   // Verificar si el pedido está en estado que permite reseñar
-  const isDeliveredStatus = ['recogido', 'entregado', 'listo'].includes(statusKey);
+  const isDeliveredStatus = ['recogido', 'entregado'].includes(statusKey);
   const canReview = isDeliveredStatus && !hasReview;
   const showExistingReview = hasReview && existingReview;
   
@@ -383,7 +383,9 @@ const OrderDetailScreen = () => {
             )}
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
-              <Text style={styles.totalLabel}>Total pagado</Text>
+              <Text style={styles.totalLabel}>
+                {order.metodo_pago === 'efectivo' ? 'Pagar en efectivo al recoger' : 'Total del pedido'}
+              </Text>
               <Text style={styles.totalValue}>${formatPrice(order.total)}</Text>
             </View>
           </View>

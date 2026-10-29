@@ -7,10 +7,8 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 module.exports = ({ config }) => {
   // Prioridad: variable de entorno > .env > fallback
   const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001';
-  const mercadoPagoPublicKey = process.env.EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '';
   
   console.log('📱 [app.config.js] API URL:', apiUrl);
-  console.log('📱 [app.config.js] Mercado Pago Key:', mercadoPagoPublicKey ? '✅ Configurada' : '❌ No configurada');
   
   // Verificar si existe google-services.json
   const googleServicesPath = path.join(__dirname, 'google-services.json');
@@ -28,13 +26,19 @@ module.exports = ({ config }) => {
     package: "com.delicrunch.app",
     permissions: [
       "ACCESS_FINE_LOCATION",
-      "ACCESS_COARSE_LOCATION",
-      "RECEIVE_BOOT_COMPLETED",
-      "VIBRATE",
-      "WAKE_LOCK",
-      "POST_NOTIFICATIONS",
-      "SCHEDULE_EXACT_ALARM",
-      "USE_EXACT_ALARM"
+      "ACCESS_COARSE_LOCATION"
+    ],
+    // La app no usa alarmas ni notificaciones programadas. Estas pueden
+    // reaparecer por dependencias nativas, así que se excluyen del manifiesto.
+    blockedPermissions: [
+      "android.permission.SCHEDULE_EXACT_ALARM",
+      "android.permission.USE_EXACT_ALARM",
+      "android.permission.RECEIVE_BOOT_COMPLETED",
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.CAMERA",
+      "android.permission.RECORD_AUDIO",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE"
     ]
   };
   
@@ -49,7 +53,6 @@ module.exports = ({ config }) => {
     extra: {
       ...(config.extra || {}),
       apiUrl: apiUrl,
-      mercadoPagoPublicKey: mercadoPagoPublicKey,
       eas: {
         projectId: config.extra?.eas?.projectId,
       },

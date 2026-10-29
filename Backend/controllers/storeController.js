@@ -12,8 +12,9 @@ exports.getAllStores = asyncHandler(async (req, res, next) => {
                AVG(r.calificacion) as calificacion_promedio,
                COUNT(DISTINCT r.id) as total_resenas
         FROM stores s
-        LEFT JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0
+        LEFT JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0 AND p.activo = true
         LEFT JOIN reviews r ON r.store_id = s.id
+        WHERE s.activo = true
         GROUP BY s.id
         ORDER BY s.nombre_comercio ASC
     `);
@@ -59,8 +60,8 @@ exports.getStoresWithProducts = asyncHandler(async (req, res, next) => {
                s.logo_url, s.cover_url,
                COUNT(p.id) as productos_disponibles
         FROM stores s
-        JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0
-        WHERE s.latitud IS NOT NULL AND s.longitud IS NOT NULL
+        JOIN products p ON s.id = p.store_id AND p.cantidad_disponible > 0 AND p.activo = true
+        WHERE s.activo = true AND s.latitud IS NOT NULL AND s.longitud IS NOT NULL
         GROUP BY s.id
         HAVING COUNT(p.id) > 0
         ORDER BY s.nombre_comercio ASC
@@ -76,12 +77,10 @@ exports.getStoreById = asyncHandler(async (req, res, next) => {
 
     // Obtener datos de la tienda usando columnas del esquema actual
     const storeResult = await pool.query(`
-        SELECT s.id, s.user_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
-               s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url,
-               u.nombre AS owner_nombre, u.email AS owner_email
+        SELECT s.id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
+               s.descripcion, s.telefono, s.horario, s.logo_url, s.cover_url
         FROM stores s
-        LEFT JOIN users u ON s.user_id = u.id
-        WHERE s.id = $1
+        WHERE s.id = $1 AND s.activo = true
     `, [id]);
 
     if (storeResult.rows.length === 0) {
@@ -161,7 +160,7 @@ exports.updateStoreCover = asyncHandler(async (req, res, next) => {
 
     // Actualizar cover_url
     const updateResult = await pool.query(
-        'UPDATE stores SET cover_url = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        'UPDATE stores SET cover_url = $1, updated_at = NOW() WHERE id = $2 RETURNING id, nombre_comercio, cover_url, updated_at',
         [cover_url, storeId]
     );
 

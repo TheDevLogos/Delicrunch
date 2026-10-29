@@ -17,10 +17,6 @@ import MyOrdersScreen from '../app/MyOrdersScreen';
 import MyReviewsScreen from '../app/MyReviewsScreen';
 import LeaveReviewScreen from '../app/LeaveReviewScreen';
 import PaymentScreen from '../app/PaymentScreen';
-import PaymentMethodsScreen from '../app/PaymentMethodsScreen';
-import PaymentSuccessScreen from '../app/PaymentSuccessScreen';
-import PaymentErrorScreen from '../app/PaymentErrorScreen';
-import PaymentMethodManager from '../components/PaymentMethodManager';
 import StoreProfileScreen from '../app/StoreProfileScreen';
 import StoreReviewsScreen from '../app/StoreReviewsScreen';
 
@@ -31,7 +27,6 @@ import EditProductScreen from '../app/EditProductScreen';
 import StoreOrdersScreen from '../app/StoreOrdersScreen';
 import MyProductsScreen from '../app/MyProductsScreen';
 import OrderDetailScreen from '../app/OrderDetailScreen';
-import MerchantPaymentSettingsScreen from '../app/MerchantPaymentSettingsScreen';
 
 // Pantallas de comprador
 import FavoritesScreen from '../app/FavoritesScreen';
@@ -49,41 +44,16 @@ import AdminMetricsScreen from '../app/admin/AdminMetricsScreen';
 import MainTabNavigator from './MainTabNavigator'; // Para Compradores
 import MerchantTabNavigator from './MerchantTabNavigator'; // Para Comercios
 import BottomTabNavigator from './BottomTabNavigator'; // Nuevo navegador de tabs inferior
-import DeveloperMenu from './DeveloperMenu'; // 🆕 Developer Menu
 
 const Stack = createNativeStackNavigator();
 
-// 2. Stack de pantallas de autenticación (cuando NO estás logueado)
-// Ahora incluye TODAS las pantallas para testing sin autenticación
+// Las pantallas de pedidos y comercio requieren una sesión iniciada.
 const AuthStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Login" component={LoginScreen} />
-    <Stack.Screen name="DeveloperMenu" component={DeveloperMenu} />
     <Stack.Screen name="Register" component={RegisterScreen} />
     <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
     <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-    <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
-    <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ title: 'Detalles del Pack', headerShown: false }} />
-    <Stack.Screen name="StoreProfile" component={StoreProfileScreen} options={{ title: 'Tienda', headerShown: false }} />
-    <Stack.Screen name="OrderConfirmation" component={OrderConfirmationScreen} options={{ title: '¡Gracias!', headerBackVisible: false, headerShown: true }} />
-    <Stack.Screen name="AddProduct" component={AddProductScreen} options={{ title: 'Añadir Nuevo Producto', headerShown: false }} />
-    <Stack.Screen name="EditProduct" component={EditProductScreen} options={{ title: 'Editar Producto', headerShown: false }} />
-    <Stack.Screen name="EditProfileScreen" component={EditProfileScreen} options={{ title: 'Editar Perfil', headerShown: false }} />
-    <Stack.Screen name="MyOrders" component={MyOrdersScreen} options={{ title: 'Mis Pedidos', headerShown: false }} />
-    <Stack.Screen name="MyReviews" component={MyReviewsScreen} options={{ title: 'Mis Reseñas', headerShown: false }} />
-    <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} options={{ title: 'Dejar Reseña', headerShown: false }} />
-    <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Detalle del Pedido', headerShown: false }} />
-    <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
-    <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: false }} />
-    <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: false }} />
-    <Stack.Screen name="ManageCards" component={PaymentMethodManager} options={{ title: 'Métodos de Pago', headerShown: true }} />
-    <Stack.Screen name="PaymentMethodManager" component={PaymentMethodManager} options={{ title: 'Configurar Pagos', headerShown: true }} />
-    <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} options={{ title: 'Pago Exitoso', headerShown: false }} />
-    <Stack.Screen name="PaymentError" component={PaymentErrorScreen} options={{ title: 'Error de Pago', headerShown: false }} />
-    {/* Pantallas exclusivas de comercio */}
-    <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Historial de Pedidos', headerShown: false }} />
-    <Stack.Screen name="MerchantRewards" component={MerchantRewardsScreen} options={{ title: 'Mis Premios', headerShown: false }} />
-    <Stack.Screen name="MerchantPaymentSettings" component={MerchantPaymentSettingsScreen} options={{ title: 'Configurar Pagos', headerShown: false }} />
   </Stack.Navigator>
 );
 
@@ -106,18 +76,12 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} options={{ title: 'Dejar Reseña', headerShown: false }} />
     <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'Detalle del Pedido', headerShown: false }} />
     <Stack.Screen name="StoreReviews" component={StoreReviewsScreen} options={{ title: 'Reseñas de Mi Tienda', headerShown: false }} />
-    <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Pago', headerShown: false }} />
-    <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} options={{ title: 'Métodos de Pago', headerShown: false }} />
-    <Stack.Screen name="ManageCards" component={PaymentMethodManager} options={{ title: 'Métodos de Pago', headerShown: true }} />
-    <Stack.Screen name="PaymentMethodManager" component={PaymentMethodManager} options={{ title: 'Configurar Pagos', headerShown: true }} />
-    <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} options={{ title: 'Pago Exitoso', headerShown: false }} />
-    <Stack.Screen name="PaymentError" component={PaymentErrorScreen} options={{ title: 'Error de Pago', headerShown: false }} />
+    <Stack.Screen name="Payment" component={PaymentScreen} options={{ title: 'Reservar', headerShown: false }} />
     {/* Pantallas exclusivas de comercio */}
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} options={{ title: 'Historial de Pedidos', headerShown: false }} />
     <Stack.Screen name="MerchantRewards" component={MerchantRewardsScreen} options={{ title: 'Mis Premios', headerShown: false }} />
     <Stack.Screen name="StoreOrders" component={StoreOrdersScreen} options={{ title: 'Pedidos de Mi Tienda', headerShown: true }} />
     <Stack.Screen name="MyProducts" component={MyProductsScreen} options={{ title: 'Mis Productos', headerShown: true }} />
-    <Stack.Screen name="MerchantPaymentSettings" component={MerchantPaymentSettingsScreen} options={{ title: 'Configurar Pagos', headerShown: false }} />
     {/* Pantallas de comprador accesibles para admin */}
     <Stack.Screen name="Favoritos" component={FavoritesScreen} options={{ title: 'Favoritos', headerShown: true }} />
     <Stack.Screen name="Recompensas" component={RewardsScreen} options={{ title: 'Recompensas', headerShown: true }} />
@@ -145,7 +109,6 @@ const AppNavigator = () => {
   }
 
   // Renderizado final: decide qué stack mostrar (Auth o App)
-  // Ahora inicia con DeveloperMenu en la pantalla de auth
   return user == null ? <AuthStack /> : <AppStack userRole={user.rol} />;
 };
 

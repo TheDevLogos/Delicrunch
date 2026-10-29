@@ -313,7 +313,7 @@ const AdminTabs = () => {
         name="AdminTransactions" 
         component={AdminTransactionsScreen}
         options={{
-          tabBarLabel: 'Pagos',
+          tabBarLabel: 'Tickets',
           tabBarIcon: ({ focused, color }) => (
             <Ionicons 
               name={focused ? 'card' : 'card-outline'} 
