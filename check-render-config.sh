@@ -80,20 +80,20 @@ cat << 'EOF'
 │ 🔑 SUPABASE API:                                             │
 │   SUPABASE_URL=https://pruesizqytpscldieivb.supabase.co    │
 │   SUPABASE_ANON_KEY=sb_publishable_iIRMgAQGgWka6eYNPN9i6w...│
-│   SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI...      │
+│   SUPABASE_SERVICE_KEY=[REDACTED]      │
 │                                                              │
 │ 🔐 JWT:                                                      │
-│   JWT_SECRET=un_secreto_secretoso_jamas_contado1234        │
+│   JWT_SECRET=[REDACTED]        │
 │                                                              │
 │ 💳 MERCADO PAGO:                                             │
-│   MERCADOPAGO_PUBLIC_KEY=APP_USR-375e7726-8315...          │
-│   MERCADOPAGO_ACCESS_TOKEN=APP_USR-7758657589560258...     │
+│   MERCADOPAGO_PUBLIC_KEY=[REDACTED]          │
+│   MERCADOPAGO_ACCESS_TOKEN=[REDACTED]     │
 │                                                              │
 │ 📧 EMAIL:                                                    │
 │   EMAIL_HOST=smtp.gmail.com                                 │
 │   EMAIL_PORT=465                                             │
 │   EMAIL_USER=implanibot@gmail.com                           │
-│   EMAIL_PASS=qfjz gfrv qswq blss                           │
+│   EMAIL_PASS=[REDACTED] gfrv qswq blss                           │
 │                                                              │
 │ 🌐 URLs:                                                     │
 │   FRONTEND_URL=delicrunch://                                │

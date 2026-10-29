@@ -22,7 +22,7 @@ O ve directamente a: https://supabase.com/dashboard/project/pruesizqytpscldieivb
 - **Compatible con prepared statements**
 - Ejemplo del formato esperado:
   ```
-  postgresql://postgres.pruesizqytpscldieivb:[PASSWORD]@aws-0-us-west-1.pooler.supabase.com:5432/postgres
+  postgresql://postgres.pruesizqytpscldieivb:[REDACTED]@aws-0-us-west-1.pooler.supabase.com:5432/postgres
   ```
 
 ### Paso 4: Copia la cadena EXACTA
@@ -35,7 +35,7 @@ Tu contraseña actual es: `bfOJpzZtcoGhAJdP`
 
 Si prefieres Transaction Mode (puerto 6543):
 ```
-postgresql://postgres.pruesizqytpscldieivb:[PASSWORD]@aws-0-us-west-1.pooler.supabase.com:6543/postgres
+postgresql://postgres.pruesizqytpscldieivb:[REDACTED]@aws-0-us-west-1.pooler.supabase.com:6543/postgres
 ```
 
 **IMPORTANTE**: Transaction mode **NO soporta prepared statements**. Algunas librerías (como Prisma) requieren deshabilitarlos.
