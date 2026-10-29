@@ -1,6 +1,12 @@
--- Delicrunch production: remove permissive API policies and prevent them returning
--- through Supabase's default privileges. Backend access remains through postgres
--- and service_role; the Expo client calls the backend API, not the public DB API.
+-- Delicrunch production: remove unconditional policies that grant access to
+-- public, anon, or authenticated on public-schema tables.
+--
+-- This does not alter grants on existing tables. Supabase's default ACLs for
+-- the internal supabase_admin role are platform-managed; ALTER DEFAULT
+-- PRIVILEGES for that role fails with permission denied in this project.
+-- Review the Data API auto-exposure setting separately before changing those
+-- future grants. Current anon/authenticated table grants are zero; backend
+-- access remains through PostgreSQL and service_role.
 
 BEGIN;
 
@@ -27,11 +33,5 @@ BEGIN
   END LOOP;
 END
 $harden$;
-
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-  REVOKE ALL ON TABLES FROM anon, authenticated;
-
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
-  REVOKE ALL ON SEQUENCES FROM anon, authenticated;
 
 COMMIT;
