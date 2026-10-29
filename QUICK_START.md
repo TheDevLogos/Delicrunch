@@ -35,14 +35,14 @@ Editar `Backend/.env`:
 # Supabase
 SUPABASE_URL=https://tu-proyecto.supabase.co
 SUPABASE_KEY=tu-anon-key
-DATABASE_URL=postgresql://user:pass@host:5432/db
+DATABASE_URL=postgresql://user:[REDACTED]@host:5432/db
 
 # JWT
 JWT_SECRET=tu-secreto-seguro
 
 # MercadoPago
-MERCADOPAGO_ACCESS_TOKEN=tu-token
-MERCADOPAGO_PUBLIC_KEY=tu-public-key
+MERCADOPAGO_ACCESS_TOKEN=[REDACTED]
+MERCADOPAGO_PUBLIC_KEY=[REDACTED]
 
 # Server
 PORT=3000

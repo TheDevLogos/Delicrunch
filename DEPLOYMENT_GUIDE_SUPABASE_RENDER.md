@@ -72,7 +72,7 @@ AND column_name IN ('images', 'is_verified', 'rating', 'comment');
 
 **Formato:**
 ```
-postgresql://postgres.pruesizqytpscldieivb:bfOJpzZtcoGhAJdP@aws-0-us-west-2.pooler.supabase.com:5432/postgres
+postgresql://postgres.pruesizqytpscldieivb:[REDACTED]@aws-0-us-west-2.pooler.supabase.com:5432/postgres
 ```
 
 ---
@@ -103,7 +103,7 @@ En la sección **"Environment"**, agrega las siguientes variables:
 PORT=5001
 
 # ========= SUPABASE DATABASE =========
-DATABASE_URL=postgresql://postgres.pruesizqytpscldieivb:bfOJpzZtcoGhAJdP@aws-0-us-west-2.pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres.pruesizqytpscldieivb:[REDACTED]@aws-0-us-west-2.pooler.supabase.com:5432/postgres
 
 # Credenciales individuales (opcional, pero recomendado)
 DB_USER=postgres.pruesizqytpscldieivb
@@ -115,20 +115,20 @@ DB_PORT=5432
 # ========= SUPABASE API =========
 SUPABASE_URL=https://pruesizqytpscldieivb.supabase.co
 SUPABASE_ANON_KEY=sb_publishable_iIRMgAQGgWka6eYNPN9i6w_GFNwfKuX
-SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydWVzaXpxeXRwc2NsZGllaXZiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2OTc4MzAyNCwiZXhwIjoyMDg1MzU5MDI0fQ.8KRuUKFFaDZK1pBUuPKi6KKSV1zWxLeyu2KTKJYyJaY
+SUPABASE_SERVICE_KEY=[REDACTED_CREDENTIAL]
 
 # ========= JWT SECRET =========
-JWT_SECRET=un_secreto_secretoso_jamas_contado1234
+JWT_SECRET=[REDACTED]
 
 # ========= EMAIL (GMAIL) =========
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=465
 EMAIL_USER=implanibot@gmail.com
-EMAIL_PASS=qfjz gfrv qswq blss
+EMAIL_PASS=[REDACTED] gfrv qswq blss
 
 # ========= MERCADO PAGO =========
-MERCADOPAGO_PUBLIC_KEY=APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa
-MERCADOPAGO_ACCESS_TOKEN=APP_USR-7758657589560258-012213-ab05386993b304ffec8f442dd78d7b68-3151906188
+MERCADOPAGO_PUBLIC_KEY=[REDACTED]
+MERCADOPAGO_ACCESS_TOKEN=[REDACTED]
 
 # ========= URLS =========
 FRONTEND_URL=delicrunch://

@@ -284,8 +284,8 @@ npx expo start --tunnel
 
 ### Backend (.env)
 ```env
-MERCADOPAGO_PUBLIC_KEY=APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa
-MERCADOPAGO_ACCESS_TOKEN=APP_USR-7758657589560258-012213-ab05386993b304ffec8f442dd78d7b68-3151906188
+MERCADOPAGO_PUBLIC_KEY=[REDACTED]
+MERCADOPAGO_ACCESS_TOKEN=[REDACTED]
 BACKEND_URL=https://silver-telegram-7vx44jrgxxqrhrw79-5001.app.github.dev
 APP_SCHEME=delicrunch
 ```
@@ -326,8 +326,8 @@ EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY=APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa
 1. **Obtener credenciales de producción** en el panel de Mercado Pago
 2. **Actualizar variables de entorno**:
    ```env
-   MERCADOPAGO_PUBLIC_KEY=APP_USR-<prod-key>
-   MERCADOPAGO_ACCESS_TOKEN=APP_USR-<prod-token>
+   MERCADOPAGO_PUBLIC_KEY=[REDACTED]
+   MERCADOPAGO_ACCESS_TOKEN=[REDACTED]
    BACKEND_URL=https://api.delicrunch.com
    ```
 3. **Configurar webhooks** apuntando a URL pública
