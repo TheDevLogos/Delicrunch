@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken'); // Para generar tokens
 const nodemailer = require('nodemailer');
 const crypto = require('crypto'); // Módulo nativo de Node.js
 const asyncHandler = require('../middleware/asyncHandler');
+const { OAuth2Client } = require('google-auth-library');
+const googleOAuthClient = new OAuth2Client();
 
 // Función para registrar un nuevo usuario
 exports.registerUser = asyncHandler(async (req, res, next) => {
@@ -139,7 +141,7 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
     const user = userResult.rows[0];
     // 2. Comparar la contraseña enviada con la hasheada en la DB
     const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) {
+    if (!isMatch || user.rol === 'admin') {
         return res.status(400).json({ msg: 'Credenciales inválidas.' });
     }
 
@@ -163,13 +165,107 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
 });
 // --- FIN DE LA SECCIÓN CORREGIDA ---
 
+// Inicio de sesión del administrador con un ID token verificado por Google.
+exports.loginWithGoogle = asyncHandler(async (req, res) => {
+    const { idToken } = req.body;
+    if (typeof idToken !== 'string' || !idToken.trim()) {
+        return res.status(400).json({ msg: 'Falta el comprobante de inicio de sesión de Google.' });
+    }
+
+    const clientIds = (process.env.GOOGLE_CLIENT_IDS || '')
+        .split(',')
+        .map((clientId) => clientId.trim())
+        .filter(Boolean);
+    const adminEmail = (process.env.GOOGLE_ADMIN_EMAIL || '').trim().toLowerCase();
+    if (!clientIds.length || !adminEmail) {
+        return res.status(503).json({ msg: 'El inicio de sesión seguro con Google todavía no está configurado.' });
+    }
+
+    let payload;
+    try {
+        const ticket = await googleOAuthClient.verifyIdToken({ idToken: idToken.trim(), audience: clientIds });
+        payload = ticket.getPayload();
+    } catch (error) {
+        return res.status(401).json({ msg: 'Google no pudo verificar esta sesión. Inténtalo de nuevo.' });
+    }
+
+    const verifiedEmail = typeof payload?.email === 'string' ? payload.email.trim().toLowerCase() : '';
+    if (!verifiedEmail || payload.email_verified !== true) {
+        return res.status(401).json({ msg: 'La cuenta de Google debe tener un correo verificado.' });
+    }
+    if (verifiedEmail !== adminEmail) {
+        return res.status(403).json({ msg: 'Esta cuenta de Google no tiene acceso de administrador.' });
+    }
+
+    // Sustituye cualquier contraseña previa de la cuenta permitida. La cuenta
+    // se autentica exclusivamente con la identidad verificada por Google.
+    const randomPassword = crypto.randomBytes(48).toString('hex');
+    const passwordHash = await bcrypt.hash(randomPassword, 12);
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // La lista permitida del servidor, junto con el ID token verificado,
+        // es la única fuente que puede conceder el rol de administrador.
+        const existingUser = await client.query(
+            'SELECT id FROM users WHERE lower(email) = $1 FOR UPDATE',
+            [verifiedEmail]
+        );
+
+        let user;
+        if (existingUser.rows.length) {
+            const promotedUser = await client.query(
+                `UPDATE users
+                 SET rol = 'admin', password_hash = $2,
+                     password_reset_token = NULL, password_reset_expires = NULL
+                 WHERE id = $1
+                 RETURNING id, rol`,
+                [existingUser.rows[0].id, passwordHash]
+            );
+            user = promotedUser.rows[0];
+        } else {
+            const createdUser = await client.query(
+                `INSERT INTO users (nombre, email, password_hash, rol)
+                 VALUES ($1, $2, $3, 'admin')
+                 ON CONFLICT (email) DO UPDATE
+                 SET rol = 'admin', password_hash = EXCLUDED.password_hash,
+                     password_reset_token = NULL, password_reset_expires = NULL
+                 RETURNING id, rol`,
+                [payload.name || verifiedEmail.split('@')[0], verifiedEmail, passwordHash]
+            );
+            user = createdUser.rows[0];
+        }
+
+        // Sustituye administradores anteriores cuando se confirma el acceso
+        // de la cuenta autorizada, sin borrar sus cuentas ni sus datos.
+        await client.query(
+            "UPDATE users SET rol = 'comprador' WHERE rol = 'admin' AND lower(email) <> $1",
+            [verifiedEmail]
+        );
+        await client.query('COMMIT');
+
+        const token = jwt.sign(
+            { user: { id: user.id, rol: user.rol, authProvider: 'google' } },
+            process.env.JWT_SECRET,
+            { expiresIn: '5h' }
+        );
+        return res.json({ token });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error al iniciar sesión con Google:', error.message);
+        return res.status(500).json({ msg: 'No se pudo completar el inicio de sesión con Google.' });
+    } finally {
+        client.release();
+    }
+});
+
 
 // @desc    Manejar "Olvidé mi contraseña" y enviar email
 exports.forgotPassword = asyncHandler(async (req, res, next) => {
     const { email } = req.body;
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    const userResult = await pool.query('SELECT id FROM users WHERE lower(email) = lower($1)', [normalizedEmail]);
-    if (userResult.rows.length === 0) {
+    const userResult = await pool.query('SELECT id, rol FROM users WHERE lower(email) = lower($1)', [normalizedEmail]);
+    if (userResult.rows.length === 0 || userResult.rows[0].rol === 'admin') {
         // Por seguridad, no revelamos si el email existe.
         return res.status(200).json({ msg: 'Si existe una cuenta con este email, recibirás un enlace para restablecer tu contraseña.' });
     }
@@ -211,7 +307,8 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     const userResult = await pool.query(
-        'SELECT id, password_hash FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW()',
+        `SELECT id, password_hash, rol FROM users
+         WHERE password_reset_token = $1 AND password_reset_expires > NOW()`,
         [passwordResetToken]
     );
 
@@ -220,6 +317,9 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     }
 
     const user = userResult.rows[0];
+    if (user.rol === 'admin') {
+        return res.status(403).json({ msg: 'Las cuentas administradoras acceden con Google y no pueden restablecer contraseña.' });
+    }
     const { password } = req.body;
     if (typeof password !== 'string' || password.length < 12) {
         return res.status(400).json({ msg: 'La nueva contraseña debe tener al menos 12 caracteres.' });

@@ -9,6 +9,7 @@ import { COLORS, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '../src/constants/
 import Header from './components/Header';
 import PromoCard from './components/PromoCard';
 import GradientButton from './components/GradientButton';
+import GoogleAuthButton from './GoogleAuthButton';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -60,6 +61,27 @@ const LoginScreen = ({ navigation }) => {
     await doLogin(email, password);
   };
 
+  const handleGoogleCredential = async (idToken) => {
+    setLoading(true);
+    try {
+      const response = await publicApi.post('/auth/google', { idToken });
+      const token = response.data?.token;
+      if (!token || typeof token !== 'string') {
+        throw new Error('El servidor no devolvió una sesión válida.');
+      }
+      await signIn(token);
+    } catch (error) {
+      const message = error.response?.data?.msg || 'No se pudo verificar tu cuenta de Google.';
+      Alert.alert('No se pudo iniciar sesión', message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = (error) => {
+    Alert.alert('Google Sign-In', error?.message || 'No se pudo abrir el acceso de Google.');
+  };
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
@@ -72,6 +94,20 @@ const LoginScreen = ({ navigation }) => {
           {/* Title Section */}
           <Header large />
           <PromoCard />
+
+          <View style={styles.googleSection}>
+            <GoogleAuthButton
+              disabled={loading}
+              onCredential={handleGoogleCredential}
+              onError={handleGoogleError}
+            />
+            <Text style={styles.googleHint}>Acceso verificado para la cuenta administradora</Text>
+            <View style={styles.loginDivider}>
+              <View style={styles.loginDividerLine} />
+              <Text style={styles.loginDividerText}>o con tu correo</Text>
+              <View style={styles.loginDividerLine} />
+            </View>
+          </View>
 
           {/* Login Form Section */}
           <View style={styles.formSection}>
@@ -252,6 +288,35 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'flex-start',
     paddingBottom: 4, // Reducido de SPACING.xs (8) a 4
+  },
+
+  googleSection: {
+    alignItems: 'center',
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  googleHint: {
+    marginTop: 6,
+    color: COLORS.textLight,
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  loginDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: SPACING.sm,
+  },
+  loginDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  loginDividerText: {
+    marginHorizontal: SPACING.sm,
+    color: COLORS.textLight,
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   // INPUT WRAPPER - Sin bordes coloreados, solo marco negro

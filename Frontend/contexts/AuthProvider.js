@@ -69,6 +69,7 @@ export const AuthProvider = ({ children }) => {
         await AsyncStorage.removeItem('simulatedRole');
         setUser(null);
         setSimulatedRoleState(null);
+        throw e;
       } finally {
         setIsLoading(false);
       }

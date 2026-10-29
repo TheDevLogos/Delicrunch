@@ -10,6 +10,10 @@ router.post('/register', authController.registerUser);
 // @desc    Iniciar sesión y obtener token
 // @acceso  Público
 router.post('/login', authController.loginUser);
+// @ruta    POST api/auth/google
+// @desc    Iniciar sesión de administrador con un ID token verificado por Google
+// @acceso  Público (la identidad autorizada se restringe en el servidor)
+router.post('/google', authController.loginWithGoogle);
 // @ruta    POST api/auth/forgot-password
 // @desc    Solicitar restablecimiento de contraseña
 // @acceso  Público
