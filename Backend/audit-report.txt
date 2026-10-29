@@ -220,9 +220,9 @@ stores:
   categoria: character varying(100) NULL
   stripe_account_id: character varying(255) NULL
   stripe_onboarding_complete: boolean NULL
-  mercadopago_user_id: character varying(255) NULL
-  mercadopago_public_key: text NULL
-  mercadopago_access_token: text NULL
+  mercadopago_user_id: [REDACTED] varying(255) NULL
+  mercadopago_public_key: [REDACTED] NULL
+  mercadopago_access_token: [REDACTED] NULL
   mercadopago_onboarding_complete: boolean NULL
   comision_plataforma: numeric NULL
   activo: boolean NULL

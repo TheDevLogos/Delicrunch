@@ -178,8 +178,8 @@
 
 **Variables de Entorno Necesarias:**
 ```env
-MERCADOPAGO_ACCESS_TOKEN=tu_token_aqui
-MERCADOPAGO_PUBLIC_KEY=tu_public_key_aqui
+MERCADOPAGO_ACCESS_TOKEN=[REDACTED]
+MERCADOPAGO_PUBLIC_KEY=[REDACTED]
 ```
 
 ### 4. Expo SDK 54
@@ -313,14 +313,14 @@ eas build --platform android
 # Base de datos
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-anon-key
-DATABASE_URL=postgresql://postgres:password@host:5432/database
+DATABASE_URL=postgresql://postgres:[REDACTED]@host:5432/database
 
 # JWT
 JWT_SECRET=your-jwt-secret
 
 # MercadoPago
-MERCADOPAGO_ACCESS_TOKEN=your-token
-MERCADOPAGO_PUBLIC_KEY=your-public-key
+MERCADOPAGO_ACCESS_TOKEN=[REDACTED]
+MERCADOPAGO_PUBLIC_KEY=[REDACTED]
 
 # Server
 PORT=3000

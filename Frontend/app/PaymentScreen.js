@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +18,20 @@ import { formatPrice } from '../src/utils/format';
 const PaymentScreen = ({ route, navigation }) => {
   const { product, quantity = 1 } = route.params || {};
   const [submitting, setSubmitting] = useState(false);
+  const [coupons, setCoupons] = useState([]);
+  const [couponId, setCouponId] = useState(null);
   const total = Number(product?.precio_descuento || 0) * Number(quantity);
+
+  useEffect(() => {
+    if (!product?.id || !Number.isFinite(total) || total <= 0) return;
+    let active = true;
+    api.get('/coupons/available', { params: { category: product.categoria, total } })
+      .then(({ data }) => {
+        if (active) setCoupons((data.coupons || []).filter(c => c.type !== '2x1' || Number(quantity) >= 2));
+      })
+      .catch(() => { if (active) setCoupons([]); });
+    return () => { active = false; };
+  }, [product?.id, product?.categoria, total, quantity]);
 
   const reserve = async () => {
     if (submitting || !product?.id) return;
@@ -27,6 +40,7 @@ const PaymentScreen = ({ route, navigation }) => {
       const { data: order } = await api.post('/orders', {
         productId: product.id,
         cantidad: quantity,
+        couponId,
       });
       if (!order?.id || !order?.codigo_recogida) {
         throw new Error('El servidor no devolvió un ticket válido.');
@@ -77,12 +91,26 @@ const PaymentScreen = ({ route, navigation }) => {
 
         <View style={styles.card}>
           <Text style={styles.label}>Total a pagar en el comercio</Text>
-          <Text style={styles.price}>${formatPrice(total)} MXN</Text>
+          <Text style={styles.price}>${formatPrice(total)} MXN antes del cupón</Text>
           <Text style={styles.notice}>
             Paga en efectivo al recoger. Delicrunch no cobra ni procesa este pago.
             El precio definitivo se confirma en el ticket emitido por el servidor.
           </Text>
         </View>
+        {coupons.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.label}>Cupón para esta reserva</Text>
+            <TouchableOpacity onPress={() => setCouponId(null)} accessibilityRole="radio" accessibilityState={{ selected: couponId === null }}>
+              <Text style={styles.detail}>{couponId === null ? '●' : '○'} Sin cupón</Text>
+            </TouchableOpacity>
+            {coupons.map(coupon => (
+              <TouchableOpacity key={coupon.id} onPress={() => setCouponId(coupon.id)} accessibilityRole="radio" accessibilityState={{ selected: couponId === coupon.id }}>
+                <Text style={styles.detail}>{couponId === coupon.id ? '●' : '○'} {coupon.name}</Text>
+              </TouchableOpacity>
+            ))}
+            <Text style={styles.notice}>El descuento y el total definitivo aparecerán en el ticket.</Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>

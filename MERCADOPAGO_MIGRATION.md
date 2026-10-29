@@ -36,8 +36,8 @@ Se completó la migración completa del sistema de pagos de **Stripe** a **Merca
 ```diff
 - STRIPE_SECRET_KEY=...
 - STRIPE_PUBLISHABLE_KEY=...
-+ MERCADOPAGO_ACCESS_TOKEN=APP_USR-xxx
-+ MERCADOPAGO_PUBLIC_KEY=APP_USR-xxx
++ MERCADOPAGO_ACCESS_TOKEN=[REDACTED]
++ MERCADOPAGO_PUBLIC_KEY=[REDACTED]
 ```
 
 #### 5. Base de Datos (Migraciones)

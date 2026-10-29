@@ -14,9 +14,7 @@ router.use(authMiddleware);
 router.get('/my', couponController.getMyCoupons);
 router.get('/available', couponController.getAvailableCoupons);
 
-// Validar y usar cupones
-router.post('/validate', couponController.validateCoupon);
-router.post('/use', couponController.useCoupon);
+// El canje se valida y ejecuta únicamente al crear el ticket.
 
 // Otorgar cupón por nivel
 router.post('/grant-level', couponController.grantLevelCoupon);
@@ -24,8 +22,7 @@ router.post('/grant-level', couponController.grantLevelCoupon);
 // Obtener definiciones / estado por nivel
 router.get('/definitions', couponController.getLevelCoupons);
 
-// XP y transacciones
-router.post('/xp', couponController.recordXpTransaction);
+// La XP solo se acredita en el servidor al verificar la recogida.
 router.get('/xp/history', couponController.getXpHistory);
 
 // Estadísticas de gamificación

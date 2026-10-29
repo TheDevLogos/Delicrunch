@@ -179,7 +179,7 @@ exports.getGamification = asyncHandler(async (req, res, next) => {
     const result = await pool.query(
         `SELECT 
             COALESCE(p.total_xp, 0) AS total_xp,
-            COALESCE(p.total_pedidos, 0) AS total_packs_saved,
+            COALESCE(p.total_packs_saved, 0) AS total_packs_saved,
             COALESCE(p.total_ahorrado, 0) AS total_savings,
             COALESCE(p.co2_ahorrado, 0) AS total_co2_saved,
             COALESCE(p.total_reviews, 0) AS total_reviews,
@@ -202,120 +202,6 @@ exports.getGamification = asyncHandler(async (req, res, next) => {
     }
 
     res.json(result.rows[0]);
-});
-
-// @desc    Registrar gamification events (XP ganada, packsSaved, badges nuevos)
-// @route   POST /api/profiles/gamification
-// @access  Privado
-exports.postGamification = asyncHandler(async (req, res, next) => {
-    const userId = req.user.id;
-    const { xp_gained = 0, packs_saved = 0, savings = 0, co2_saved = 0, new_badges = [] } = req.body;
-
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        // Upsert profile row if not exists
-        await client.query(
-            `INSERT INTO profiles (user_id, total_pedidos, total_ahorrado, co2_ahorrado, total_xp, total_packs_saved, total_reviews, unlocked_badges, created_at)
-             VALUES ($1, 0, 0, 0, 0, 0, 0, '[]'::jsonb, NOW())
-             ON CONFLICT (user_id) DO NOTHING`,
-            [userId]
-        );
-
-        // Actualizar valores acumulativos
-        const updateRes = await client.query(
-            `UPDATE profiles SET
-                total_xp = COALESCE(total_xp, 0) + $1,
-                total_pedidos = COALESCE(total_pedidos, 0) + $2,
-                total_ahorrado = COALESCE(total_ahorrado, 0) + $3,
-                co2_ahorrado = COALESCE(co2_ahorrado, 0) + $4,
-                total_packs_saved = COALESCE(total_packs_saved, 0) + $2,
-                updated_at = NOW()
-             WHERE user_id = $5
-             RETURNING total_xp, total_pedidos, total_ahorrado, co2_ahorrado, total_packs_saved, total_reviews, unlocked_badges`,
-            [xp_gained, packs_saved, savings, co2_saved, userId]
-        );
-
-        let profile = updateRes.rows[0];
-
-        // Calcular nuevo nivel desde XP (umbrales deben coincidir con Frontend/src/constants/gamification.js)
-        const LEVEL_XP = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
-        let newLevel = 1;
-        for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
-            if (profile.total_xp >= LEVEL_XP[i]) { newLevel = i + 1; break; }
-        }
-
-        // Calcular racha: comparar last_purchase_date con hoy/ayer
-        const streakRes = await client.query(
-            'SELECT COALESCE(current_streak, 0) AS current_streak, COALESCE(best_streak, 0) AS best_streak, last_purchase_date FROM profiles WHERE user_id = $1',
-            [userId]
-        );
-        const streakData = streakRes.rows[0] || {};
-        const lastDate = streakData.last_purchase_date ? new Date(streakData.last_purchase_date) : null;
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-
-        let newStreak = streakData.current_streak || 0;
-        if (lastDate) {
-            const lastDay = new Date(lastDate); lastDay.setHours(0, 0, 0, 0);
-            if (lastDay.getTime() === yesterday.getTime()) {
-                newStreak = newStreak + 1; // día consecutivo
-            } else if (lastDay.getTime() < yesterday.getTime()) {
-                newStreak = 1; // racha rota
-            }
-            // Si era hoy → mantener racha (ya se contó)
-        } else {
-            newStreak = 1; // primera compra
-        }
-        const newBestStreak = Math.max(newStreak, streakData.best_streak || 0);
-
-        // Persistir nivel, racha y fecha de última compra
-        await client.query(
-            `UPDATE profiles SET current_level = $1, current_streak = $2, best_streak = $3, last_purchase_date = NOW() WHERE user_id = $4`,
-            [newLevel, newStreak, newBestStreak, userId]
-        );
-        profile.current_level = newLevel;
-        profile.current_streak = newStreak;
-        profile.best_streak = newBestStreak;
-
-        // Guardar badges nuevos en unlocked_badges (JSONB array), evitando duplicados
-        if (new_badges && Array.isArray(new_badges) && new_badges.length > 0) {
-            // Obtener badges actuales
-            const existingBadgesRes = await client.query("SELECT COALESCE(unlocked_badges, '[]'::jsonb) AS unlocked_badges FROM profiles WHERE user_id = $1", [userId]);
-            const existing = existingBadgesRes.rows[0] ? existingBadgesRes.rows[0].unlocked_badges : [];
-
-            const toAdd = new_badges.filter(nb => !existing.some(e => (e.id ? e.id : e) === nb));
-            if (toAdd.length > 0) {
-                const newEntries = toAdd.map(id => ({ id, unlockedAt: new Date().toISOString() }));
-                const merged = existing.concat(newEntries);
-                await client.query('UPDATE profiles SET unlocked_badges = $1 WHERE user_id = $2', [JSON.stringify(merged), userId]);
-                profile.unlocked_badges = merged;
-            } else {
-                profile.unlocked_badges = existing;
-            }
-        }
-
-        await client.query('COMMIT');
-
-        res.json({
-            msg: 'Gamification updated',
-            total_xp: profile.total_xp,
-            current_level: profile.current_level,
-            current_streak: profile.current_streak,
-            best_streak: profile.best_streak,
-            total_packs_saved: profile.total_packs_saved || profile.total_pedidos,
-            total_savings: profile.total_ahorrado,
-            total_co2_saved: profile.co2_ahorrado,
-            total_reviews: profile.total_reviews,
-            unlocked_badges: profile.unlocked_badges || [],
-        });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-    } finally {
-        client.release();
-    }
 });
 
 // @desc    Marcar que se ha mostrado el primer login modal

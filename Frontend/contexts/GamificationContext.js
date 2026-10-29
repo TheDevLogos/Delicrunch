@@ -6,7 +6,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 import {
-  calculateXP,
   getLevelFromXP,
   getNextLevel,
   getLevelProgress,
@@ -104,11 +103,11 @@ export const GamificationProvider = ({ children }) => {
             // Merge server data con local (servidor tiene prioridad)
             loadedStats = {
               ...loadedStats,
-              totalPacksSaved: response.data.total_packs_saved || loadedStats.totalPacksSaved,
-              totalSavings: response.data.total_savings || loadedStats.totalSavings,
-              totalCO2Saved: response.data.total_co2_saved || loadedStats.totalCO2Saved,
-              totalXP: response.data.total_xp || loadedStats.totalXP,
-              totalReviews: response.data.total_reviews || loadedStats.totalReviews,
+              totalPacksSaved: response.data.total_packs_saved ?? 0,
+              totalSavings: response.data.total_savings ?? 0,
+              totalCO2Saved: response.data.total_co2_saved ?? 0,
+              totalXP: response.data.total_xp ?? 0,
+              totalReviews: response.data.total_reviews ?? 0,
             };
             
             if (response.data.unlocked_badges) {
@@ -150,152 +149,6 @@ export const GamificationProvider = ({ children }) => {
       setIsLoading(false);
     }
   };
-
-  /**
-   * Registra una compra/rescate y actualiza XP, stats e insignias
-   * @param {number} packsSaved - Número de packs salvados
-   * @param {number} savings - Ahorro en dinero
-   * @param {number} co2Saved - CO2 evitado en kg
-   */
-  const recordPurchase = useCallback(async (packsSaved = 1, savings = 0, co2Saved = 2.5) => {
-    // Calcular XP ganada
-    const xpGained = calculateXP(packsSaved, savings, co2Saved);
-    
-    // Actualizar stats
-    const newStats = {
-      ...stats,
-      totalXP: stats.totalXP + xpGained,
-      totalPacksSaved: stats.totalPacksSaved + packsSaved,
-      totalSavings: stats.totalSavings + savings,
-      totalCO2Saved: stats.totalCO2Saved + co2Saved,
-      totalKWhSaved: calculateKWhFromCO2(stats.totalCO2Saved + co2Saved),
-      lastActivityDate: new Date().toISOString(),
-    };
-    
-    // Actualizar racha
-    const today = new Date().toDateString();
-    const lastActivity = stats.lastActivityDate ? new Date(stats.lastActivityDate).toDateString() : null;
-    
-    if (lastActivity !== today) {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      if (lastActivity === yesterday.toDateString()) {
-        newStats.currentStreak = stats.currentStreak + 1;
-      } else if (!lastActivity || lastActivity !== today) {
-        newStats.currentStreak = 1;
-      }
-      
-      if (newStats.currentStreak > newStats.longestStreak) {
-        newStats.longestStreak = newStats.currentStreak;
-      }
-    }
-    
-    // Actualizar nivel en stats
-    const newLevel = getLevelFromXP(newStats.totalXP);
-    newStats.currentLevel = newLevel.level;
-    
-    setStats(newStats);
-    
-    // Verificar nuevas insignias
-    const unlockedIds = unlockedBadges.map(b => (b && b.id) ? b.id : b);
-    const newBadges = checkNewBadges(newStats, unlockedIds);
-    
-    if (newBadges.length > 0) {
-      const updatedBadges = [...unlockedBadges, ...newBadges];
-      setUnlockedBadges(updatedBadges);
-      setNewBadgeQueue(prev => [...prev, ...newBadges]);
-      
-      await AsyncStorage.setItem(STORAGE_KEYS.BADGES, JSON.stringify(updatedBadges));
-    }
-    
-    // Guardar stats
-    await AsyncStorage.setItem(STORAGE_KEYS.STATS, JSON.stringify(newStats));
-    await AsyncStorage.setItem(STORAGE_KEYS.LAST_ACTIVITY, new Date().toISOString());
-    
-    // Sincronizar con servidor y actualizar lista de insignias si la API responde
-    // SOLO si hay token válido
-    const token = await AsyncStorage.getItem('userToken');
-    if (token) {
-      try {
-        const resp = await api.post('/profiles/gamification', {
-          xp_gained: xpGained,
-          packs_saved: packsSaved,
-          savings: savings,
-          co2_saved: co2Saved,
-          new_badges: newBadges.map(b => b.id),
-        });
-
-        if (resp?.data?.unlocked_badges) {
-          const serverBadges = resp.data.unlocked_badges.map(b => {
-            if (!b) return null;
-            if (typeof b === 'string') return { id: b, unlockedAt: new Date().toISOString() };
-            if (b.id) return b;
-            return { id: String(b), unlockedAt: new Date().toISOString() };
-          }).filter(Boolean);
-
-          // Merge unique
-          const merged = [...updatedBadges];
-          serverBadges.forEach(sb => {
-            if (!merged.some(m => (m && m.id ? m.id : m) === (sb.id))) merged.push(sb);
-          });
-
-          setUnlockedBadges(merged);
-          await AsyncStorage.setItem(STORAGE_KEYS.BADGES, JSON.stringify(merged));
-        }
-      } catch (e) {
-        // Solo logear si no es un error de autenticación (401)
-        if (!e.response || e.response.status !== 401) {
-          console.warn('⚠️ No se pudo sincronizar gamification con servidor:', e.message);
-        }
-        console.log('Failed to sync gamification with server');
-      }
-    }
-    
-    // Si se subió de nivel, crear cupón local (si existe recompensa)
-    let awardedCoupon = null;
-    try {
-      if (newLevel.level !== currentLevel.level) {
-        const reward = getRewardForLevel(newLevel.level);
-        if (reward && reward.coupon) {
-          const c = reward.coupon;
-          const couponObj = {
-            id: c.id,
-            name: c.name,
-            description: c.description,
-            type: c.type,
-            value: c.value,
-            category: c.category || 'ALL',
-            min_purchase: c.minPurchase || 0,
-            expires_at: new Date(Date.now() + ((c.validDays || 30) * 24 * 60 * 60 * 1000)).toISOString(),
-            status: 'active',
-            icon: c.icon,
-            color: c.color,
-          };
-
-          // Guardar en almacenamiento local
-          try {
-            const stored = await AsyncStorage.getItem(STORAGE_KEYS.COUPONS);
-            const existing = stored ? JSON.parse(stored) : { active: [], used: [], expired: [] };
-            existing.active = [couponObj, ...(existing.active || [])];
-            await AsyncStorage.setItem(STORAGE_KEYS.COUPONS, JSON.stringify(existing));
-            awardedCoupon = couponObj;
-          } catch (e) {
-            console.log('Failed to save local coupon', e);
-          }
-        }
-      }
-    } catch (e) {
-      console.log('Error awarding coupon:', e);
-    }
-
-    return {
-      xpGained,
-      newBadges,
-      newLevel: newLevel.level !== currentLevel.level ? newLevel : null,
-      newCoupon: awardedCoupon,
-    };
-  }, [stats, unlockedBadges, currentLevel]);
 
   /**
    * Registra una acción de compartir
@@ -404,7 +257,6 @@ export const GamificationProvider = ({ children }) => {
     dismissBadgeNotification,
     
     // Actions
-    recordPurchase,
     recordShare,
     recordReview,
     loadGamificationData,

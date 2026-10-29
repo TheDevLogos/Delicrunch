@@ -38,8 +38,6 @@ import {
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
 import { formatNumber, formatPrice } from '../src/utils/format';
 import api from '../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRewardForLevel } from '../src/constants/gamification';
 import CouponModal from '../components/CouponModal';
 
 const { width } = Dimensions.get('window');
@@ -139,23 +137,6 @@ const RewardsScreen = () => {
         // ignore api failure, we'll try local cache
       }
 
-      // Leer cupones locales creados por subida de nivel
-      try {
-        const local = await AsyncStorage.getItem('@delicrunch_coupons');
-        if (local) {
-          const parsed = JSON.parse(local);
-          // Merge: prepend local active coupons to merged.active
-          merged.active = [
-            ...(parsed.active || []),
-            ...(merged.active || []),
-          ];
-          merged.used = merged.used || (parsed.used || []);
-          merged.expired = merged.expired || (parsed.expired || []);
-        }
-      } catch (e) {
-        console.log('Error reading local coupons', e);
-      }
-
       setCoupons(merged);
     } catch (error) {
       console.log('Error loading coupons:', error.message);
@@ -179,47 +160,13 @@ const RewardsScreen = () => {
 
   const handleUseLevelCoupon = async (coupon) => {
     try {
-      // Preferir otorgar el cupón en el backend para evitar duplicados
-      try {
-        const resp = await api.post('/coupons/grant-level', { level: selectedLevelRequired || coupon.levelRequired || selectedLevelRequired });
-        if (resp.data && resp.data.success && resp.data.coupon) {
-          const granted = resp.data.coupon;
-          // Merge into local UI and storage
-          const stored = await AsyncStorage.getItem('@delicrunch_coupons');
-          const existing = stored ? JSON.parse(stored) : { active: [], used: [], expired: [] };
-          existing.active = [granted, ...(existing.active || [])].filter((v,i,self)=> self.findIndex(x=>x.id===v.id)===i);
-          await AsyncStorage.setItem('@delicrunch_coupons', JSON.stringify(existing));
-          setCoupons(prev => ({ ...prev, active: [granted, ...(prev.active || [])].filter((v,i,self)=> self.findIndex(x=>x.id===v.id)===i) }));
-          closeCouponModal();
-          Alert.alert('Cupón añadido', resp.data.message || 'Cupón otorgado y añadido a tus cupones.');
-          return;
-        }
-      } catch (apiErr) {
-        // Si falla la API (sin autenticación por ejemplo), caer al fallback local
-        console.log('Grant level coupon API failed, falling back to local:', apiErr.message);
-      }
-
-      // Fallback: Add coupon to local storage active list
-      const stored = await AsyncStorage.getItem('@delicrunch_coupons');
-      const existing = stored ? JSON.parse(stored) : { active: [], used: [], expired: [] };
-      // Avoid duplicates by id
-      if (!existing.active.some(c => c.id === coupon.id)) {
-        const newCoupon = {
-          ...coupon,
-          id: `${coupon.id}_${Date.now()}`,
-          expires_at: new Date(Date.now() + ((coupon.validDays || 30) * 24 * 60 * 60 * 1000)).toISOString(),
-          status: 'active',
-        };
-        existing.active = [newCoupon, ...(existing.active || [])];
-        await AsyncStorage.setItem('@delicrunch_coupons', JSON.stringify(existing));
-        // update UI
-        setCoupons(prev => ({ ...prev, active: [newCoupon, ...(prev.active || [])] }));
-      }
+      const level = selectedLevelRequired || coupon.levelRequired;
+      const resp = await api.post('/coupons/grant-level', { level });
+      await loadCoupons();
       closeCouponModal();
-      Alert.alert('Cupón añadido', 'El cupón se ha añadido a tus cupones activos.');
-    } catch (e) {
-      console.log('Error adding coupon locally', e);
-      Alert.alert('Error', 'No se pudo añadir el cupón localmente.');
+      Alert.alert('Recompensa', resp.data?.message || 'Revisa tus cupones.');
+    } catch (error) {
+      Alert.alert('No se pudo obtener el cupón', error.response?.data?.error || 'Intenta de nuevo más tarde.');
     }
   };
 

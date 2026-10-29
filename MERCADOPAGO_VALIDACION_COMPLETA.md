@@ -118,7 +118,7 @@ EXPO_PUBLIC_MERCADOPAGO_PUBLIC_KEY=APP_USR-375e7726-8315-48ad-9a60-e31973e44ffa
 
 #### Backend (`.env` en Render)
 ```bash
-MERCADOPAGO_ACCESS_TOKEN=APP_USR-xxxxxxxx (Token de producción o sandbox)
+MERCADOPAGO_ACCESS_TOKEN=[REDACTED] (Token de producción o sandbox)
 BACKEND_URL=https://delicrunch.onrender.com
 ```
 

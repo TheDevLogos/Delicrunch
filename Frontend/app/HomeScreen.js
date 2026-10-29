@@ -375,13 +375,7 @@ const navigation = useNavigation();
           <View>
             {/* Flash Deals */}
             <FlashDealModal
-              products={
-                products && products.length > 0
-                  ? products
-                  : (user?.rol === 'comprador'
-                      ? [{ id: -9999, nombre: 'Prueba Flash', descripcion: 'Oferta de prueba para comprador', precio_descuento: 1, precio_original: 5, nombre_comercio: 'Demo', imagen_url: '' }]
-                      : [])
-              }
+              products={products || []}
               navigation={navigation}
             />
             
@@ -389,7 +383,7 @@ const navigation = useNavigation();
             <View style={styles.mapCard}>
               <View style={styles.mapHeader}>
                 <Text style={styles.sectionTitle}>Comercios cercanos</Text>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('Buscar', { viewMode: 'map' })}>
                   <Text style={styles.seeAll}>Ver mapa</Text>
                 </TouchableOpacity>
               </View>

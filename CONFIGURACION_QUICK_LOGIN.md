@@ -265,7 +265,7 @@ const bcrypt = require('bcryptjs');
 
 ### Verificar Usuarios
 ```bash
-psql postgresql://postgres:Qazwsx1234@localhost:5432/delicrunch \
+psql postgresql://postgres:[REDACTED]@localhost:5432/delicrunch \
   -c "SELECT email, role FROM users WHERE email LIKE '%test.com';"
 ```
 
