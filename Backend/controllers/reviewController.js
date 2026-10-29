@@ -53,7 +53,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
         // Si viene un orderId, validamos que el pedido pertenezca al usuario
         if (finalOrderId) {
             const orderResult = await client.query(
-                `SELECT o.user_id, o.store_id, oi.product_id, p.nombre as product_name
+                `SELECT o.user_id, o.store_id, o.estado, oi.product_id, p.nombre as product_name
                  FROM orders o
                  LEFT JOIN order_items oi ON o.id = oi.order_id
                  LEFT JOIN products p ON oi.product_id = p.id
@@ -67,6 +67,9 @@ exports.createReview = asyncHandler(async (req, res, next) => {
             
             if (orderResult.rows[0].user_id !== userId) {
                 throw new Error('No tiene permiso para reseñar este pedido.');
+            }
+            if (orderResult.rows[0].estado !== 'recogido') {
+                throw new Error('Puedes reseñar el pedido después de recogerlo.');
             }
 
             // Verificar que no exista ya una reseña para este pedido
@@ -89,7 +92,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
                  FROM orders o
                  JOIN order_items oi ON o.id = oi.order_id
                  JOIN products p ON oi.product_id = p.id
-                 WHERE o.user_id = $1 AND oi.product_id = $2 AND o.estado IN ('listo', 'entregado', 'completado', 'confirmado')
+                 WHERE o.user_id = $1 AND oi.product_id = $2 AND o.estado = 'recogido'
                  ORDER BY o.created_at DESC
                  LIMIT 1`,
                 [userId, finalProductId]

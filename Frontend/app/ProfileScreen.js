@@ -162,7 +162,7 @@ const ProfileScreen = () => {
       options.push({
         icon: 'bag-handle-outline',
         label: 'Mis Pedidos',
-        subtitle: 'Reservas activas',
+        subtitle: 'Historial de compras',
         onPress: () => navigation.navigate('MyOrders'),
         color: COLORS.primary,
       });
@@ -202,8 +202,8 @@ const ProfileScreen = () => {
         icon: 'analytics-outline',
         label: 'Estadísticas',
         subtitle: 'Rendimiento de tu tienda',
-        onPress: () => {},
-        color: COLORS.textLight,
+        onPress: () => navigation.navigate('StoreProfile', { storeId: profile.store_id, initialTab: 'stats' }),
+        color: COLORS.primary,
       });
     }
     
@@ -212,7 +212,7 @@ const ProfileScreen = () => {
       options.push({
         icon: 'bag-handle-outline',
         label: 'Mis Pedidos',
-        subtitle: 'Reservas activas',
+        subtitle: 'Historial de compras',
         onPress: () => navigation.navigate('MyOrders'),
         color: COLORS.primary,
       });
@@ -661,6 +661,10 @@ const ProfileScreen = () => {
                 {
                   question: '¿Qué hago si no puedo recoger mi pedido?',
                   answer: 'Contacta al comercio lo antes posible si no puedes recoger tu pedido.'
+                },
+                {
+                  question: '¿Cómo puedo dejar una reseña?',
+                  answer: 'Después de recoger tu pedido, abre Mis Pedidos, entra en el ticket y comparte tu opinión. Solo puedes reseñar pedidos recogidos.'
                 },
                 {
                   question: '¿Cómo funcionan los puntos y recompensas?',

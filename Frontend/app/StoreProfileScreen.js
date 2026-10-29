@@ -33,14 +33,14 @@ const { width } = Dimensions.get('window');
 const StoreProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { storeId } = route.params || {};
+  const { storeId, initialTab } = route.params || {};
   const { userLocation, calculateDistance } = useLocation();
 
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [favoriteIds, setFavoriteIds] = useState([]);
-  const [activeTab, setActiveTab] = useState('products'); // 'products' | 'info' | 'reviews' | 'stats'
+  const [activeTab, setActiveTab] = useState(initialTab || 'products'); // 'products' | 'info' | 'reviews' | 'stats'
   const [isOwner, setIsOwner] = useState(false);
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -57,7 +57,7 @@ const StoreProfileScreen = () => {
       const userStr = await AsyncStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
-        if (user.rol === 'comercio') {
+        if (['seller', 'comercio'].includes(user.rol)) {
           // Verificar si este usuario es dueño de esta tienda
           const storesRes = await api.get('/stores/my-store');
           if (storesRes.data?.id === storeId) {

@@ -250,7 +250,7 @@ const OrderDetailScreen = () => {
   const statusInfo = STATUS_CONFIG[statusKey] || STATUS_CONFIG.pendiente;
   
   // Verificar si el pedido está en estado que permite reseñar
-  const isDeliveredStatus = ['recogido', 'entregado', 'listo'].includes(statusKey);
+  const isDeliveredStatus = ['recogido', 'entregado'].includes(statusKey);
   const canReview = isDeliveredStatus && !hasReview;
   const showExistingReview = hasReview && existingReview;
   
