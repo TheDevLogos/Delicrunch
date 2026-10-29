@@ -70,8 +70,6 @@ app.use('/api/reviews', require('./routes/reviewRoutes'));
 
 // Usamos las rutas de tiendas
 app.use('/api/stores', require('./routes/storeRoutes'));
-// Usamos las rutas de pagos
-app.use('/api/payments', require('./routes/paymentRoutes'));
 // Usamos las rutas de administración
 app.use('/api/admin', require('./routes/adminRoutes'));
 // Usamos las rutas de cupones y recompensas

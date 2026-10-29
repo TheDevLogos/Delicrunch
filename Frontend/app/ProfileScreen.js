@@ -1127,66 +1127,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // MercadoPago info section (compradores)
-  mercadoPagoInfoSection: {
-    backgroundColor: COLORS.white,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: 16,
-    ...SHADOWS.sm,
-  },
-  mercadoPagoInfoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  mercadoPagoInfoTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginLeft: SPACING.sm,
-  },
-  mercadoPagoFeaturesList: {
-    gap: 10,
-    marginBottom: SPACING.md,
-  },
-  mercadoPagoFeature: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  mercadoPagoFeatureText: {
-    fontSize: 14,
-    color: COLORS.text,
-    flex: 1,
-  },
-  mercadoPagoInfoDescription: {
-    fontSize: 13,
-    color: COLORS.textLight,
-    lineHeight: 20,
-    marginBottom: SPACING.md,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-  },
-  mercadoPagoLearnMoreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    gap: 8,
-  },
-  mercadoPagoLearnMoreText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
-
   // Admin section
   adminSection: {
     backgroundColor: COLORS.secondary + '15',

@@ -1,5 +1,7 @@
 const pool = require('../db');
 const { randomInt } = require('crypto');
+const { calculateCO2Saved } = require('../utils/co2Factors');
+const LEVEL_XP = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
 const asyncHandler = require('../middleware/asyncHandler');
 
 /**
@@ -26,11 +28,12 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         return res.status(403).json({ msg: 'Solo los compradores pueden realizar pedidos.' });
     }
 
-    const { productId, cantidad = 1 } = req.body;
+    const { productId, cantidad = 1, couponId = null } = req.body;
     const userId = req.user.id;
 
     if (!Number.isSafeInteger(Number(productId)) || Number(productId) <= 0 ||
-        !Number.isSafeInteger(Number(cantidad)) || Number(cantidad) <= 0 || Number(cantidad) > 100) {
+        !Number.isSafeInteger(Number(cantidad)) || Number(cantidad) <= 0 || Number(cantidad) > 100 ||
+        (couponId !== null && (!Number.isSafeInteger(Number(couponId)) || Number(couponId) <= 0))) {
         return res.status(400).json({ msg: 'Producto o cantidad inválida.' });
     }
 
@@ -71,7 +74,33 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         }
         // Delicrunch no cobra ni transfiere dinero en reservas en efectivo.
         const comisionPlataforma = 0;
-        const total = subtotal;
+        let discount = 0;
+        if (couponId !== null) {
+            const couponResult = await client.query(
+                `SELECT * FROM user_coupons WHERE id = $1 AND user_id = $2 FOR UPDATE`,
+                [couponId, userId]
+            );
+            const coupon = couponResult.rows[0];
+            if (!coupon || coupon.status !== 'active' || new Date(coupon.expires_at) <= new Date() ||
+                Number(coupon.min_purchase || 0) > subtotal ||
+                !['ALL', String(product.categoria || '').toUpperCase()].includes(String(coupon.category || 'ALL').toUpperCase())) {
+                throw new Error('Cupón no válido para este producto.');
+            }
+            const cap = Number(coupon.max_discount ?? subtotal);
+            const value = Number(coupon.value);
+            if (!Number.isFinite(cap) || !Number.isFinite(value) || cap < 0 || value < 0) {
+                throw new Error('Cupón inválido.');
+            }
+            if (coupon.type === 'percentage') discount = subtotal * Math.min(value, 100) / 100;
+            else if (coupon.type === 'fixed' || coupon.type === 'fixed_amount') discount = value;
+            else if (coupon.type === '2x1') {
+                if (Number(cantidad) < 2) throw new Error('El cupón 2x1 requiere al menos dos unidades.');
+                discount = Math.floor(Number(cantidad) / 2) * Number(product.precio_descuento);
+            } else if (coupon.type === 'free_item') discount = Number(product.precio_descuento);
+            else throw new Error('Tipo de cupón inválido.');
+            discount = Math.round(Math.min(discount, cap, subtotal) * 100) / 100;
+        }
+        const total = Math.round((subtotal - discount) * 100) / 100;
 
         // 4. Generar código de recogida único
         let codigoRecogida;
@@ -96,8 +125,8 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         const orderResult = await client.query(
             `INSERT INTO orders (
                 user_id, store_id, codigo_recogida, subtotal, 
-                total, comision_plataforma, estado, metodo_pago
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                total, comision_plataforma, estado, metodo_pago, coupon_id, coupon_discount
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING *`,
             [
                 userId, 
@@ -107,11 +136,20 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
                 total,
                 comisionPlataforma,
                 'confirmado',
-                'efectivo'
+                'efectivo',
+                couponId,
+                discount
             ]
         );
 
         const newOrder = orderResult.rows[0];
+        if (couponId !== null) {
+            await client.query(
+                `UPDATE user_coupons SET status = 'used', used_at = NOW(), used_in_order_id = $1
+                 WHERE id = $2 AND user_id = $3`,
+                [newOrder.id, couponId, userId]
+            );
+        }
 
         // 7. Crear items del pedido
         await client.query(
@@ -122,7 +160,6 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         // El ahorro se acredita cuando el comercio verifica la entrega.
         const ahorro = (parseFloat(product.precio_original || product.precio_descuento) - parseFloat(product.precio_descuento)) * cantidad;
-        const { calculateCO2Saved } = require('../utils/co2Factors');
         const co2Ahorrado = calculateCO2Saved(product.categoria || 'otros', cantidad);
 
         await client.query('COMMIT');
@@ -147,7 +184,7 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         console.error('Error en la transacción:', error.message);
         
         if (error.message.includes('Stock insuficiente') || error.message.includes('no encontrado') ||
-            error.message.includes('no disponible') || error.message.includes('inválido')) {
+            error.message.includes('no disponible') || error.message.includes('inválido') || error.message.includes('Cupón') || error.message.includes('cupón')) {
             return res.status(400).json({ msg: error.message });
         }
         next(error);
@@ -331,6 +368,14 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
         }
 
         if (estado === 'cancelado' && order.estado !== 'cancelado') {
+            if (order.coupon_id) {
+                await client.query(
+                    `UPDATE user_coupons SET status = CASE WHEN expires_at > NOW() THEN 'active' ELSE 'expired' END,
+                         used_at = NULL, used_in_order_id = NULL
+                     WHERE id = $1 AND used_in_order_id = $2`,
+                    [order.coupon_id, id]
+                );
+            }
             await client.query(
                 `UPDATE products p SET cantidad_disponible = p.cantidad_disponible + oi.cantidad
                  FROM order_items oi WHERE oi.order_id = $1 AND oi.product_id = p.id`,
@@ -359,16 +404,39 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
                  FROM order_items oi JOIN products p ON p.id = oi.product_id
                  WHERE oi.order_id = $1`, [id]
             );
-            const { calculateCO2Saved } = require('../utils/co2Factors');
             const ahorro = delivered.rows.reduce((sum, item) =>
                 sum + Math.max(0, (Number(item.precio_original || item.precio_unitario) - Number(item.precio_unitario)) * item.cantidad), 0);
             const co2Ahorrado = delivered.rows.reduce((sum, item) =>
                 sum + calculateCO2Saved(item.categoria || 'otros', item.cantidad), 0);
-            await client.query(
+            const packsSaved = delivered.rows.reduce((sum, item) => sum + Number(item.cantidad), 0);
+            const baseXp = packsSaved * 32 + Math.floor(ahorro * 0.65) + Math.floor(co2Ahorrado * 6.5);
+            const multiplier = packsSaved >= 3 ? 1.3 : packsSaved >= 2 ? 1.1 : 1;
+            const xp = Math.floor(baseXp * multiplier);
+            await client.query('INSERT INTO profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [order.user_id]);
+            const profileResult = await client.query(
                 `UPDATE profiles SET total_pedidos = COALESCE(total_pedidos, 0) + 1,
-                    total_ahorrado = COALESCE(total_ahorrado, 0) + $1,
-                    co2_ahorrado = COALESCE(co2_ahorrado, 0) + $2
-                 WHERE user_id = $3`, [ahorro, co2Ahorrado, order.user_id]
+                    total_packs_saved = COALESCE(total_packs_saved, 0) + $1,
+                    total_ahorrado = COALESCE(total_ahorrado, 0) + $2,
+                    co2_ahorrado = COALESCE(co2_ahorrado, 0) + $3,
+                    total_xp = COALESCE(total_xp, 0) + $4,
+                    current_streak = CASE
+                        WHEN last_purchase_date = CURRENT_DATE THEN COALESCE(current_streak, 0)
+                        WHEN last_purchase_date = CURRENT_DATE - 1 THEN COALESCE(current_streak, 0) + 1
+                        ELSE 1 END,
+                    last_purchase_date = CURRENT_DATE
+                 WHERE user_id = $5 RETURNING total_xp, current_streak, best_streak`,
+                [packsSaved, ahorro, co2Ahorrado, xp, order.user_id]
+            );
+            const profile = profileResult.rows[0];
+            const newLevel = LEVEL_XP.reduce((level, required, index) => Number(profile.total_xp) >= required ? index + 1 : level, 1);
+            await client.query(
+                'UPDATE profiles SET current_level = $1, best_streak = GREATEST(COALESCE(best_streak, 0), $2) WHERE user_id = $3',
+                [newLevel, profile.current_streak, order.user_id]
+            );
+            await client.query(
+                `INSERT INTO xp_transactions (user_id, amount, type, description, order_id, multiplier)
+                 VALUES ($1, $2, 'pickup', 'Pedido recogido y pagado en efectivo', $3, $4)`,
+                [order.user_id, xp, order.id, multiplier]
             );
         }
 

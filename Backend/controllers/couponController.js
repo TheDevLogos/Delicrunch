@@ -17,7 +17,8 @@ const getMyCoupons = async (req, res) => {
         id, code, name, description, type, value, category,
         min_purchase, max_discount, icon, color, extra_discount,
         status, obtained_at, expires_at, used_at, level_obtained, source,
-        CASE WHEN expires_at < NOW() THEN 'expired' ELSE status END as current_status
+        CASE WHEN status = 'used' THEN 'used'
+             WHEN expires_at < NOW() THEN 'expired' ELSE status END as current_status
       FROM user_coupons 
       WHERE user_id = $1
     `;
@@ -41,7 +42,7 @@ const getMyCoupons = async (req, res) => {
     const coupons = {
       active: result.rows.filter(c => c.current_status === 'active' && new Date(c.expires_at) > new Date()),
       used: result.rows.filter(c => c.current_status === 'used'),
-      expired: result.rows.filter(c => c.current_status === 'expired' || new Date(c.expires_at) < new Date())
+      expired: result.rows.filter(c => c.current_status === 'expired')
     };
 
     res.json({
@@ -82,7 +83,7 @@ const getAvailableCoupons = async (req, res) => {
 
     // Filtrar por categoría si se especifica
     if (category && category !== 'ALL') {
-      query += ` AND (category = 'ALL' OR category = $3)`;
+      query += ` AND (UPPER(category) = 'ALL' OR UPPER(category) = UPPER($3))`;
       params.push(category);
     }
 
@@ -127,146 +128,34 @@ const getAvailableCoupons = async (req, res) => {
 };
 
 /**
- * Aplicar cupón a una orden (validación)
- */
-const validateCoupon = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { couponId, total, category } = req.body;
-
-    if (!couponId) {
-      return res.status(400).json({ success: false, error: 'ID de cupón requerido' });
-    }
-
-    const result = await pool.query(`
-      SELECT * FROM user_coupons 
-      WHERE id = $1 AND user_id = $2
-    `, [couponId, userId]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Cupón no encontrado' });
-    }
-
-    const coupon = result.rows[0];
-
-    // Validaciones
-    if (coupon.status !== 'active') {
-      return res.status(400).json({ success: false, error: 'Este cupón ya fue utilizado' });
-    }
-
-    if (new Date(coupon.expires_at) < new Date()) {
-      return res.status(400).json({ success: false, error: 'Este cupón ha expirado' });
-    }
-
-    if (total < coupon.min_purchase) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Compra mínima de $${coupon.min_purchase} requerida para este cupón` 
-      });
-    }
-
-    if (coupon.category !== 'ALL' && category && category !== coupon.category) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Este cupón solo es válido para la categoría ${coupon.category}` 
-      });
-    }
-
-    // Calcular descuento
-    let discount = 0;
-    let discountType = '';
-    
-    switch (coupon.type) {
-      case 'percentage':
-        discount = Math.min(total * (coupon.value / 100), coupon.max_discount);
-        discountType = `${coupon.value}% de descuento`;
-        break;
-      case 'fixed':
-        discount = Math.min(coupon.value, coupon.max_discount, total);
-        discountType = `$${coupon.value} de descuento`;
-        break;
-      case '2x1':
-        discount = total / 2;
-        discountType = '2x1 (pagas uno, te llevas dos)';
-        break;
-      case 'free_item':
-        discount = total;
-        discountType = 'Producto gratis';
-        break;
-    }
-
-    res.json({
-      success: true,
-      valid: true,
-      coupon: {
-        id: coupon.id,
-        name: coupon.name,
-        type: coupon.type,
-        discount: Math.round(discount * 100) / 100,
-        discountType,
-        finalTotal: Math.max(0, Math.round((total - discount) * 100) / 100)
-      }
-    });
-  } catch (error) {
-    console.error('Error validating coupon:', error);
-    res.status(500).json({ success: false, error: 'Error al validar cupón' });
-  }
-};
-
-/**
- * Marcar cupón como usado (llamado al completar orden)
- */
-const useCoupon = async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const userId = req.user.id;
-    const { couponId, orderId } = req.body;
-
-    await client.query('BEGIN');
-
-    const result = await client.query(`
-      UPDATE user_coupons 
-      SET status = 'used', used_at = NOW(), used_in_order_id = $3
-      WHERE id = $1 AND user_id = $2 AND status = 'active'
-      RETURNING *
-    `, [couponId, userId, orderId]);
-
-    if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ success: false, error: 'No se pudo usar el cupón' });
-    }
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      message: 'Cupón aplicado exitosamente',
-      coupon: result.rows[0]
-    });
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error using coupon:', error);
-    res.status(500).json({ success: false, error: 'Error al usar cupón' });
-  } finally {
-    client.release();
-  }
-};
-
-/**
  * Otorgar cupón por subir de nivel
  */
 const grantLevelCoupon = async (req, res) => {
   const client = await pool.connect();
   try {
     const userId = req.user.id;
-    const { level } = req.body;
+    const level = Number(req.body.level);
+    if (!Number.isInteger(level) || level < 1 || level > 15) {
+      return res.status(400).json({ success: false, error: 'Nivel inválido' });
+    }
 
     await client.query('BEGIN');
+
+    const profileResult = await client.query(
+      'SELECT COALESCE(total_xp, 0) AS total_xp FROM profiles WHERE user_id = $1 FOR UPDATE',
+      [userId]
+    );
+    const levelThresholds = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
+    if (Number(profileResult.rows[0]?.total_xp || 0) < levelThresholds[level - 1]) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ success: false, error: 'Aún no alcanzas este nivel' });
+    }
 
     // Buscar definición de cupón para este nivel
     const defResult = await client.query(`
       SELECT * FROM coupon_definitions 
       WHERE level_required = $1 AND is_active = true
+      ORDER BY id LIMIT 1
     `, [level]);
 
     if (defResult.rows.length === 0) {
@@ -321,37 +210,6 @@ const grantLevelCoupon = async (req, res) => {
     res.status(500).json({ success: false, error: 'Error al otorgar cupón' });
   } finally {
     client.release();
-  }
-};
-
-/**
- * Registrar transacción de XP
- */
-const recordXpTransaction = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { amount, type, description, orderId, multiplier = 1.0 } = req.body;
-
-    const result = await pool.query(`
-      INSERT INTO xp_transactions (user_id, amount, type, description, order_id, multiplier)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `, [userId, amount, type, description, orderId, multiplier]);
-
-    // Actualizar XP total en el perfil
-    await pool.query(`
-      UPDATE profiles 
-      SET total_xp = COALESCE(total_xp, 0) + $2
-      WHERE user_id = $1
-    `, [userId, amount]);
-
-    res.json({
-      success: true,
-      transaction: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error recording XP:', error);
-    res.status(500).json({ success: false, error: 'Error al registrar XP' });
   }
 };
 
@@ -500,10 +358,7 @@ const getLevelCoupons = async (req, res) => {
 module.exports = {
   getMyCoupons,
   getAvailableCoupons,
-  validateCoupon,
-  useCoupon,
   grantLevelCoupon,
-  recordXpTransaction,
   getXpHistory,
   getGamificationStats
   ,getLevelCoupons
