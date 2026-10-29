@@ -434,8 +434,8 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
                 [newLevel, profile.current_streak, order.user_id]
             );
             await client.query(
-                `INSERT INTO xp_transactions (user_id, amount, type, description, order_id, multiplier)
-                 VALUES ($1, $2, 'pickup', 'Pedido recogido y pagado en efectivo', $3, $4)`,
+                `INSERT INTO xp_transactions (user_id, amount, reason, type, description, order_id, multiplier)
+                 VALUES ($1, $2, 'pickup', 'pickup', 'Pedido recogido y pagado en efectivo', $3, $4)`,
                 [order.user_id, xp, order.id, multiplier]
             );
         }
