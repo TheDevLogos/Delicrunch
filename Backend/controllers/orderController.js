@@ -487,20 +487,20 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN comision_plataforma ELSE 0 END), 0) as comisiones_totales,
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN (total - comision_plataforma) ELSE 0 END), 0) as ingresos_netos
          FROM orders 
-         WHERE store_id = $1 AND created_at >= NOW() - ($2::int * INTERVAL '1 day')`,
+         WHERE store_id = $1 AND COALESCE(fecha_recogida_real, created_at) >= NOW() - ($2::int * INTERVAL '1 day')`,
         [storeId, daysCount]
     );
 
     // Métricas por día (últimos 30 días)
     const dailyMetrics = await pool.query(
         `SELECT 
-            DATE(created_at) as fecha,
+            DATE(COALESCE(fecha_recogida_real, created_at)) as fecha,
             COUNT(*) as ordenes,
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as ventas,
             COALESCE(SUM(CASE WHEN estado = 'recogido' THEN (total - comision_plataforma) ELSE 0 END), 0) as ingresos
          FROM orders 
-         WHERE store_id = $1 AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
-         GROUP BY DATE(created_at)
+         WHERE store_id = $1 AND COALESCE(fecha_recogida_real, created_at) >= NOW() - ($2::int * INTERVAL '1 day')
+         GROUP BY DATE(COALESCE(fecha_recogida_real, created_at))
          ORDER BY fecha DESC`,
         [storeId, daysCount]
     );
@@ -511,11 +511,11 @@ exports.getStoreMetrics = asyncHandler(async (req, res, next) => {
             p.id, p.nombre AS nombre, 
             COUNT(oi.id) as veces_vendido,
             SUM(oi.cantidad) as unidades_vendidas,
-            COALESCE(SUM(oi.subtotal), 0) as ingresos_totales
+            COALESCE(SUM(oi.subtotal * o.total / NULLIF(o.subtotal, 0)), 0) as ingresos_totales
          FROM order_items oi
          JOIN orders o ON oi.order_id = o.id
          JOIN products p ON oi.product_id = p.id
-         WHERE o.store_id = $1 AND o.estado = 'recogido' AND o.created_at >= NOW() - ($2::int * INTERVAL '1 day')
+         WHERE o.store_id = $1 AND o.estado = 'recogido' AND COALESCE(o.fecha_recogida_real, o.created_at) >= NOW() - ($2::int * INTERVAL '1 day')
          GROUP BY p.id, p.nombre
          ORDER BY veces_vendido DESC
          LIMIT 5`,

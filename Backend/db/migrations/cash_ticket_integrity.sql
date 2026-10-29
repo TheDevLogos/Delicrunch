@@ -1,5 +1,6 @@
 -- Apply before deploying cash ticket rewards. The checks deliberately fail if
 -- existing duplicate codes or level rewards need manual reconciliation.
+BEGIN;
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM orders WHERE codigo_recogida IS NOT NULL
@@ -33,3 +34,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS user_coupons_level_reward_unique
   WHERE coupon_definition_id IS NOT NULL AND source = 'level_reward';
 CREATE UNIQUE INDEX IF NOT EXISTS xp_transactions_pickup_once
   ON xp_transactions (order_id) WHERE order_id IS NOT NULL AND type = 'pickup';
+
+COMMIT;
