@@ -82,10 +82,10 @@ const CompradorTabs = ({ isAdmin = false }) => {
         name="Recompensas" 
         component={RewardsScreen}
         options={{
-          tabBarLabel: 'Recompensas',
+          tabBarLabel: 'Ofertas',
           tabBarIcon: ({ focused, color }) => (
             <Ionicons 
-              name={focused ? 'trophy' : 'trophy-outline'} 
+              name={focused ? 'ticket' : 'ticket-outline'} 
               size={24} 
               color={color} 
             />
@@ -255,7 +255,7 @@ const ComercioTabs = ({ isAdmin = false }) => {
 // Configuración común de tabs (como función para evitar usar styles antes de declararlo)
 const screenOptionsConfig = () => ({
   tabBarActiveTintColor: COLORS.primary,
-  tabBarInactiveTintColor: '#8E8E93',
+  tabBarInactiveTintColor: COLORS.textSecondary,
   tabBarStyle: styles.tabBar,
   tabBarLabelStyle: styles.tabBarLabel,
   headerShown: false,
@@ -419,14 +419,17 @@ const BottomTabNavigator = () => {
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: COLORS.white,
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     borderTopWidth: 0,
-    paddingTop: 8,
+    paddingTop: 10,
     paddingBottom: Platform.OS === 'ios' ? 25 : 12, // Reducido para iOS y aumentado para Android
     height: Platform.OS === 'ios' ? 85 : 72, // Reducido height para subir el tab navigator
     // Sombra suave
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 8,
     // Margin bottom para evitar conflicto con botones de Android

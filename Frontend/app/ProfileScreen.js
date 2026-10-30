@@ -160,6 +160,13 @@ const ProfileScreen = () => {
     // Opciones para COMPRADORES
     if (isComprador) {
       options.push({
+        icon: 'heart-outline',
+        label: 'Mis favoritos',
+        subtitle: 'Packs que guardaste',
+        onPress: () => navigation.navigate('Favoritos'),
+        color: COLORS.primary,
+      });
+      options.push({
         icon: 'bag-handle-outline',
         label: 'Mis Pedidos',
         subtitle: 'Historial de compras',
@@ -171,6 +178,13 @@ const ProfileScreen = () => {
         label: 'Mis Reseñas',
         subtitle: 'Opiniones que has dejado',
         onPress: () => navigation.navigate('MyReviews'),
+        color: COLORS.primary,
+      });
+      options.push({
+        icon: 'ticket-outline',
+        label: 'Ofertas y recompensas',
+        subtitle: 'Cupones, XP y logros',
+        onPress: () => navigation.navigate('Recompensas'),
         color: COLORS.primary,
       });
     }
@@ -203,6 +217,20 @@ const ProfileScreen = () => {
         label: 'Estadísticas',
         subtitle: 'Rendimiento de tu tienda',
         onPress: () => navigation.navigate('StoreProfile', { storeId: profile.store_id, initialTab: 'stats' }),
+        color: COLORS.primary,
+      });
+      options.push({
+        icon: 'chatbubbles-outline',
+        label: 'Reseñas del comercio',
+        subtitle: 'Opiniones de tus clientes',
+        onPress: () => navigation.navigate('StoreReviews'),
+        color: COLORS.primary,
+      });
+      options.push({
+        icon: 'trophy-outline',
+        label: 'Premios del comercio',
+        subtitle: 'Logros y progreso',
+        onPress: () => navigation.navigate('MerchantRewards'),
         color: COLORS.primary,
       });
     }
@@ -965,13 +993,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#1a1a1a',
+    borderColor: COLORS.white,
     // Neo Brutalism shadow
-    shadowColor: '#1a1a1a',
+    shadowColor: COLORS.text,
     shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 5,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   avatarPlaceholder: {
     width: 88,
@@ -1174,7 +1202,7 @@ const styles = StyleSheet.create({
   menuSection: {
     backgroundColor: COLORS.white,
     marginHorizontal: SPACING.md,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     ...SHADOWS.sm,
   },
@@ -1191,7 +1219,7 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
   },
@@ -1201,7 +1229,7 @@ const styles = StyleSheet.create({
   menuItemIcon: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },

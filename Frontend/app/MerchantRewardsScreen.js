@@ -623,7 +623,7 @@ const MerchantRewardsScreen = ({ navigation }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F97316" />
+          <ActivityIndicator size="large" color="#F46A16" />
           <Text style={styles.loadingText}>Cargando recompensas...</Text>
         </View>
       </SafeAreaView>
@@ -657,7 +657,7 @@ const MerchantRewardsScreen = ({ navigation }) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F46A16']} />
         }
       >
         <Animated.View style={{ opacity: fadeAnim }}>
@@ -681,7 +681,7 @@ const MerchantRewardsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FFF9F4',
   },
   header: {
     flexDirection: 'row',
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: '#F97316',
+    backgroundColor: '#F46A16',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
   xpValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#F97316',
+    color: '#F46A16',
   },
   xpLabel: {
     fontSize: 12,
@@ -902,8 +902,8 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   categoryTabActive: {
-    backgroundColor: '#F97316',
-    borderColor: '#F97316',
+    backgroundColor: '#F46A16',
+    borderColor: '#F46A16',
   },
   categoryText: {
     fontSize: 13,
@@ -1042,7 +1042,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   claimButton: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#F46A16',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   modalSection: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FFF9F4',
     padding: 10,
     borderRadius: 12,
     marginBottom: 10,

@@ -1,11 +1,13 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Text, Image, StyleSheet } from 'react-native';
+import { COLORS } from '../src/constants/theme';
 
 import { useAuth } from '../contexts/AuthContext';
 
 // Importación de todas las pantallas necesarias
 import LoginScreen from '../app/LoginScreen';
+import RoleChoiceScreen from '../app/RoleChoiceScreen';
 import RegisterScreen from '../app/RegisterScreen';
 import ForgotPasswordScreen from '../app/ForgotPasswordScreen';
 import ResetPasswordScreen from '../app/ResetPasswordScreen';
@@ -102,14 +104,27 @@ const AppNavigator = () => {
   // Mostrar indicador de carga mientras se verifica la sesión
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
+      <View style={loadingStyles.container}>
+        <Image source={require('../assets/Crunchy.png')} style={loadingStyles.mascot} resizeMode="contain" />
+        <Text style={loadingStyles.brand}>Delicrunch</Text>
+        <Text style={loadingStyles.message}>Packs deliciosos cerca de ti</Text>
+        <ActivityIndicator size="small" color={COLORS.white} style={loadingStyles.spinner} />
       </View>
     );
   }
 
   // Renderizado final: decide qué stack mostrar (Auth o App)
-  return user == null ? <AuthStack /> : <AppStack userRole={user.rol} />;
+  if (user == null) return <AuthStack />;
+  if (user.onboarding_required) return <RoleChoiceScreen />;
+  return <AppStack userRole={user.rol} />;
 };
 
 export default AppNavigator;
+
+const loadingStyles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.primary, padding: 24 },
+  mascot: { width: 224, height: 224, marginBottom: 12 },
+  brand: { color: COLORS.white, fontSize: 34, fontWeight: '800', letterSpacing: -1 },
+  message: { color: COLORS.white, fontSize: 15, marginTop: 8 },
+  spinner: { marginTop: 36 },
+});

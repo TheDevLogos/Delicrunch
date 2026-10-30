@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { formatPrice } from '../src/utils/format';
+import { COLORS } from '../src/constants/theme';
 
 const OrderConfirmationScreen = ({ route, navigation }) => {
   const { order, product } = route.params || {};
@@ -22,7 +23,7 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.icon}>
-          <Ionicons name="ticket-outline" size={42} color="#0c8b68" />
+          <Ionicons name="ticket-outline" size={42} color={COLORS.primary} />
         </View>
         <Text style={styles.title}>Reserva confirmada</Text>
         <Text style={styles.subtitle}>Ticket #{order.id}</Text>
@@ -54,22 +55,22 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5faf7' },
+  container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   content: { padding: 20, alignItems: 'stretch' },
   icon: { alignItems: 'center', marginTop: 15 },
-  title: { fontSize: 27, fontWeight: '700', textAlign: 'center', color: '#173b30', marginTop: 12 },
-  subtitle: { textAlign: 'center', color: '#52645c', marginBottom: 22 },
-  card: { backgroundColor: '#fff', padding: 20, borderRadius: 15, marginBottom: 16, borderWidth: 1, borderColor: '#e2ebe5' },
-  label: { textAlign: 'center', color: '#52645c', fontSize: 15 },
-  code: { textAlign: 'center', fontSize: 35, fontWeight: '700', letterSpacing: 3, color: '#0c8b68', marginVertical: 12 },
-  help: { color: '#52645c', fontSize: 14, lineHeight: 20, marginTop: 8 },
-  product: { color: '#173b30', fontSize: 19, fontWeight: '700', marginBottom: 8 },
-  detail: { color: '#52645c', fontSize: 15, marginTop: 5 },
-  price: { color: '#0c8b68', fontSize: 25, fontWeight: '700', marginTop: 20 },
-  button: { backgroundColor: '#0c8b68', padding: 16, borderRadius: 10, alignItems: 'center' },
+  title: { fontSize: 27, fontWeight: '800', textAlign: 'center', color: COLORS.text, marginTop: 12 },
+  subtitle: { textAlign: 'center', color: COLORS.textSecondary, marginBottom: 22 },
+  card: { backgroundColor: COLORS.white, padding: 20, borderRadius: 20, marginBottom: 16, borderWidth: 1, borderColor: COLORS.border },
+  label: { textAlign: 'center', color: COLORS.textSecondary, fontSize: 15 },
+  code: { textAlign: 'center', fontSize: 35, fontWeight: '800', letterSpacing: 3, color: COLORS.primaryDark, marginVertical: 12 },
+  help: { color: COLORS.textSecondary, fontSize: 14, lineHeight: 20, marginTop: 8 },
+  product: { color: COLORS.text, fontSize: 19, fontWeight: '700', marginBottom: 8 },
+  detail: { color: COLORS.textSecondary, fontSize: 15, marginTop: 5 },
+  price: { color: COLORS.primaryDark, fontSize: 25, fontWeight: '800', marginTop: 20 },
+  button: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 15, alignItems: 'center' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  link: { color: '#0c8b68', marginTop: 15, fontSize: 16 },
+  link: { color: COLORS.primary, marginTop: 15, fontSize: 16 },
 });
 
 export default OrderConfirmationScreen;

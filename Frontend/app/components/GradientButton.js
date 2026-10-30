@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/theme';
 
 const GradientButton = ({ title, onPress, style, disabled, iconName }) => {
-  const gradientColors = [COLORS.primary, '#0b7a6f'];
+  const gradientColors = [COLORS.primary, COLORS.primaryDark];
 
   return (
     <TouchableOpacity onPress={onPress} disabled={disabled} activeOpacity={0.8} style={style}>
@@ -21,8 +21,8 @@ const GradientButton = ({ title, onPress, style, disabled, iconName }) => {
 
 const styles = StyleSheet.create({
   gradient: {
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 15,
+    paddingVertical: 16,
     paddingHorizontal: 16,
   },
   inner: {

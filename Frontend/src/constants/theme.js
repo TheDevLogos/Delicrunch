@@ -1,37 +1,37 @@
 /**
- * Delicrunch Design System - Too Good To Go Inspired
+ * Delicrunch Design System - orange marketplace
  * Sistema de diseño unificado para toda la aplicación
- * Basado en https://www.alyssalong.design/project/too-good-to-go
+ * Paleta compartida por las vistas de comprador, comercio y administración.
  */
 
 // ============================================================
-// COLORES - Paleta TGTG
+// COLORES - Paleta Delicrunch
 // ============================================================
 export const COLORS = {
-  // Primary - Verde TGTG (el color principal de la marca)
-  primary: '#036B52',        // Verde oscuro principal
-  primaryLight: '#048A67',   // Verde medio para hovers
-  primaryDark: '#024D3B',    // Verde muy oscuro
-  primarySoft: '#E8F5F1',    // Verde muy suave para fondos
+  // Marca
+  primary: '#F46A16',
+  primaryLight: '#FF8A3D',
+  primaryDark: '#CE4D08',
+  primarySoft: '#FFF0E5',
   
-  // Secondary - Verde brillante
-  secondary: '#00A86B',      // Verde brillante para acentos
-  secondaryLight: '#4CD4A8', // Verde claro
+  // Contraste secundario
+  secondary: '#24382F',
+  secondaryLight: '#E6F2E9',
   
   // Accent - Colores para CTAs y ofertas
-  accent: '#FF6B35',         // Naranja vibrante para CTAs
-  accentLight: '#FF8C5A',    // Naranja claro
-  accentDark: '#E55A28',     // Naranja oscuro
+  accent: '#F46A16',
+  accentLight: '#FF9B59',
+  accentDark: '#CE4D08',
   
   // Background
-  background: '#F7F7F7',     // Gris muy claro (TGTG usa este)
+  background: '#FFF9F4',
   surface: '#FFFFFF',        // Blanco puro para cards
-  surfaceLight: '#FAFAFA',   // Casi blanco
-  surfaceSecondary: '#F2F2F7', // Gris claro para secciones
+  surfaceLight: '#FFFCF9',
+  surfaceSecondary: '#FFF0E5',
   
   // Text - Escala de grises
-  text: '#1A1A1A',           // Negro suave principal
-  textSecondary: '#666666',  // Gris oscuro para texto secundario
+  text: '#24211F',
+  textSecondary: '#675F59',
   textTertiary: '#8E8E93',   // Gris claro para placeholders
   textLight: '#8E8E93',      // Alias para compatibilidad
   textWhite: '#FFFFFF',      // Blanco
@@ -48,8 +48,8 @@ export const COLORS = {
   infoLight: '#E5F1FF',      // Fondo azul claro
   
   // Borders
-  border: '#E5E5EA',         // Gris borde principal
-  borderLight: '#F2F2F7',    // Gris borde claro
+  border: '#EFE4DA',
+  borderLight: '#F8EEE6',
   borderDark: '#C7C7CC',     // Gris borde oscuro
   
   // Overlays

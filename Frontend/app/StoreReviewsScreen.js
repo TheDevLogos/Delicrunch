@@ -24,18 +24,18 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { formatNumber } from '../src/utils/format';
 
-// TGTG Design System
+// Delicrunch palette
 const COLORS = {
-  primary: '#036B52',
-  primaryDark: '#024A38',
-  secondary: '#F5F5F5',
-  accent: '#FF6B35',
+  primary: '#F46A16',
+  primaryDark: '#CE4D08',
+  secondary: '#FFF0E5',
+  accent: '#F46A16',
   background: '#FFFFFF',
-  surface: '#F8F9FA',
-  text: '#1A1A1A',
-  textSecondary: '#6B7280',
+  surface: '#FFF9F4',
+  text: '#24211F',
+  textSecondary: '#675F59',
   textLight: '#9CA3AF',
-  border: '#E5E7EB',
+  border: '#EFE4DA',
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',

@@ -71,7 +71,7 @@ const DISTANCE_OPTIONS = [
 
 // Helper para formatear calificación de forma segura
 const formatRating = (rating) => {
-  if (rating === null || rating === undefined || isNaN(rating)) return '4.5';
+  if (rating === null || rating === undefined || isNaN(rating)) return null;
   return formatNumber(rating, 1);
 };
 
@@ -91,7 +91,7 @@ const BrowseScreen = () => {
   } = useLocation();
   
   // Estados
-  const [viewMode, setViewMode] = useState('map');
+  const [viewMode, setViewMode] = useState('list');
   const [stores, setStores] = useState([]);
   const [products, setProducts] = useState([]);
   const [filteredStores, setFilteredStores] = useState([]);
@@ -436,11 +436,11 @@ const BrowseScreen = () => {
       >
         <View style={styles.listCardImageWrapper}>
           <Image
-            source={{ uri: product.imagen_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400' }}
+            source={product.imagen_url ? { uri: product.imagen_url } : require('../assets/Crunchy.png')}
             style={styles.listCardImage}
           />
           <View style={styles.stockBadgeList}>
-            <Text style={styles.stockBadgeText}>{product.cantidad_disponible || 0} left</Text>
+            <Text style={styles.stockBadgeText}>{product.cantidad_disponible || 0} disponibles</Text>
           </View>
         </View>
         <View style={styles.listCardContent}>
@@ -468,20 +468,19 @@ const BrowseScreen = () => {
           </View>
           
           <Text style={styles.listProductName} numberOfLines={1}>
-            {product.nombre || 'Surprise Bag'}
+            {product.nombre || 'Pack sorpresa'}
           </Text>
           <Text style={styles.listPickupTime}>
-            Recoge hoy 3:00 PM - 5:00 PM
+            {product.hora_recogida_inicio ? `Recoge ${product.hora_recogida_inicio}${product.hora_recogida_fin ? ` – ${product.hora_recogida_fin}` : ''}` : 'Horario de recogida en detalle'}
           </Text>
           
           <View style={styles.listCardFooter}>
             <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={14} color={COLORS.primary} />
-              <Text style={styles.ratingText}>{formatRating(product.calificacion_promedio)}</Text>
-              <Text style={styles.distanceText}>  {formatNumber(product.distancia,1) || '0.8'} mi</Text>
+              {formatRating(product.calificacion_promedio) && <><Ionicons name="star" size={14} color={COLORS.star} /><Text style={styles.ratingText}>{formatRating(product.calificacion_promedio)}</Text></>}
+              {Number.isFinite(product.distancia) && product.distancia < 999 && <Text style={styles.distanceText}>  {formatNumber(product.distancia, 1)} mi</Text>}
             </View>
             <View style={styles.priceContainer}>
-              <Text style={styles.originalPrice}>${formatPrice(product.precio_original, 0)}</Text>
+              {Number(product.precio_original) > Number(product.precio_descuento) && <Text style={styles.originalPrice}>${formatPrice(product.precio_original, 0)}</Text>}
               <Text style={styles.listPrice}>${formatPrice(product.precio_descuento)}</Text>
             </View>
           </View>
@@ -496,7 +495,8 @@ const BrowseScreen = () => {
     
     const storeProducts = details?.productos?.length ? details.productos : products.filter(p => p.store_id === store.id);
     const mainProduct = storeProducts[0];
-    const avgRating = (details?.calificacion_promedio) || (storeProducts.reduce((sum, p) => sum + (p.calificacion_promedio || 4.5), 0) / (storeProducts.length || 1));
+    const ratings = storeProducts.map(p => Number(p.calificacion_promedio)).filter(r => Number.isFinite(r) && r > 0);
+    const avgRating = details?.calificacion_promedio || (ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null);
     const minPrice = storeProducts.length ? Math.min(...storeProducts.map(p => parseFloat(p.precio_descuento) || 0)) : 0;
     
     return (
@@ -506,7 +506,7 @@ const BrowseScreen = () => {
         activeOpacity={0.9}
       >
         <Image
-          source={{ uri: mainProduct?.imagen_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400' }}
+          source={mainProduct?.imagen_url ? { uri: mainProduct.imagen_url } : require('../assets/Crunchy.png')}
           style={styles.previewImage}
         />
         <View style={styles.previewContent}>
@@ -514,9 +514,8 @@ const BrowseScreen = () => {
             {store.nombre_comercio || 'Tienda'}
           </Text>
           <View style={styles.previewRatingRow}>
-            <Ionicons name="star" size={14} color={COLORS.primary} />
-            <Text style={styles.previewRating}>{formatNumber(avgRating,1)}</Text>
-            <Text style={styles.previewDistance}>• {formatNumber(store.distancia,1) || '0.5'} mi</Text>
+            {avgRating && <><Ionicons name="star" size={14} color={COLORS.star} /><Text style={styles.previewRating}>{formatNumber(avgRating,1)}</Text></>}
+            {Number.isFinite(store.distancia) && store.distancia < 999 && <Text style={styles.previewDistance}>• {formatNumber(store.distancia,1)} mi</Text>}
           </View>
           <Text style={styles.previewProducts}>
             {storeProducts.length} producto{storeProducts.length !== 1 ? 's' : ''} disponible{storeProducts.length !== 1 ? 's' : ''}
@@ -733,7 +732,7 @@ const BrowseScreen = () => {
           style={[styles.filterButton, activeFiltersCount > 0 && styles.filterButtonActive]}
           onPress={() => setShowFilters(true)}
         >
-          <Ionicons name="options" size={22} color={activeFiltersCount > 0 ? '#FFFFFF' : COLORS.primary} />
+          <Ionicons name="options" size={22} color={COLORS.white} />
           {activeFiltersCount > 0 && (
             <View style={styles.filterBadge}>
               <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
@@ -784,16 +783,16 @@ const styles = StyleSheet.create({
 
   // Búsqueda
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: SPACING.smd, borderRadius: SPACING.smd, borderWidth: 1, borderColor: '#E5E5EA', height: LAYOUT.searchBarHeight, marginRight: SPACING.sm },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: SPACING.smd, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, height: 52, marginRight: SPACING.sm },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 16, color: COLORS.text },
-  filterButton: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E5EA', justifyContent: 'center', alignItems: 'center' },
+  filterButton: { width: 52, height: 52, borderRadius: 15, backgroundColor: COLORS.primary, borderWidth: 1, borderColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   filterButtonActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   filterBadge: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'center' },
   filterBadgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
 
   // Toggle
-  toggleContainer: { flexDirection: 'row', marginHorizontal: SPACING.md, marginBottom: SPACING.sm, backgroundColor: '#E5E5EA', borderRadius: SPACING.sm, padding: SPACING.xs },
+  toggleContainer: { flexDirection: 'row', marginHorizontal: SPACING.md, marginBottom: SPACING.sm, backgroundColor: COLORS.primarySoft, borderRadius: 14, padding: SPACING.xs },
   toggleButton: { flex: 1, flexDirection: 'row', paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   toggleActive: { backgroundColor: COLORS.primary },
   toggleText: { fontSize: 14, fontWeight: '600', color: '#8E8E93', marginLeft: 6 },
@@ -846,9 +845,9 @@ const styles = StyleSheet.create({
   // Lista
   listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.mld },
   resultsCount: { fontSize: 14, color: '#8E8E93', marginBottom: 12 },
-  listCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  listCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 20, overflow: 'hidden', marginBottom: 12, borderWidth: 1, borderColor: COLORS.borderLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
   listCardImageWrapper: { position: 'relative' },
-  listCardImage: { width: 100, height: 120, resizeMode: 'cover' },
+  listCardImage: { width: 112, height: 146, resizeMode: 'cover' },
   stockBadgeList: { position: 'absolute', top: 6, left: 6, backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
   stockBadgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   listCardContent: { flex: 1, padding: SPACING.smd },
