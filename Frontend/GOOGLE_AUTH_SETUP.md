@@ -8,7 +8,7 @@ El backend verifica la firma, audiencia y vigencia del ID token de Google. Solo 
 
 En Google Auth Platform, el proyecto `Delicrunch` ya tiene un cliente web. Su origen autorizado de producción es `https://delicrunch.vercel.app`. La app está en modo de prueba; agrega como usuario de prueba el correo administrador confirmado antes de iniciar sesión.
 
-Para probar el despliegue de esta rama en Vercel, agrega al **mismo cliente web** el origen estable `https://delicrunch-git-codex-ux-orange-refresh-thedevlogos-projects.vercel.app` en **Orígenes de JavaScript autorizados**. El enlace individual `https://delicrunch-gwtj5qfym-thedevlogos-projects.vercel.app` también necesita su propio origen si se sigue usando. Google exige coincidencia exacta de esquema y dominio y no acepta comodines. Abre la URL estable de la rama para evitar registrar un origen nuevo por cada despliegue. Conserva el origen de producción.
+Para probar el despliegue de esta rama en Vercel, usa el origen estable `https://delicrunch-git-codex-ux-orange-refresh-thedevlogos-projects.vercel.app`, registrado en **Orígenes de JavaScript autorizados** del mismo cliente web. Google exige coincidencia exacta de esquema y dominio y no acepta comodines. Abre siempre esta URL estable para evitar registrar un origen nuevo por cada despliegue. El origen de producción permanece autorizado.
 
 En Render, configura estas variables en el servicio de la API:
 
