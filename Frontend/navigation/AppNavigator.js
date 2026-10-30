@@ -120,7 +120,7 @@ export default AppNavigator;
 
 const loadingStyles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.primary, padding: 24 },
-  mascot: { width: 168, height: 168, marginBottom: 12 },
+  mascot: { width: 224, height: 224, marginBottom: 12 },
   brand: { color: COLORS.white, fontSize: 34, fontWeight: '800', letterSpacing: -1 },
   message: { color: COLORS.white, fontSize: 15, marginTop: 8 },
   spinner: { marginTop: 36 },
