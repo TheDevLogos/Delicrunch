@@ -7,6 +7,7 @@ import logger from '../services/logger';
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '../src/constants/theme';
 import GoogleAuthButton from './GoogleAuthButton';
+import AuthVideoBackground from '../components/AuthVideoBackground';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -82,7 +83,8 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <AuthVideoBackground />
+      <StatusBar barStyle="light-content" backgroundColor="#25150D" />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView 
           contentContainerStyle={styles.contentContainer} 
@@ -99,14 +101,14 @@ const LoginScreen = ({ navigation }) => {
             <Text style={styles.formSubtitle}>Entra para encontrar packs y gestionar tus reservas.</Text>
             <Text style={styles.inputLabel}>Correo electrónico</Text>
             <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
+              <Ionicons name="mail-outline" size={20} color="rgba(255,255,255,0.8)" />
               <TextInput
                 placeholder="tu@correo.com"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor={COLORS.textTertiary}
+                placeholderTextColor="rgba(255,255,255,0.62)"
                 style={styles.input}
                 editable={!loading}
               />
@@ -114,18 +116,18 @@ const LoginScreen = ({ navigation }) => {
 
             <Text style={styles.inputLabel}>Contraseña</Text>
             <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
+              <Ionicons name="lock-closed-outline" size={20} color="rgba(255,255,255,0.8)" />
               <TextInput
                 placeholder="Tu contraseña"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                placeholderTextColor={COLORS.textTertiary}
+                placeholderTextColor="rgba(255,255,255,0.62)"
                 style={styles.input}
                 editable={!loading}
               />
               <TouchableOpacity onPress={() => setShowPassword(value => !value)} accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={21} color={COLORS.textSecondary} />
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={21} color="rgba(255,255,255,0.8)" />
               </TouchableOpacity>
             </View>
             <TouchableOpacity 
@@ -157,30 +159,30 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.primary },
+  container: { flex: 1, backgroundColor: '#25150D' },
   safeArea: { flex: 1 },
-  contentContainer: { flexGrow: 1 },
-  hero: { minHeight: 300, alignItems: 'center', justifyContent: 'center', paddingVertical: 24, paddingHorizontal: 24 },
-  mascot: { width: 160, height: 160 },
+  contentContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 24 },
+  hero: { minHeight: 260, alignItems: 'center', justifyContent: 'center', paddingVertical: 18, paddingHorizontal: 24 },
+  mascot: { width: 190, height: 190 },
   brand: { color: COLORS.white, fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 4 },
   tagline: { color: COLORS.white, fontSize: 14, marginTop: 5, textAlign: 'center' },
-  formSection: { flexGrow: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: COLORS.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 36 },
-  formTitle: { fontSize: 27, color: COLORS.text, fontWeight: '800' },
-  formSubtitle: { fontSize: 14, color: COLORS.textSecondary, marginTop: 5, marginBottom: 24, lineHeight: 21 },
-  inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
-  inputWrapper: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 14, marginBottom: 17, backgroundColor: COLORS.surfaceLight },
-  input: { flex: 1, minHeight: 50, fontSize: 15, color: COLORS.text },
+  formSection: { width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: 'rgba(31, 19, 12, 0.82)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 28, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 30 },
+  formTitle: { fontSize: 27, color: COLORS.white, fontWeight: '800' },
+  formSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.82)', marginTop: 5, marginBottom: 24, lineHeight: 21 },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.white, marginBottom: 8 },
+  inputWrapper: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.32)', borderRadius: 14, paddingHorizontal: 14, marginBottom: 17, backgroundColor: 'rgba(255,255,255,0.13)' },
+  input: { flex: 1, minHeight: 50, fontSize: 15, color: COLORS.white },
   forgotPasswordContainer: { alignSelf: 'flex-end', paddingVertical: 4, marginBottom: 20 },
-  forgotPasswordText: { color: COLORS.primaryDark, fontSize: 13, fontWeight: '700' },
+  forgotPasswordText: { color: '#FFD4B5', fontSize: 13, fontWeight: '700' },
   loginButton: { minHeight: 54, backgroundColor: COLORS.primary, borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   loginButtonText: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
   disabled: { opacity: 0.6 },
   loginDivider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
-  loginDividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
-  loginDividerText: { color: COLORS.textSecondary, fontSize: 12 },
+  loginDividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.28)' },
+  loginDividerText: { color: 'rgba(255,255,255,0.8)', fontSize: 12 },
   registerRow: { flexDirection: 'row', justifyContent: 'center', paddingTop: 25, paddingBottom: 8 },
-  registerText: { color: COLORS.textSecondary, fontSize: 14 },
-  registerLink: { color: COLORS.primaryDark, fontSize: 14, fontWeight: '800' },
+  registerText: { color: 'rgba(255,255,255,0.85)', fontSize: 14 },
+  registerLink: { color: '#FFD4B5', fontSize: 14, fontWeight: '800' },
 });
 
 export default LoginScreen;

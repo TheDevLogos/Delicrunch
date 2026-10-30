@@ -82,6 +82,15 @@ export const AuthProvider = ({ children }) => {
       setSimulatedRoleState(null);
       setIsLoading(false);
     },
+    chooseRole: async (rol, storeData) => {
+      const response = await api.post('/auth/choose-role', { rol, storeData });
+      const token = response.data?.token;
+      if (!token) throw new Error('No se pudo guardar el tipo de cuenta.');
+      await AsyncStorage.setItem('userToken', token);
+      const profileResponse = await api.get('/profiles/me');
+      setUser({ token, ...profileResponse.data });
+      return profileResponse.data;
+    },
   }), [user, simulatedRole, effectiveRole, isTransitioning, setSimulatedRole]);
 
   useEffect(() => {

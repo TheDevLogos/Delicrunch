@@ -9,103 +9,28 @@ const googleOAuthClient = new OAuth2Client();
 
 // Función para registrar un nuevo usuario
 exports.registerUser = asyncHandler(async (req, res, next) => {
-    // Obtenemos los datos del cuerpo de la solicitud - aceptar español o inglés
-    const { nombre, name, email, password, rol, role, storeData } = req.body;
-    
-    // Mapear campos
-    const userName = nombre || name;
-    const userRole = rol || role || 'buyer';
-
-    // Validación básica
-    if (!userName || !email || !password) {
+    const { nombre, name, email, password } = req.body;
+    const userName = typeof (nombre || name) === 'string' ? (nombre || name).trim() : '';
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!userName || !normalizedEmail || !password) {
         return res.status(400).json({ msg: 'Por favor, incluye todos los campos (nombre, email, password).' });
     }
-    
-    // Mapear roles al español (nombres correctos en la BD)
-    // La BD acepta: 'comprador', 'comercio', 'admin'
-    let dbRole = userRole.toLowerCase();
-    // Compatibilidad: aceptar roles en inglés y convertir a español
-    if (dbRole === 'buyer') dbRole = 'comprador';
-    if (dbRole === 'seller') dbRole = 'comercio';
-    if (dbRole === 'administrador') dbRole = 'admin';
-    // El rol admin nunca se acepta desde el endpoint público de registro.
-    if (dbRole === 'admin') {
-        return res.status(403).json({ msg: 'El rol administrador solo puede asignarlo el equipo de Delicrunch.' });
-    }
-    // Si no es un rol válido, usar comprador por defecto
-    if (!['comprador', 'comercio'].includes(dbRole)) dbRole = 'comprador';
-    
-    // Validación adicional para comercios/sellers
-    if (['comercio', 'seller'].includes(userRole.toLowerCase())) {
-        dbRole = 'comercio';
-        if (!storeData || !storeData.nombre_comercio || !storeData.direccion || !storeData.telefono) {
-            return res.status(400).json({ msg: 'Por favor, incluye todos los campos requeridos del comercio (nombre, dirección, teléfono).' });
-        }
-        
-        // Validar coordenadas si se proporcionan
-        if (storeData.latitud !== null && storeData.latitud !== undefined) {
-            if (isNaN(storeData.latitud) || storeData.latitud < -90 || storeData.latitud > 90) {
-                return res.status(400).json({ msg: 'Latitud debe ser un número entre -90 y 90.' });
-            }
-        }
-        
-        if (storeData.longitud !== null && storeData.longitud !== undefined) {
-            if (isNaN(storeData.longitud) || storeData.longitud < -180 || storeData.longitud > 180) {
-                return res.status(400).json({ msg: 'Longitud debe ser un número entre -180 y 180.' });
-            }
-        }
-    }
-
-    // 1. Verificar si el usuario ya existe
-    const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const userExists = await pool.query('SELECT id FROM users WHERE lower(email) = $1', [normalizedEmail]);
     if (userExists.rows.length > 0) {
         return res.status(400).json({ msg: 'El correo electrónico ya está registrado.' });
     }
-
-    // 2. Hashear la contraseña
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    // 3. Insertar el nuevo usuario en la base de datos con campos reales
+    const passwordHash = await bcrypt.hash(password, 12);
+    // La elección se confirma tras el primer acceso, también para cuentas de correo.
     const newUser = await pool.query(
-        `INSERT INTO users (nombre, email, password_hash, rol) 
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [userName, email, passwordHash, dbRole]
+        `INSERT INTO users (nombre, email, password_hash, rol, role_selected_at)
+         VALUES ($1, $2, $3, 'comprador', NULL) RETURNING id, rol`,
+        [userName, normalizedEmail, passwordHash]
     );
-
-    // 4. Lógica específica si el rol es 'comercio'
-    if (dbRole === 'comercio' && storeData) {
-        // Creamos una entrada en la tabla 'stores' asociada a este nuevo usuario
-        await pool.query(
-            `INSERT INTO stores 
-            (user_id, nombre_comercio, direccion, latitud, longitud, telefono, horario, descripcion, categoria, activo) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-            [
-                newUser.rows[0].id,
-                storeData.nombre_comercio,
-                storeData.direccion,
-                storeData.latitud || null,
-                storeData.longitud || null,
-                storeData.telefono,
-                storeData.horario || 'Por definir',
-                storeData.descripcion || '',
-                storeData.categoria || 'Otros',
-                true
-            ]
-        );
-        
-        console.log('✅ Comercio creado exitosamente:', {
-            user_id: newUser.rows[0].id,
-            nombre_comercio: storeData.nombre_comercio,
-            categoria: storeData.categoria
-        });
-    }
-
-    // 5. Crear y firmar el JWT - usar 'rol' para compatibilidad con frontend
     const payload = {
         user: {
             id: newUser.rows[0].id,
             rol: newUser.rows[0].rol,
+            onboardingPending: true,
         },
     };
 
@@ -150,6 +75,7 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
         user: {
             id: user.id,
             rol: user.rol,
+            onboardingPending: user.role_selected_at === null,
         },
     };
 
@@ -165,7 +91,7 @@ exports.loginUser = asyncHandler(async (req, res, next) => {
 });
 // --- FIN DE LA SECCIÓN CORREGIDA ---
 
-// Inicio de sesión del administrador con un ID token verificado por Google.
+// Inicio de sesión con un ID token verificado por Google.
 exports.loginWithGoogle = asyncHandler(async (req, res) => {
     const { idToken } = req.body;
     if (typeof idToken !== 'string' || !idToken.trim()) {
@@ -193,59 +119,80 @@ exports.loginWithGoogle = asyncHandler(async (req, res) => {
     if (!verifiedEmail || payload.email_verified !== true) {
         return res.status(401).json({ msg: 'La cuenta de Google debe tener un correo verificado.' });
     }
-    if (verifiedEmail !== adminEmail) {
-        return res.status(403).json({ msg: 'Esta cuenta de Google no tiene acceso de administrador.' });
-    }
-
-    // Sustituye cualquier contraseña previa de la cuenta permitida. La cuenta
-    // se autentica exclusivamente con la identidad verificada por Google.
-    const randomPassword = crypto.randomBytes(48).toString('hex');
-    const passwordHash = await bcrypt.hash(randomPassword, 12);
+    const isAdminAccount = verifiedEmail === adminEmail;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-
-        // La lista permitida del servidor, junto con el ID token verificado,
-        // es la única fuente que puede conceder el rol de administrador.
         const existingUser = await client.query(
-            'SELECT id FROM users WHERE lower(email) = $1 FOR UPDATE',
+            'SELECT id, rol, role_selected_at FROM users WHERE lower(email) = $1 FOR UPDATE',
             [verifiedEmail]
         );
 
         let user;
-        if (existingUser.rows.length) {
+        if (isAdminAccount && existingUser.rows.length) {
+            // Solo el correo permitido por el servidor puede recibir admin.
+            const passwordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
             const promotedUser = await client.query(
                 `UPDATE users
                  SET rol = 'admin', password_hash = $2,
-                     password_reset_token = NULL, password_reset_expires = NULL
+                     password_reset_token = NULL, password_reset_expires = NULL,
+                     role_selected_at = COALESCE(role_selected_at, NOW())
                  WHERE id = $1
-                 RETURNING id, rol`,
+                 RETURNING id, rol, role_selected_at`,
                 [existingUser.rows[0].id, passwordHash]
             );
             user = promotedUser.rows[0];
-        } else {
+        } else if (isAdminAccount) {
+            const passwordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
             const createdUser = await client.query(
-                `INSERT INTO users (nombre, email, password_hash, rol)
-                 VALUES ($1, $2, $3, 'admin')
+                `INSERT INTO users (nombre, email, password_hash, rol, role_selected_at)
+                 VALUES ($1, $2, $3, 'admin', NOW())
                  ON CONFLICT (email) DO UPDATE
                  SET rol = 'admin', password_hash = EXCLUDED.password_hash,
-                     password_reset_token = NULL, password_reset_expires = NULL
-                 RETURNING id, rol`,
+                     password_reset_token = NULL, password_reset_expires = NULL,
+                     role_selected_at = COALESCE(users.role_selected_at, NOW())
+                 RETURNING id, rol, role_selected_at`,
                 [payload.name || verifiedEmail.split('@')[0], verifiedEmail, passwordHash]
             );
             user = createdUser.rows[0];
+        } else if (existingUser.rows.length) {
+            user = existingUser.rows[0];
+            if (user.rol === 'admin') {
+                await client.query('ROLLBACK');
+                return res.status(403).json({ msg: 'Esta cuenta no puede usar el acceso administrador.' });
+            }
+        } else {
+            // El rol comprador es provisional hasta que el usuario elija.
+            const passwordHash = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 12);
+            const createdUser = await client.query(
+                `INSERT INTO users (nombre, email, password_hash, rol, role_selected_at)
+                 VALUES ($1, $2, $3, 'comprador', NULL)
+                 ON CONFLICT (email) DO NOTHING
+                 RETURNING id, rol, role_selected_at`,
+                [payload.name || verifiedEmail.split('@')[0], verifiedEmail, passwordHash]
+            );
+            user = createdUser.rows[0] || (await client.query(
+                'SELECT id, rol, role_selected_at FROM users WHERE lower(email) = $1 FOR UPDATE',
+                [verifiedEmail]
+            )).rows[0];
         }
 
-        // Sustituye administradores anteriores cuando se confirma el acceso
-        // de la cuenta autorizada, sin borrar sus cuentas ni sus datos.
-        await client.query(
-            "UPDATE users SET rol = 'comprador' WHERE rol = 'admin' AND lower(email) <> $1",
-            [verifiedEmail]
-        );
+        if (isAdminAccount) {
+            // Conserva la regla previa: solo una cuenta administradora.
+            await client.query(
+                "UPDATE users SET rol = 'comprador' WHERE rol = 'admin' AND lower(email) <> $1",
+                [verifiedEmail]
+            );
+        }
         await client.query('COMMIT');
 
         const token = jwt.sign(
-            { user: { id: user.id, rol: user.rol, authProvider: 'google' } },
+            { user: {
+                id: user.id,
+                rol: user.rol,
+                authProvider: 'google',
+                onboardingPending: user.role_selected_at === null,
+            } },
             process.env.JWT_SECRET,
             { expiresIn: '5h' }
         );
@@ -254,6 +201,70 @@ exports.loginWithGoogle = asyncHandler(async (req, res) => {
         await client.query('ROLLBACK');
         console.error('Error al iniciar sesión con Google:', error.message);
         return res.status(500).json({ msg: 'No se pudo completar el inicio de sesión con Google.' });
+    } finally {
+        client.release();
+    }
+});
+
+// La primera elección se guarda en la cuenta y no puede cambiarse desde este endpoint.
+exports.chooseRole = asyncHandler(async (req, res) => {
+    const role = req.body?.rol;
+    if (!['comprador', 'comercio'].includes(role)) {
+        return res.status(400).json({ msg: 'Elige cliente o comercio.' });
+    }
+    const storeData = req.body?.storeData;
+    let normalizedStore;
+    if (role === 'comercio') {
+        const name = typeof storeData?.nombre_comercio === 'string' ? storeData.nombre_comercio.trim() : '';
+        const address = typeof storeData?.direccion === 'string' ? storeData.direccion.trim() : '';
+        const phone = typeof storeData?.telefono === 'string' ? storeData.telefono.trim() : '';
+        if (!name || !address || !phone || name.length > 255 || address.length > 500 || phone.length > 50) {
+            return res.status(400).json({ msg: 'Completa nombre, dirección y teléfono válidos de tu comercio.' });
+        }
+        normalizedStore = { name, address, phone };
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await client.query(
+            'SELECT id, nombre, rol, role_selected_at FROM users WHERE id = $1 FOR UPDATE',
+            [req.user.id]
+        );
+        const user = result.rows[0];
+        if (!user || user.rol === 'admin') {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ msg: 'No se puede cambiar el tipo de esta cuenta.' });
+        }
+        if (user.role_selected_at && user.rol !== role) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ msg: 'El tipo de cuenta ya fue elegido.' });
+        }
+        if (!user.role_selected_at) {
+            await client.query(
+                'UPDATE users SET rol = $1, role_selected_at = NOW(), updated_at = NOW() WHERE id = $2',
+                [role, user.id]
+            );
+            if (role === 'comercio') {
+                const store = await client.query('SELECT id FROM stores WHERE user_id = $1 LIMIT 1', [user.id]);
+                if (!store.rows.length) {
+                    await client.query(
+                        `INSERT INTO stores (user_id, nombre_comercio, direccion, telefono, horario, activo)
+                         VALUES ($1, $2, $3, $4, 'Por definir', true)`,
+                        [user.id, normalizedStore.name, normalizedStore.address, normalizedStore.phone]
+                    );
+                }
+            }
+        }
+        await client.query('COMMIT');
+        const token = jwt.sign(
+            { user: { id: user.id, rol: role, authProvider: req.user.authProvider, onboardingPending: false } },
+            process.env.JWT_SECRET,
+            { expiresIn: '5h' }
+        );
+        return res.json({ token, rol: role });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
     } finally {
         client.release();
     }

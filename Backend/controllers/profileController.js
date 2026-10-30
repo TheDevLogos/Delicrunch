@@ -46,6 +46,7 @@ exports.getLoggedInUserProfile = asyncHandler(async (req, res, next) => {
             u.nombre,
             u.email,
             u.rol,
+            u.role_selected_at IS NULL AS onboarding_required,
             u.created_at,
             -- Datos del perfil extendido
             p.telefono,

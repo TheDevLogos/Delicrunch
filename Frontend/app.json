@@ -69,7 +69,8 @@
           "microphonePermission": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-video"
     ],
     "extra": {
       "apiUrl": "https://delicrunch.onrender.com/api",

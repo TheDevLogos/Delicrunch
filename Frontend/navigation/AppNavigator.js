@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 // Importación de todas las pantallas necesarias
 import LoginScreen from '../app/LoginScreen';
+import RoleChoiceScreen from '../app/RoleChoiceScreen';
 import RegisterScreen from '../app/RegisterScreen';
 import ForgotPasswordScreen from '../app/ForgotPasswordScreen';
 import ResetPasswordScreen from '../app/ResetPasswordScreen';
@@ -113,7 +114,9 @@ const AppNavigator = () => {
   }
 
   // Renderizado final: decide qué stack mostrar (Auth o App)
-  return user == null ? <AuthStack /> : <AppStack userRole={user.rol} />;
+  if (user == null) return <AuthStack />;
+  if (user.onboarding_required) return <RoleChoiceScreen />;
+  return <AppStack userRole={user.rol} />;
 };
 
 export default AppNavigator;

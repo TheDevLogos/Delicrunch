@@ -38,22 +38,32 @@ const protect = async function (req, res, next) {
     }
 
     try {
-        // Los JWT de administrador antiguos no fueron emitidos después de una
-        // autenticación Google. Comprueba también que el rol no haya cambiado.
-        if (decoded.user?.rol === 'admin') {
-            const allowedAdminEmail = (process.env.GOOGLE_ADMIN_EMAIL || '').trim().toLowerCase();
-            if (!allowedAdminEmail || decoded.user.authProvider !== 'google') {
-                return res.status(401).json({ msg: 'La sesión administradora debe renovarse con Google.' });
-            }
-
+        // Consulta el tipo actual para que una sesión abierta antes de
+        // elegirlo no pueda conservar permisos provisionales.
+        if (decoded.user?.id) {
             const result = await pool.query(
-                'SELECT lower(email) AS email, rol FROM users WHERE id = $1',
+                'SELECT lower(email) AS email, rol, role_selected_at FROM users WHERE id = $1',
                 [decoded.user.id]
             );
             const currentUser = result.rows[0];
-            if (!currentUser || currentUser.rol !== 'admin' || currentUser.email !== allowedAdminEmail) {
+            if (!currentUser) {
+                return res.status(401).json({ msg: 'La sesión ya no es válida.' });
+            }
+            const allowedAdminEmail = (process.env.GOOGLE_ADMIN_EMAIL || '').trim().toLowerCase();
+            if (currentUser.rol === 'admin' &&
+                (decoded.user.authProvider !== 'google' || !allowedAdminEmail || currentUser.email !== allowedAdminEmail)) {
                 return res.status(401).json({ msg: 'La sesión administradora ya no es válida.' });
             }
+            if (decoded.user.rol === 'admin' && currentUser.rol !== 'admin') {
+                return res.status(401).json({ msg: 'La sesión administradora ya no es válida.' });
+            }
+            decoded.user.rol = currentUser.rol;
+            if (currentUser.role_selected_at === null &&
+                !['/api/profiles/me', '/api/auth/choose-role'].includes(req.originalUrl.split('?')[0])) {
+                return res.status(403).json({ msg: 'Elige el tipo de cuenta para continuar.' });
+            }
+        } else {
+            return res.status(401).json({ msg: 'La sesión ya no es válida.' });
         }
 
         req.user = decoded.user;

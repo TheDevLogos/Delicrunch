@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // @ruta    POST api/auth/register
 // @desc    Registrar un nuevo usuario (comprador o comercio)
@@ -11,9 +12,9 @@ router.post('/register', authController.registerUser);
 // @acceso  Público
 router.post('/login', authController.loginUser);
 // @ruta    POST api/auth/google
-// @desc    Iniciar sesión de administrador con un ID token verificado por Google
-// @acceso  Público (la identidad autorizada se restringe en el servidor)
+// @desc    Iniciar sesión con un ID token verificado por Google
 router.post('/google', authController.loginWithGoogle);
+router.post('/choose-role', authMiddleware, authController.chooseRole);
 // @ruta    POST api/auth/forgot-password
 // @desc    Solicitar restablecimiento de contraseña
 // @acceso  Público
