@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { COLORS, SPACING } from '../../src/constants/theme';
 
-const Header = ({ title = 'DELICRUNCH', subtitle = 'RESCATA • COME • AHORRA', large = false }) => {
+const Header = ({ title = 'DELICRUNCH', subtitle = 'RESCATA • COME • AHORRA', large = false, inverted = false }) => {
   return (
     <View style={styles.headerTop}>
       <Image
@@ -10,8 +10,8 @@ const Header = ({ title = 'DELICRUNCH', subtitle = 'RESCATA • COME • AHORRA'
         style={[styles.topLogo, large ? styles.topLogoLarge : null]}
         resizeMode="contain"
       />
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>{subtitle}</Text>
+      <Text style={[styles.title, inverted && styles.inverted]}>{title}</Text>
+      <Text style={[styles.subtitle, inverted && styles.inverted]}>{subtitle}</Text>
     </View>
   );
 };
@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '700',
   },
+  inverted: { color: COLORS.white },
 });
 
 export default Header;

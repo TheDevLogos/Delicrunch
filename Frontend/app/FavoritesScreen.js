@@ -27,7 +27,7 @@ const { width } = Dimensions.get('window');
 
 // Helper para formatear calificación de forma segura
 const formatRating = (rating) => {
-  if (rating === null || rating === undefined || isNaN(rating)) return '4.5';
+  if (rating === null || rating === undefined || isNaN(rating)) return null;
   return formatNumber(rating, 1);
 };
 
@@ -85,7 +85,7 @@ const FavoritesScreen = ({ navigation }) => {
       activeOpacity={0.9}
     >
       <Image
-        source={{ uri: item.imagen_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400' }}
+        source={item.imagen_url ? { uri: item.imagen_url } : require('../assets/Crunchy.png')}
         style={styles.cardImage}
       />
       <View style={styles.cardContent}>
@@ -109,17 +109,16 @@ const FavoritesScreen = ({ navigation }) => {
         </View>
         
         <Text style={styles.productName} numberOfLines={1}>
-          {item.nombre || 'Surprise Bag'}
+          {item.nombre || 'Pack sorpresa'}
         </Text>
         <Text style={styles.pickupTime}>
-          Recoge hoy {item.hora_recogida_inicio || '3:00 PM'} - {item.hora_recogida_fin || '5:00 PM'}
+          {item.hora_recogida_inicio ? `Recoge ${item.hora_recogida_inicio}${item.hora_recogida_fin ? ` – ${item.hora_recogida_fin}` : ''}` : 'Horario de recogida en detalle'}
         </Text>
         
         <View style={styles.cardFooter}>
           <View style={styles.ratingContainer}>
-            <Ionicons name="star" size={14} color={COLORS.primary} />
-            <Text style={styles.ratingText}>{formatRating(item.calificacion_promedio)}</Text>
-            <Text style={styles.distanceText}>  {item.distancia || '0.8'} mi</Text>
+            {formatRating(item.calificacion_promedio) && <><Ionicons name="star" size={14} color={COLORS.star} /><Text style={styles.ratingText}>{formatRating(item.calificacion_promedio)}</Text></>}
+            {Number.isFinite(Number(item.distancia)) && Number(item.distancia) < 999 && <Text style={styles.distanceText}>  {formatNumber(item.distancia, 1)} mi</Text>}
           </View>
           <Text style={styles.priceText}>${formatPrice(item.precio_descuento)}</Text>
         </View>

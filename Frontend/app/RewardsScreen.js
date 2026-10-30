@@ -258,7 +258,7 @@ const RewardsScreen = () => {
 
   // Tabs de navegación
   const TabBar = () => (
-    <View style={styles.tabBar}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
       {[
         { id: 'overview', label: 'General', icon: 'home' },
         { id: 'coupons', label: 'Cupones', icon: 'ticket' },
@@ -281,7 +281,7 @@ const RewardsScreen = () => {
           </Text>
         </TouchableOpacity>
       ))}
-    </View>
+    </ScrollView>
   );
 
   // Card de insignia individual
@@ -936,7 +936,7 @@ const RewardsScreen = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🏆 Recompensas</Text>
+        <Text style={styles.headerTitle}>Ofertas y recompensas</Text>
       </View>
 
       <ScrollView
@@ -1050,16 +1050,14 @@ const styles = StyleSheet.create({
   
   // Tab Bar
   tabBar: {
-    flexDirection: 'row',
     backgroundColor: COLORS.surface,
     marginHorizontal: SPACING.md,
     marginTop: SPACING.md,
     borderRadius: 16,
-    padding: 4,
     ...SHADOWS.sm,
   },
+  tabBarContent: { flexDirection: 'row', padding: 4, gap: 4 },
   tab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1067,6 +1065,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 6,
     minHeight: 44,
+    paddingHorizontal: 12,
   },
   tabActive: { backgroundColor: COLORS.primarySoft },
   tabText: { 

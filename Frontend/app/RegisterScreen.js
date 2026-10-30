@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Image, StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import StyledTextInput from '../components/StyledTextInput';
-import NeoButton from '../components/NeoButton';
 import Header from './components/Header';
-import PromoCard from './components/PromoCard';
 import GradientButton from './components/GradientButton';
 import LocationMapModal from '../components/LocationMapModal';
 import api from '../services/api';
@@ -96,10 +94,7 @@ const RegisterScreen = ({ navigation }) => {
         };
       }
       
-      console.log('Enviando datos al backend:', userData);
-
       const response = await api.post('/auth/register', userData);
-      console.log('Respuesta del backend:', response.data);
 
       Alert.alert(
         '✅ ¡Registro Exitoso!',
@@ -128,7 +123,7 @@ const RegisterScreen = ({ navigation }) => {
   };
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView 
           contentContainerStyle={styles.contentContainer} 
@@ -136,11 +131,12 @@ const RegisterScreen = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
         >
           {/* Title Section */}
-          <Header large />
-          <PromoCard />
+          <View style={styles.hero}><Header inverted /></View>
 
           {/* Form Section */}
           <View style={styles.formSection}>
+            <Text style={styles.formTitle}>Crea tu cuenta</Text>
+            <Text style={styles.formSubtitle}>Elige cómo quieres vivir Delicrunch.</Text>
             {/* Full Name Input */}
             <View style={styles.inputWrapper}>
               <StyledTextInput
@@ -378,7 +374,7 @@ const RegisterScreen = ({ navigation }) => {
             {/* Register Button */}
             <View style={styles.buttonContainer}>
               <GradientButton
-                title={loading ? '⏳ Registrando...' : '✨ CREAR'}
+                title={loading ? 'Creando cuenta…' : 'Crear cuenta'}
                 onPress={handleRegister}
                 style={styles.registerButton}
                 disabled={loading}
@@ -387,13 +383,7 @@ const RegisterScreen = ({ navigation }) => {
             </View>
 
             {/* Login Link Button */}
-            <NeoButton
-              title="🔑 YA TENGO CUENTA"
-              onPress={() => navigation.navigate('Login')}
-              variant="secondary"
-              style={styles.loginButton}
-              noShadow={true}
-            />
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.loginButton}><Text style={styles.loginLink}>¿Ya tienes cuenta? Inicia sesión</Text></TouchableOpacity>
           </View>
           <View style={{ height: 0 }} />
         </ScrollView>
@@ -457,18 +447,19 @@ const RegisterScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.primary,
   },
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    paddingTop: 0,
   },
   contentContainer: {
     flexGrow: 1,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    paddingBottom: SPACING.md,
+    paddingBottom: 0,
   },
+  hero: { paddingTop: 10, paddingBottom: 20, alignItems: 'center' },
+  formTitle: { fontSize: 27, fontWeight: '800', color: COLORS.text },
+  formSubtitle: { color: COLORS.textSecondary, fontSize: 14, marginTop: 5, marginBottom: 20 },
   titleContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -492,33 +483,29 @@ const styles = StyleSheet.create({
   },
   formSection: {
       flexGrow: 1,
+      width: '100%',
+      maxWidth: 540,
+      alignSelf: 'center',
       justifyContent: 'flex-start',
-      paddingBottom: SPACING.xs,
+      backgroundColor: COLORS.white,
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
+      padding: 24,
+      paddingBottom: 36,
   },
     inputWrapper: {
       marginBottom: SPACING.sm,
     },
     input: {
       backgroundColor: COLORS.white,
-      borderWidth: BORDERS.width,
+      borderWidth: 1,
       borderColor: COLORS.border,
-      borderRadius: 12,
+      borderRadius: 14,
       paddingHorizontal: SPACING.md,
       paddingVertical: SPACING.sm,
       fontSize: 15,
       fontWeight: '700',
       color: '#000000', // Texto negro siempre visible
-      ...Platform.select({
-      ios: {
-        shadowColor: COLORS.border,
-        shadowOffset: { width: 3, height: 3 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 6,
-      },
-      }),
     },
   roleSelectorContainer: {
     marginVertical: SPACING.sm,
@@ -537,9 +524,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 4,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.background,
@@ -568,9 +555,10 @@ const styles = StyleSheet.create({
   loginButton: {
     marginTop: SPACING.xs,
     marginBottom: SPACING.xs,
-    borderRadius: 12,
-    paddingVertical: 12,
+    alignItems: 'center',
+    paddingVertical: 16,
   },
+  loginLink: { color: COLORS.primaryDark, fontWeight: '800', fontSize: 14 },
   headerTop: {
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons'; // Importamos los iconos
+import { COLORS } from '../src/constants/theme';
 
 import HomeScreen from '../app/HomeScreen';
 import MyOrdersScreen from '../app/MyOrdersScreen';
@@ -28,8 +29,8 @@ const MainTabNavigator = () => {
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         // Opciones estéticas para las pestañas
-        tabBarActiveTintColor: '#007bff',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textSecondary,
         headerShown: false, // Ocultamos el header de cada pestaña
       })}
     >

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Text, Image, StyleSheet } from 'react-native';
+import { COLORS } from '../src/constants/theme';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -102,8 +103,11 @@ const AppNavigator = () => {
   // Mostrar indicador de carga mientras se verifica la sesión
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
+      <View style={loadingStyles.container}>
+        <Image source={require('../assets/Crunchy.png')} style={loadingStyles.mascot} resizeMode="contain" />
+        <Text style={loadingStyles.brand}>Delicrunch</Text>
+        <Text style={loadingStyles.message}>Packs deliciosos cerca de ti</Text>
+        <ActivityIndicator size="small" color={COLORS.white} style={loadingStyles.spinner} />
       </View>
     );
   }
@@ -113,3 +117,11 @@ const AppNavigator = () => {
 };
 
 export default AppNavigator;
+
+const loadingStyles = StyleSheet.create({
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.primary, padding: 24 },
+  mascot: { width: 168, height: 168, marginBottom: 12 },
+  brand: { color: COLORS.white, fontSize: 34, fontWeight: '800', letterSpacing: -1 },
+  message: { color: COLORS.white, fontSize: 15, marginTop: 8 },
+  spinner: { marginTop: 36 },
+});

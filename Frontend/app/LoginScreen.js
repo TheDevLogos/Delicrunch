@@ -1,20 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, Platform, Image, ScrollView, KeyboardAvoidingView, TextInput, StatusBar } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import NeoButton from '../components/NeoButton';
 import { publicApi } from '../services/api';
 import logger from '../services/logger';
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS, TYPOGRAPHY, BORDERS, SHADOWS, SPACING } from '../src/constants/theme';
-import Header from './components/Header';
-import PromoCard from './components/PromoCard';
-import GradientButton from './components/GradientButton';
 import GoogleAuthButton from './GoogleAuthButton';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { signIn } = useAuth();
 
   // Función interna que realiza el inicio de sesión con email y contraseña.
@@ -84,72 +82,52 @@ const LoginScreen = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ScrollView 
           contentContainerStyle={styles.contentContainer} 
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Title Section */}
-          <Header large />
-          <PromoCard />
-
-          <View style={styles.googleSection}>
-            <GoogleAuthButton
-              disabled={loading}
-              onCredential={handleGoogleCredential}
-              onError={handleGoogleError}
-            />
-            <Text style={styles.googleHint}>Acceso verificado para la cuenta administradora</Text>
-            <View style={styles.loginDivider}>
-              <View style={styles.loginDividerLine} />
-              <Text style={styles.loginDividerText}>o con tu correo</Text>
-              <View style={styles.loginDividerLine} />
-            </View>
+          <View style={styles.hero}>
+            <Image source={require('../assets/Crunchy.png')} style={styles.mascot} resizeMode="contain" />
+            <Text style={styles.brand}>Delicrunch</Text>
+            <Text style={styles.tagline}>Rescata sabor. Recoge cerca de ti.</Text>
           </View>
-
-          {/* Login Form Section */}
           <View style={styles.formSection}>
-            {/* Email Input */}
+            <Text style={styles.formTitle}>¡Qué gusto verte!</Text>
+            <Text style={styles.formSubtitle}>Entra para encontrar packs y gestionar tus reservas.</Text>
+            <Text style={styles.inputLabel}>Correo electrónico</Text>
             <View style={styles.inputWrapper}>
+              <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
               <TextInput
-                placeholder="📧 Correo electrónico"
+                placeholder="tu@correo.com"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor="#999"
+                placeholderTextColor={COLORS.textTertiary}
                 style={styles.input}
                 editable={!loading}
               />
             </View>
 
-            {/* Password Input */}
+            <Text style={styles.inputLabel}>Contraseña</Text>
             <View style={styles.inputWrapper}>
+              <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
               <TextInput
-                placeholder="🔐 Contraseña"
+                placeholder="Tu contraseña"
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
-                placeholderTextColor="#999"
+                secureTextEntry={!showPassword}
+                placeholderTextColor={COLORS.textTertiary}
                 style={styles.input}
                 editable={!loading}
               />
+              <TouchableOpacity onPress={() => setShowPassword(value => !value)} accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={21} color={COLORS.textSecondary} />
+              </TouchableOpacity>
             </View>
-
-            {/* Login Button */}
-            <View style={styles.buttonContainer}>
-              <GradientButton
-                title={loading ? '⏳ Cargando...' : '🚀 ESTOY DENTRO'}
-                onPress={handleLogin}
-                style={styles.registerButton}
-                disabled={loading}
-                iconName="rocket"
-              />
-            </View>
-
-            {/* Forgot Password Link */}
             <TouchableOpacity 
               onPress={() => navigation.navigate('ForgotPassword')}
               style={styles.forgotPasswordContainer}
@@ -157,18 +135,21 @@ const LoginScreen = ({ navigation }) => {
             >
               <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
             </TouchableOpacity>
-
-            {/* Register Button */}
-            <NeoButton
-              title="✨ CREAR UNA CUENTA"
-              onPress={() => navigation.navigate('Register')}
-              variant="secondary"
-              style={styles.registerButton}
-              noShadow={true}
-            />
+            <TouchableOpacity style={[styles.loginButton, loading && styles.disabled]} onPress={handleLogin} disabled={loading} accessibilityRole="button">
+              <Text style={styles.loginButtonText}>{loading ? 'Ingresando…' : 'Iniciar sesión'}</Text>
+              <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+            </TouchableOpacity>
+            <View style={styles.loginDivider}>
+              <View style={styles.loginDividerLine} />
+              <Text style={styles.loginDividerText}>o continúa con</Text>
+              <View style={styles.loginDividerLine} />
+            </View>
+            <GoogleAuthButton disabled={loading} onCredential={handleGoogleCredential} onError={handleGoogleError} />
+            <TouchableOpacity style={styles.registerRow} onPress={() => navigation.navigate('Register')}>
+              <Text style={styles.registerText}>¿Aún no tienes cuenta? </Text>
+              <Text style={styles.registerLink}>Crear cuenta</Text>
+            </TouchableOpacity>
           </View>
-          {/* spacer to ensure register button is visible above keyboard */}
-          <View style={{ height: 0 }} />
         </ScrollView>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -176,208 +157,30 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  safeArea: {
-    flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-  },
-
-  contentContainer: {
-    flexGrow: 1,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: 8, // Reducido de SPACING.sm (12) a 8
-    paddingBottom: 8, // Reducido de SPACING.md (16) a 8
-  },
-
-  // TITLE SECTION
-  titleContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 0.8,
-  },
-  title: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: COLORS.primary,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  
-  // LOGO - Sin cuadro, más grande, debajo del título
-  headerTop: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: SPACING.md,
-  },
-  topLogo: {
-    width: 120,
-    height: 120,
-    marginBottom: SPACING.xs,
-  },
-
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.text,
-    textAlign: 'center',
-    fontWeight: '700',
-    lineHeight: 18,
-    letterSpacing: 0.3,
-  },
-
-  promoCard: {
-    backgroundColor: '#f6fffa',
-    borderRadius: 14,
-    padding: SPACING.sm,
-    marginTop: -SPACING.lg, // más pegado a las letras
-    marginBottom: SPACING.sm,
-    marginHorizontal: 2,
-    borderWidth: 1,
-    borderColor: '#e6f6ee',
-  },
-  promoTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#b85b12',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  promoSubtitle: {
-    fontSize: 13,
-    color: '#556',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  promoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  expValue: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#d95b1f',
-    marginRight: 8,
-  },
-  expLabelCol: {
-    alignItems: 'flex-start',
-  },
-  expLabel: {
-    fontSize: 11,
-    color: '#444',
-    fontWeight: '700',
-  },
-  heroLabel: {
-    fontSize: 11,
-    color: '#444',
-    fontWeight: '600',
-  },
-
-  // FORM SECTION
-  formSection: {
-    flexGrow: 1,
-    justifyContent: 'flex-start',
-    paddingBottom: 4, // Reducido de SPACING.xs (8) a 4
-  },
-
-  googleSection: {
-    alignItems: 'center',
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  googleHint: {
-    marginTop: 6,
-    color: COLORS.textLight,
-    fontSize: 11,
-    textAlign: 'center',
-  },
-  loginDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginTop: SPACING.sm,
-  },
-  loginDividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border,
-  },
-  loginDividerText: {
-    marginHorizontal: SPACING.sm,
-    color: COLORS.textLight,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  // INPUT WRAPPER - Sin bordes coloreados, solo marco negro
-  inputWrapper: {
-    marginBottom: SPACING.sm,
-  },
-  input: {
-    backgroundColor: COLORS.white,
-    borderWidth: BORDERS.width,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#000000', // Texto negro siempre visible
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.border,
-        shadowOffset: { width: 3, height: 3 },
-        shadowOpacity: 1,
-        shadowRadius: 0,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-
-  // BUTTON CONTAINER
-  buttonContainer: {
-    marginTop: SPACING.xs,
-    marginBottom: 0,
-  },
-  loginButton: {
-    width: '100%',
-    borderRadius: 12,
-    paddingVertical: 12,
-    backgroundColor: COLORS.primary,
-  },
-
-  // FORGOT PASSWORD
-  forgotPasswordContainer: {
-    alignItems: 'center',
-    marginTop: SPACING.xs,
-    marginBottom: SPACING.xs,
-  },
-  forgotPasswordText: {
-    color: COLORS.primary,
-    fontSize: 13,
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
-
-  // REGISTER BUTTON
-  registerButton: {
-    width: '100%',
-    borderRadius: 12,
-    paddingVertical: 12,
-    marginBottom: SPACING.xs,
-  },
+  container: { flex: 1, backgroundColor: COLORS.primary },
+  safeArea: { flex: 1 },
+  contentContainer: { flexGrow: 1 },
+  hero: { minHeight: 260, alignItems: 'center', justifyContent: 'center', paddingVertical: 24, paddingHorizontal: 24 },
+  mascot: { width: 112, height: 112 },
+  brand: { color: COLORS.white, fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 4 },
+  tagline: { color: COLORS.white, fontSize: 14, marginTop: 5, textAlign: 'center' },
+  formSection: { flexGrow: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: COLORS.white, borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 24, paddingTop: 30, paddingBottom: 36 },
+  formTitle: { fontSize: 27, color: COLORS.text, fontWeight: '800' },
+  formSubtitle: { fontSize: 14, color: COLORS.textSecondary, marginTop: 5, marginBottom: 24, lineHeight: 21 },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: COLORS.text, marginBottom: 8 },
+  inputWrapper: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 14, marginBottom: 17, backgroundColor: COLORS.surfaceLight },
+  input: { flex: 1, minHeight: 50, fontSize: 15, color: COLORS.text },
+  forgotPasswordContainer: { alignSelf: 'flex-end', paddingVertical: 4, marginBottom: 20 },
+  forgotPasswordText: { color: COLORS.primaryDark, fontSize: 13, fontWeight: '700' },
+  loginButton: { minHeight: 54, backgroundColor: COLORS.primary, borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  loginButtonText: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
+  disabled: { opacity: 0.6 },
+  loginDivider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
+  loginDividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  loginDividerText: { color: COLORS.textSecondary, fontSize: 12 },
+  registerRow: { flexDirection: 'row', justifyContent: 'center', paddingTop: 25, paddingBottom: 8 },
+  registerText: { color: COLORS.textSecondary, fontSize: 14 },
+  registerLink: { color: COLORS.primaryDark, fontSize: 14, fontWeight: '800' },
 });
 
 export default LoginScreen;

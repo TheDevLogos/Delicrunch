@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import api from '../services/api';
+import { COLORS } from '../src/constants/theme';
 
 const PickupVerificationModal = ({ orderId, onClose, onVerified, onError }) => {
   const [code, setCode] = useState('');
@@ -56,13 +57,13 @@ const PickupVerificationModal = ({ orderId, onClose, onVerified, onError }) => {
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.5)' },
-  card: { backgroundColor: '#fff', padding: 22, borderRadius: 16 },
-  title: { fontSize: 21, fontWeight: '700', color: '#173b30' },
-  help: { fontSize: 15, lineHeight: 21, color: '#52645c', marginTop: 10 },
-  input: { borderWidth: 1, borderColor: '#a9b9ae', borderRadius: 10, padding: 13, marginTop: 18, fontSize: 17 },
+  card: { backgroundColor: COLORS.white, padding: 22, borderRadius: 20 },
+  title: { fontSize: 21, fontWeight: '800', color: COLORS.text },
+  help: { fontSize: 15, lineHeight: 21, color: COLORS.textSecondary, marginTop: 10 },
+  input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 13, padding: 13, marginTop: 18, fontSize: 17 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 20, marginTop: 20 },
-  cancel: { color: '#52645c', fontSize: 16 },
-  button: { backgroundColor: '#0c8b68', borderRadius: 9, paddingHorizontal: 20, paddingVertical: 12 },
+  cancel: { color: COLORS.textSecondary, fontSize: 16 },
+  button: { backgroundColor: COLORS.primary, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 12 },
   buttonText: { color: '#fff', fontWeight: '700' },
 });
 

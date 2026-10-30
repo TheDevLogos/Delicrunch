@@ -23,12 +23,13 @@ import logger from '../services/logger';
 import ReadOnlyStarRating from '../components/ReadOnlyStarRating';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
 // Helper para formatear calificación de forma segura
 const formatRating = (rating) => {
-  if (rating === null || rating === undefined || isNaN(rating)) return '4.5';
+  if (rating === null || rating === undefined || isNaN(rating)) return null;
   return formatNumber(rating, 1);
 };
 
@@ -72,6 +73,9 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
+    AsyncStorage.getItem('favorites')
+      .then(raw => setIsFavorite((raw ? JSON.parse(raw) : []).some(item => item.id === productId)))
+      .catch(() => setIsFavorite(false));
     const fetchProductDetails = async () => {
       try {
         const [productResponse, reviewsResponse] = await Promise.all([
@@ -104,8 +108,17 @@ const ProductDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
+  const toggleFavorite = async () => {
+    if (!product) return;
+    try {
+      const raw = await AsyncStorage.getItem('favorites');
+      const favorites = raw ? JSON.parse(raw) : [];
+      const exists = favorites.some(item => item.id === product.id);
+      await AsyncStorage.setItem('favorites', JSON.stringify(exists ? favorites.filter(item => item.id !== product.id) : [product, ...favorites]));
+      setIsFavorite(!exists);
+    } catch (error) {
+      Alert.alert('Favoritos', 'No se pudo guardar el cambio. Intenta de nuevo.');
+    }
   };
 
   if (isLoading) {
@@ -138,7 +151,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
   const savings = precioOriginal - precioDescuento;
   const stockLeft = product.cantidad_disponible || 0;
   
-  console.log('💰 Descuento calculado:', { precioOriginal, precioDescuento, discount, savings });
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -147,7 +159,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       {/* Header Image con overlay */}
       <View style={styles.imageContainer}>
         <Image
-          source={{ uri: product.imagen_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800' }}
+          source={product.imagen_url ? { uri: product.imagen_url } : require('../assets/Crunchy.png')}
           style={styles.heroImage}
         />
         <View style={styles.imageOverlay} />
@@ -198,12 +210,12 @@ const ProductDetailScreen = ({ route, navigation }) => {
           </View>
           <View style={styles.storeInfo}>
             <Text style={styles.storeName}>{product.nombre_comercio}</Text>
-            <View style={styles.storeRating}>
+            {formatRating(product.calificacion_promedio) && <View style={styles.storeRating}>
               <Ionicons name="star" size={14} color={COLORS.star} />
               <Text style={styles.storeRatingText}>
                 {formatRating(product.calificacion_promedio)} ({reviews.length} reseñas)
               </Text>
-            </View>
+            </View>}
           </View>
           <Ionicons name="chevron-forward" size={20} color={COLORS.textTertiary} />
         </TouchableOpacity>
@@ -217,11 +229,11 @@ const ProductDetailScreen = ({ route, navigation }) => {
         {/* Info badges */}
         <View style={styles.badgesRow}>
           <InfoBadge icon="leaf" text="Salva comida" color={COLORS.primary} />
-          <InfoBadge 
+          {(product.hora_recogida_inicio || product.hora_recogida_fin) && <InfoBadge 
             icon="time-outline" 
-            text={(product.hora_recogida_inicio || '14:00') + ' - ' + (product.hora_recogida_fin || '18:00')}
+            text={(product.hora_recogida_inicio || 'Consultar') + ' - ' + (product.hora_recogida_fin || 'Consultar')}
             color={COLORS.info}
-          />
+          />}
         </View>
 
         {/* Pickup details card */}
@@ -233,7 +245,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
             <View style={styles.cardRowContent}>
               <Text style={styles.cardRowLabel}>Horario de recogida</Text>
               <Text style={styles.cardRowValue}>
-                Hoy, {product.hora_recogida_inicio || '14:00'} - {product.hora_recogida_fin || '18:00'}
+                {product.hora_recogida_inicio || 'Consultar con el comercio'}{product.hora_recogida_fin ? ` – ${product.hora_recogida_fin}` : ''}
               </Text>
             </View>
           </View>
@@ -258,21 +270,21 @@ const ProductDetailScreen = ({ route, navigation }) => {
         )}
 
         {/* Savings impact */}
-        <View style={styles.impactCard}>
+        {savings > 0 && <View style={styles.impactCard}>
           <MaterialCommunityIcons name="leaf" size={32} color={COLORS.primary} />
           <View style={styles.impactContent}>
             <Text style={styles.impactTitle}>Tu impacto</Text>
             <Text style={styles.impactText}>
-              Al comprar este pack, ahorras ${formatPrice(savings)} MXN y evitas ~2.5 kg de CO₂
+              Al reservar este pack, ahorras hasta ${formatPrice(savings)} MXN frente al precio original.
             </Text>
           </View>
-        </View>
+        </View>}
 
         {/* Reviews section */}
         <View style={styles.reviewsSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Opiniones ({reviews.length})</Text>
-            {reviews.length > 0 && (
+            {reviews.length > 0 && formatRating(product.calificacion_promedio) && (
               <View style={styles.averageRating}>
                 <Ionicons name="star" size={16} color={COLORS.star} />
                 <Text style={styles.averageRatingText}>
@@ -300,10 +312,10 @@ const ProductDetailScreen = ({ route, navigation }) => {
       {/* Bottom purchase bar */}
       <View style={styles.purchaseBar}>
         <View style={styles.priceSection}>
-          <View style={styles.priceLabels}>
+          {discount > 0 && <View style={styles.priceLabels}>
             <Text style={styles.priceLabelText}>Precio Original</Text>
             <Text style={styles.originalPrice}>${formatPrice(precioOriginal)}</Text>
-          </View>
+          </View>}
           <View style={styles.priceLabels}>
             <Text style={styles.priceLabelDelicrunch}>Precio Delicrunch</Text>
             <View style={styles.discountPriceRow}>
@@ -355,7 +367,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: COLORS.white },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
   loadingText: { marginTop: SPACING.md, fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textSecondary },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, padding: SPACING.xl },
@@ -375,11 +387,11 @@ const styles = StyleSheet.create({
   stockText: { color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: TYPOGRAPHY.fontWeight.semibold },
 
   // Scroll
-  scrollView: { flex: 1 },
+  scrollView: { flex: 1, backgroundColor: COLORS.white, marginTop: -22, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   scrollContent: { paddingBottom: 120 },
 
   // Store row
-  storeRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.md, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  storeRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.md, paddingTop: 22, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
   storeLogo: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   storeLogoText: { color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.bold },
   storeInfo: { flex: 1, marginLeft: SPACING.sm },
@@ -389,7 +401,7 @@ const styles = StyleSheet.create({
 
   // Product info
   productInfo: { padding: SPACING.md, backgroundColor: COLORS.surface },
-  productName: { fontSize: TYPOGRAPHY.fontSize.xxl, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.text, marginBottom: SPACING.sm },
+  productName: { fontSize: 27, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.text, marginBottom: SPACING.sm },
   productDescription: { fontSize: TYPOGRAPHY.fontSize.base, lineHeight: 24, color: COLORS.textSecondary },
 
   // Badges
@@ -398,7 +410,7 @@ const styles = StyleSheet.create({
   infoBadgeText: { fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: TYPOGRAPHY.fontWeight.medium },
 
   // Cards
-  card: { backgroundColor: COLORS.surface, marginTop: SPACING.sm, padding: SPACING.md },
+  card: { backgroundColor: COLORS.surface, margin: SPACING.md, marginBottom: 0, padding: SPACING.md, borderRadius: 18, borderWidth: 1, borderColor: COLORS.borderLight },
   cardTitle: { fontSize: TYPOGRAPHY.fontSize.lg, fontWeight: TYPOGRAPHY.fontWeight.bold, color: COLORS.text, marginBottom: SPACING.md },
   cardDescription: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textSecondary, lineHeight: 22 },
   cardRow: { flexDirection: 'row', alignItems: 'flex-start' },
@@ -481,7 +493,7 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   savingsBadgeSmall: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: COLORS.primarySoft,
     paddingHorizontal: SPACING.xs,
     paddingVertical: 2,
     borderRadius: BORDERS.radius.sm,
@@ -489,13 +501,13 @@ const styles = StyleSheet.create({
   savingsBadgeSmallText: {
     fontSize: TYPOGRAPHY.fontSize.xs,
     fontWeight: TYPOGRAPHY.fontWeight.semibold,
-    color: COLORS.success,
+    color: COLORS.primaryDark,
   },
   quantitySelector: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     backgroundColor: COLORS.surfaceSecondary, 
-    borderRadius: BORDERS.radius.md, 
+    borderRadius: 15,
     alignSelf: 'flex-start',
     marginBottom: SPACING.md,
   },

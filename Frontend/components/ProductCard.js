@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../src/constants/theme';
 import { formatPrice } from '../src/utils/format';
 
-// ProductCard estilo Too Good To Go
+// Tarjeta compacta de pack Delicrunch.
 const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
   const discount = product.precio_original > 0 
     ? Math.round((1 - product.precio_descuento / product.precio_original) * 100)
@@ -15,7 +15,7 @@ const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
       {/* Imagen del producto */}
       <View style={styles.imageContainer}>
         <Image
-          source={{ uri: product.imagen_url || 'https://via.placeholder.com/400' }}
+          source={product.imagen_url ? { uri: product.imagen_url } : require('../assets/Crunchy.png')}
           style={styles.image}
         />
         
@@ -41,7 +41,7 @@ const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
           </TouchableOpacity>
         )}
 
-        {/* Logo de la tienda (simulado) */}
+        {/* Inicial identificadora del comercio */}
         <View style={styles.storeLogoContainer}>
           <View style={styles.storeLogo}>
             <Text style={styles.storeLogoText}>
@@ -72,7 +72,7 @@ const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
           <View style={styles.pickupRow}>
             <Ionicons name="time-outline" size={14} color={COLORS.primary} />
             <Text style={styles.pickupText}>
-              Recogida {product.hora_recogida_inicio} - {product.hora_recogida_fin}
+              Recogida {product.hora_recogida_inicio || 'Consultar'}{product.hora_recogida_fin ? ` – ${product.hora_recogida_fin}` : ''}
             </Text>
           </View>
         )}
@@ -92,9 +92,9 @@ const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
           </View>
           
           <View style={styles.priceContainer}>
-            <Text style={styles.originalPrice}>
+            {Number(product.precio_original) > Number(product.precio_descuento) && <Text style={styles.originalPrice}>
                 ${formatPrice(product.precio_original)}
-              </Text>
+              </Text>}
             <View style={styles.discountPriceContainer}>
                 <Text style={styles.discountPrice}>
                   ${formatPrice(product.precio_descuento)}
@@ -110,11 +110,13 @@ const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     marginBottom: 16,
     marginHorizontal: 16,
-    ...SHADOWS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    ...SHADOWS.sm,
   },
   
   // Imagen
@@ -123,7 +125,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 160,
+    height: 170,
   },
   discountBadge: {
     position: 'absolute',

@@ -30,7 +30,8 @@ import { formatPrice, formatNumber } from '../src/utils/format';
 import FlashDealModal from '../components/FlashDealModal';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.42;
+const CARD_WIDTH = Math.min(220, width * 0.42);
+const CATEGORY_ICONS = { Todos: 'grid-outline', Tacos: 'restaurant-outline', Pizza: 'pizza-outline', Sushi: 'fish-outline', Café: 'cafe-outline', Desayunos: 'sunny-outline', Postres: 'ice-cream-outline' };
 
 const DiscoverScreen = () => {
   const navigation = useNavigation();
@@ -95,15 +96,15 @@ const DiscoverScreen = () => {
             );
             return { ...product, distancia: formatNumber(distance, 1) };
           }
-          return { ...product, distancia: '0.5' };
+          return product;
         });
         setProducts(productsWithDistance);
         const categories = Array.from(new Set(productsWithDistance.map(p => p.categoria).filter(Boolean)));
-        setCategoryList(['Todos', ...shuffleArray(categories)]);
+        setCategoryList(['Todos', ...categories.sort((a, b) => a.localeCompare(b, 'es'))]);
       } else {
         setProducts(data);
         const categories = Array.from(new Set(data.map(p => p.categoria).filter(Boolean)));
-        setCategoryList(['Todos', ...shuffleArray(categories)]);
+        setCategoryList(['Todos', ...categories.sort((a, b) => a.localeCompare(b, 'es'))]);
       }
     } catch (err) {
       console.error('Error al obtener productos:', err);
@@ -189,7 +190,7 @@ const DiscoverScreen = () => {
 
   const filteredProducts = useMemo(() => {
     // Primero filtrar por ciudad si tenemos ubicación del usuario
-    let base = products;
+    let base = products.filter(p => Number(p.cantidad_disponible) > 0);
     if (userLocation?.city) {
       const userCity = userLocation.city.toLowerCase();
       base = base.filter(p => {
@@ -218,12 +219,13 @@ const DiscoverScreen = () => {
 
     const loadSections = async () => {
       try {
+        const visibleIds = new Set(filteredProducts.map(p => p.id));
         // Recomendados para ti (basados en historial si hay usuario, o aleatorio)
         let recommended = [];
         if (user) {
           try {
             const recommendedResponse = await api.get('/products/recommended');
-            recommended = recommendedResponse.data || [];
+            recommended = (recommendedResponse.data || []).filter(p => visibleIds.has(p.id));
           } catch (e) {
             // Si falla, usar productos filtrados aleatorios
             recommended = shuffleArray(filteredProducts).slice(0, 6);
@@ -236,27 +238,27 @@ const DiscoverScreen = () => {
         let saving = [];
         try {
           const readyResponse = await publicApi.get('/products/ready');
-          saving = readyResponse.data || [];
+          saving = (readyResponse.data || []).filter(p => visibleIds.has(p.id));
           if (saving.length === 0) {
             // Fallback a productos con gran descuento
             const savingSource = filteredProducts.filter(p => discountPct(p) >= 40);
-            saving = shuffleArray(savingSource.length ? savingSource : filteredProducts).slice(0, 6);
+            saving = shuffleArray(savingSource).slice(0, 6);
           }
         } catch (e) {
           const savingSource = filteredProducts.filter(p => discountPct(p) >= 40);
-          saving = shuffleArray(savingSource.length ? savingSource : filteredProducts).slice(0, 6);
+          saving = shuffleArray(savingSource).slice(0, 6);
         }
 
         // Nuevas Surprise Bags (productos nuevos o de tiendas nuevas)
         let surprise = [];
         try {
           const newResponse = await publicApi.get('/products/new');
-          surprise = newResponse.data || [];
+          surprise = (newResponse.data || []).filter(p => visibleIds.has(p.id));
           if (surprise.length === 0) {
-            surprise = shuffleArray(filteredProducts).slice(0, 6);
+            surprise = filteredProducts.filter(p => p.created_at && Date.now() - new Date(p.created_at).getTime() < 7 * 86400000).slice(0, 6);
           }
         } catch (e) {
-          surprise = shuffleArray(filteredProducts).slice(0, 6);
+          surprise = filteredProducts.filter(p => p.created_at && Date.now() - new Date(p.created_at).getTime() < 7 * 86400000).slice(0, 6);
         }
 
         setSections({ recommended, saving, surprise });
@@ -265,8 +267,8 @@ const DiscoverScreen = () => {
         // Fallback a lógica anterior
         const recommended = shuffleArray(filteredProducts).slice(0, 6);
         const savingSource = filteredProducts.filter(p => discountPct(p) >= 40);
-        const saving = shuffleArray(savingSource.length ? savingSource : filteredProducts).slice(0, 6);
-        const surprise = shuffleArray(filteredProducts).slice(0, 6);
+        const saving = shuffleArray(savingSource).slice(0, 6);
+        const surprise = filteredProducts.filter(p => p.created_at && Date.now() - new Date(p.created_at).getTime() < 7 * 86400000).slice(0, 6);
         setSections({ recommended, saving, surprise });
       }
     };
@@ -292,10 +294,10 @@ const DiscoverScreen = () => {
     const discount = product.precio_original && product.precio_descuento 
       ? Math.round(((product.precio_original - product.precio_descuento) / product.precio_original) * 100)
       : 0;
-    const stockLeft = product.cantidad_disponible || 1;
+    const stockLeft = product.cantidad_disponible || 0;
     const rating = typeof product.calificacion_promedio === 'number'
       ? formatNumber(product.calificacion_promedio, 1)
-      : '4.5';
+      : null;
     
     return (
       <TouchableOpacity 
@@ -305,11 +307,11 @@ const DiscoverScreen = () => {
       >
         <View style={styles.imageContainer}>
           <Image
-            source={{ uri: product.imagen_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400' }}
+            source={product.imagen_url ? { uri: product.imagen_url } : require('../assets/Crunchy.png')}
             style={styles.productImage}
           />
           <View style={styles.stockBadge}>
-            <Text style={styles.stockText}>{stockLeft} left</Text>
+            <Text style={styles.stockText}>{stockLeft} disponibles</Text>
           </View>
           <TouchableOpacity style={styles.favoriteButton} onPress={() => toggleFavorite(product)}>
             <Ionicons name={favoriteIds.includes(product.id) ? 'heart' : 'heart-outline'} size={20} color="#FFFFFF" />
@@ -331,16 +333,15 @@ const DiscoverScreen = () => {
 
         <View style={styles.productInfo}>
           <Text style={styles.productName} numberOfLines={1}>
-            {product.nombre || 'Surprise Bag'}
+            {product.nombre || 'Pack sorpresa'}
           </Text>
           <Text style={styles.pickupTime} numberOfLines={1}>
-            Recoge hoy 3:00 PM - 5:00 PM
+            {product.hora_recogida_inicio ? `Recoge ${product.hora_recogida_inicio}${product.hora_recogida_fin ? ` – ${product.hora_recogida_fin}` : ''}` : 'Horario de recogida en detalle'}
           </Text>
           <View style={styles.productFooter}>
             <View style={styles.ratingContainer}>
-              <Ionicons name="star" size={14} color={COLORS.primary} />
-              <Text style={styles.ratingText}>{rating}</Text>
-              <Text style={styles.distanceText}>  {formatNumber(product.distancia,1) || '0.8'} mi</Text>
+              {rating && <><Ionicons name="star" size={14} color={COLORS.star} /><Text style={styles.ratingText}>{rating}</Text></>}
+              {product.distancia && <Text style={styles.distanceText}>  {product.distancia} mi</Text>}
             </View>
             <Text style={styles.priceText}>${formatPrice(product.precio_descuento)}</Text>
           </View>
@@ -350,7 +351,7 @@ const DiscoverScreen = () => {
   };
 
   // Componente de sección
-  const ProductSection = ({ title, products, onSeeAll }) => (
+  const ProductSection = ({ title, products, onSeeAll }) => !products?.length ? null : (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{title}</Text>
@@ -383,6 +384,9 @@ const DiscoverScreen = () => {
 
   // Obtener el primer nombre del usuario
   const firstName = userProfile?.nombre?.split(' ')[0] || 'Usuario';
+  const featuredOffer = [...filteredProducts]
+    .filter(p => Number(p.cantidad_disponible) > 0 && discountPct(p) > 0)
+    .sort((a, b) => discountPct(b) - discountPct(a))[0];
   
   // Renderizar avatar del usuario
   const renderUserAvatar = () => {
@@ -482,6 +486,9 @@ const DiscoverScreen = () => {
             <Ionicons name="close-circle" size={20} color="#8E8E93" />
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.searchFilterButton} onPress={() => navigation.navigate('Buscar', { viewMode: 'list' })} accessibilityLabel="Explorar con filtros">
+          <Ionicons name="options-outline" size={21} color={COLORS.white} />
+        </TouchableOpacity>
       </View>
 
       {/* Ubicación actual info */}
@@ -510,6 +517,18 @@ const DiscoverScreen = () => {
           />
         }
       >
+        {featuredOffer && (
+          <TouchableOpacity style={styles.featuredBanner} onPress={() => navigation.navigate('ProductDetail', { productId: featuredOffer.id })} activeOpacity={0.9}>
+            <View style={styles.featuredCopy}>
+              <Text style={styles.featuredEyebrow}>OFERTA DESTACADA</Text>
+              <Text style={styles.featuredTitle}>Un buen rescate sabe mejor</Text>
+              <Text style={styles.featuredSubtitle}>Ahorra {Math.round(discountPct(featuredOffer))}% en {featuredOffer.nombre}</Text>
+              <View style={styles.featuredAction}><Text style={styles.featuredActionText}>Ver pack</Text><Ionicons name="arrow-forward" size={17} color={COLORS.white} /></View>
+            </View>
+            <Image source={featuredOffer.imagen_url ? { uri: featuredOffer.imagen_url } : require('../assets/Crunchy.png')} style={styles.featuredImage} />
+          </TouchableOpacity>
+        )}
+        <View style={styles.categoryHeading}><Text style={styles.sectionTitle}>Categorías</Text><TouchableOpacity onPress={() => navigation.navigate('Buscar', { viewMode: 'list' })}><Text style={styles.seeAllText}>Explorar todo</Text></TouchableOpacity></View>
         {/* Categorías rápidas */}
         <ScrollView 
           horizontal 
@@ -525,6 +544,7 @@ const DiscoverScreen = () => {
                   style={[styles.categoryChip, isActive && styles.categoryChipActive]}
                   onPress={() => setSelectedCategory(cat)}
                 >
+                  <Ionicons name={CATEGORY_ICONS[cat] || 'fast-food-outline'} size={17} color={isActive ? COLORS.white : COLORS.primaryDark} style={{ marginRight: 6 }} />
                   <Text style={[styles.categoryText, isActive && styles.categoryTextActive]}>
                     {cat}
                   </Text>
@@ -539,15 +559,24 @@ const DiscoverScreen = () => {
           onSeeAll={() => navigation.navigate('Buscar', { viewMode: 'list' })}
         />
 
+        {filteredProducts.length === 0 && (
+          <View style={styles.emptyState}>
+            <Ionicons name="search-outline" size={38} color={COLORS.primary} />
+            <Text style={styles.emptyTitle}>Sin packs disponibles</Text>
+            <Text style={styles.emptySubtitle}>Prueba otra categoría o ajusta tu búsqueda.</Text>
+            <TouchableOpacity style={styles.emptyAction} onPress={() => { setSelectedCategory('Todos'); setSearchQuery(''); }}><Text style={styles.emptyActionText}>Ver todos</Text></TouchableOpacity>
+          </View>
+        )}
+
         <ProductSection 
           title="Ahorra antes de que sea tarde" 
-            products={sections.saving.length > 0 ? sections.saving : sections.recommended}
+            products={sections.saving}
           onSeeAll={() => navigation.navigate('Buscar', { viewMode: 'list' })}
         />
 
         <ProductSection 
-          title="Nuevas Surprise Bags" 
-            products={sections.surprise.length > 0 ? sections.surprise : sections.recommended}
+          title="Nuevos packs" 
+            products={sections.surprise}
           onSeeAll={() => navigation.navigate('Buscar', { viewMode: 'list' })}
         />
 
@@ -585,6 +614,9 @@ const DiscoverScreen = () => {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
     backgroundColor: COLORS.background,
     paddingBottom: Platform.OS === 'android' ? 8 : 0, // Margin extra para Android
   },
@@ -598,14 +630,29 @@ const styles = StyleSheet.create({
   locationSubtitle: { fontSize: 12, color: '#8E8E93' },
   localHaulsButton: { alignItems: 'center', padding: 8, backgroundColor: '#FFF8F0', borderRadius: 12, borderWidth: 1, borderColor: COLORS.primary },
   localHaulsText: { fontSize: 10, fontWeight: '600', color: COLORS.primary, textAlign: 'center' },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: SPACING.md, marginVertical: SPACING.sm, paddingHorizontal: SPACING.smd, borderRadius: SPACING.smd, borderWidth: 1, borderColor: '#E5E5EA', height: LAYOUT.searchBarHeight },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', marginHorizontal: SPACING.md, marginVertical: SPACING.sm, paddingHorizontal: SPACING.smd, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, height: 54 },
+  searchFilterButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginRight: -6 },
+  featuredBanner: { marginHorizontal: 16, marginTop: 12, marginBottom: 22, minHeight: 190, backgroundColor: '#201B18', borderRadius: 24, overflow: 'hidden', flexDirection: 'row', alignItems: 'center' },
+  featuredCopy: { flex: 1, padding: 19, zIndex: 1 },
+  featuredEyebrow: { color: '#FFAD72', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  featuredTitle: { color: '#FFFFFF', fontSize: 23, fontWeight: '800', lineHeight: 27, marginTop: 8 },
+  featuredSubtitle: { color: '#F7E9DE', fontSize: 12, lineHeight: 17, marginTop: 7 },
+  featuredAction: { backgroundColor: COLORS.primary, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 9, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 14 },
+  featuredActionText: { color: COLORS.white, fontSize: 12, fontWeight: '800' },
+  featuredImage: { width: '37%', height: '100%' },
+  categoryHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 16, marginBottom: 6 },
+  emptyState: { backgroundColor: COLORS.white, borderRadius: 20, margin: 16, padding: 24, alignItems: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text, marginTop: 12 },
+  emptySubtitle: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center', marginTop: 5 },
+  emptyAction: { backgroundColor: COLORS.primarySoft, borderRadius: 12, marginTop: 16, paddingHorizontal: 16, paddingVertical: 9 },
+  emptyActionText: { color: COLORS.primaryDark, fontWeight: '800' },
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 16, color: COLORS.text },
   locationBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF8F0', marginHorizontal: SPACING.md, marginBottom: SPACING.sm, paddingHorizontal: SPACING.smd, paddingVertical: SPACING.sm, borderRadius: SPACING.sm },
   locationBannerText: { flex: 1, marginLeft: 8, fontSize: 13, color: COLORS.text },
   categoriesScroll: { marginBottom: SPACING.sm },
   categoriesContainer: { paddingHorizontal: SPACING.md, paddingVertical: 4 },
-  categoryChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7', marginRight: 8 },
+  categoryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 10, borderRadius: 20, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, marginRight: 8 },
   categoryChipActive: { backgroundColor: COLORS.primary },
   categoryText: { fontSize: 14, fontWeight: '500', color: '#8E8E93' },
   categoryTextActive: { color: '#FFFFFF' },

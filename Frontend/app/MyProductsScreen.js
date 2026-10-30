@@ -7,6 +7,7 @@ import {
   ActivityIndicator, 
   Image,
   TouchableOpacity,
+  TextInput,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -33,7 +34,7 @@ const ProductItem = ({ item }) => {
     >
       <View style={styles.productImageContainer}>
         <Image 
-          source={{ uri: item.imagen_url || 'https://via.placeholder.com/150' }} 
+          source={item.imagen_url ? { uri: item.imagen_url } : require('../assets/Crunchy.png')}
           style={styles.productImage} 
         />
         {discount > 0 && (
@@ -91,6 +92,15 @@ const MyProductsScreen = () => {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, active: 0, lowStock: 0 });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stockFilter, setStockFilter] = useState('todos');
+  const visibleProducts = products.filter(product => {
+    const matchesSearch = (product.nombre || '').toLowerCase().includes(searchQuery.trim().toLowerCase());
+    const matchesFilter = stockFilter === 'todos' ||
+      (stockFilter === 'activos' && product.activo) ||
+      (stockFilter === 'bajo' && Number(product.cantidad_disponible) <= 3);
+    return matchesSearch && matchesFilter;
+  });
 
   const fetchStoreProducts = async () => {
     try {
@@ -128,6 +138,19 @@ const MyProductsScreen = () => {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.searchBox}>
+        <Ionicons name="search-outline" size={20} color={COLORS.textSecondary} />
+        <TextInput style={styles.searchInput} placeholder="Buscar mis packs" placeholderTextColor={COLORS.textTertiary} value={searchQuery} onChangeText={setSearchQuery} />
+        {searchQuery.length > 0 && <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityLabel="Limpiar búsqueda"><Ionicons name="close-circle" size={19} color={COLORS.textSecondary} /></TouchableOpacity>}
+      </View>
+      <View style={styles.filterRow}>
+        {[['todos', 'Todos'], ['activos', 'Activos'], ['bajo', 'Bajo stock']].map(([id, label]) => (
+          <TouchableOpacity key={id} style={[styles.filterChip, stockFilter === id && styles.filterChipActive]} onPress={() => setStockFilter(id)}>
+            <Text style={[styles.filterText, stockFilter === id && styles.filterTextActive]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {/* Stats Cards */}
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: COLORS.primary + '15' }]}>
@@ -161,16 +184,16 @@ const MyProductsScreen = () => {
       <View style={styles.emptyIconContainer}>
         <Ionicons name="fast-food-outline" size={64} color={COLORS.textLight} />
       </View>
-      <Text style={styles.emptyTitle}>Sin productos aún</Text>
+      <Text style={styles.emptyTitle}>{products.length ? 'Sin resultados' : 'Sin productos aún'}</Text>
       <Text style={styles.emptySubtitle}>
-        Empieza a publicar tus packs sorpresa y ayuda a reducir el desperdicio de alimentos
+        {products.length ? 'Prueba otra búsqueda o filtro.' : 'Empieza a publicar tus packs sorpresa y ayuda a reducir el desperdicio de alimentos'}
       </Text>
-      <TouchableOpacity 
+      {products.length === 0 && <TouchableOpacity 
         style={styles.emptyAddButton}
         onPress={() => navigation.navigate('AddProduct')}
       >
         <Text style={styles.emptyAddButtonText}>Crear mi primer pack</Text>
-      </TouchableOpacity>
+      </TouchableOpacity>}
     </View>
   );
 
@@ -186,7 +209,7 @@ const MyProductsScreen = () => {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <FlatList
-        data={products}
+        data={visibleProducts}
         keyExtractor={(item, index) => `myproduct-${item.id}-${index}`}
         renderItem={({ item }) => <ProductItem item={item} />}
         ListHeaderComponent={renderHeader}
@@ -235,6 +258,13 @@ const styles = StyleSheet.create({
     fontWeight: '700', 
     color: COLORS.text,
   },
+  searchBox: { height: 50, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: COLORS.surfaceLight, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, marginBottom: 12 },
+  searchInput: { flex: 1, height: 48, color: COLORS.text, fontSize: 15 },
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  filterChip: { backgroundColor: COLORS.primarySoft, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8 },
+  filterChipActive: { backgroundColor: COLORS.primary },
+  filterText: { color: COLORS.primaryDark, fontWeight: '700', fontSize: 12 },
+  filterTextActive: { color: COLORS.white },
   addButton: {
     width: 44,
     height: 44,
@@ -290,7 +320,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     marginHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     ...SHADOWS.sm,
   },

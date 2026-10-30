@@ -260,7 +260,7 @@ const MerchantDashboardScreen = () => {
             imageStyle={styles.heroBackgroundImage}
           >
             <LinearGradient
-              colors={['rgba(0,0,0,0.3)', 'rgba(3,107,82,0.85)']}
+              colors={['rgba(30,20,12,0.15)', 'rgba(44,24,14,0.92)']}
               style={styles.heroGradient}
             >
               <View style={styles.heroContent}>
@@ -280,12 +280,12 @@ const MerchantDashboardScreen = () => {
                 <View style={styles.heroTextContainer}>
                   <Text style={styles.heroGreeting}>¡Bienvenido! 👋</Text>
                   <Text style={styles.heroStoreName}>{storeInfo?.nombre_comercio || 'Mi Tienda'}</Text>
-                  <View style={styles.heroRatingRow}>
+                  {metrics.totalReseñas > 0 && <View style={styles.heroRatingRow}>
                     <Ionicons name="star" size={16} color="#FFD700" />
                     <Text style={styles.heroRating}>
                       {formatNumber(metrics.calificacionPromedio, 1)} • {metrics.totalReseñas} reseñas
                     </Text>
-                  </View>
+                  </View>}
                 </View>
 
                 <TouchableOpacity 
@@ -335,15 +335,13 @@ const MerchantDashboardScreen = () => {
                 <View style={[styles.metricIcon, { backgroundColor: COLORS.success + '20' }]}>
                   <MaterialCommunityIcons name="cash-multiple" size={32} color={COLORS.success} />
                 </View>
-                <View style={styles.metricBadge}>
-                  <Text style={styles.metricBadgeText}>+{Math.round((metrics.ventasHoy / Math.max(metrics.totalVentas / 30, 1)) * 100)}%</Text>
-                </View>
+                <View style={styles.metricBadge}><Text style={styles.metricBadgeText}>EFECTIVO</Text></View>
               </View>
               <Text style={styles.metricValueLarge}>${formatPrice(metrics.totalVentas)}</Text>
               <Text style={styles.metricLabel}>Valor de tickets entregados</Text>
               <View style={styles.metricSubRow}>
                 <Text style={styles.metricSubGreen}>Hoy: ${formatPrice(metrics.ventasHoy)}</Text>
-                <Text style={styles.metricSubGray}>Meta: 75% lograda</Text>
+                <Text style={styles.metricSubGray}>Solo tickets recogidos</Text>
               </View>
             </View>
 

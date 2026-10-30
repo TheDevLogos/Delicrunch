@@ -4,6 +4,7 @@ import {
   Text, 
   StyleSheet, 
   FlatList, 
+  ScrollView,
   ActivityIndicator,
   TouchableOpacity,
   Platform,
@@ -132,6 +133,7 @@ const StoreOrdersScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pickupOrderId, setPickupOrderId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('todos');
 
   const fetchStoreOrders = async () => {
     try {
@@ -170,11 +172,16 @@ const StoreOrdersScreen = () => {
   // Separar pedidos por estado
   const pendingOrders = orders.filter(o => o.estado === 'pendiente');
   const confirmedOrders = orders.filter(o => ['confirmado', 'en_preparacion', 'listo'].includes(o.estado));
-  const completedOrders = orders.filter(o => ['recogido', 'cancelado'].includes(o.estado));
+  const completedOrders = orders.filter(o => o.estado === 'recogido');
+  const visibleOrders = orders.filter(order => statusFilter === 'todos' ||
+    (statusFilter === 'pendientes' && order.estado === 'pendiente') ||
+    (statusFilter === 'en_curso' && ['confirmado', 'en_preparacion', 'listo'].includes(order.estado)) ||
+    (statusFilter === 'recogidos' && order.estado === 'recogido'));
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-      <Text style={styles.title}>Pedidos de Hoy</Text>
+      <Text style={styles.title}>Pedidos de tu tienda</Text>
+      <Text style={styles.subtitle}>Valida el código del cliente al entregar su pack.</Text>
       
       {/* Stats rápidos */}
       <View style={styles.statsRow}>
@@ -191,6 +198,13 @@ const StoreOrdersScreen = () => {
           <Text style={styles.statLabel}>Completados</Text>
         </View>
       </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+        {[['todos', 'Todos'], ['pendientes', 'Pendientes'], ['en_curso', 'En curso'], ['recogidos', 'Recogidos']].map(([id, label]) => (
+          <TouchableOpacity key={id} style={[styles.filterChip, statusFilter === id && styles.filterChipActive]} onPress={() => setStatusFilter(id)}>
+            <Text style={[styles.filterText, statusFilter === id && styles.filterTextActive]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
     </View>
   );
 
@@ -199,9 +213,9 @@ const StoreOrdersScreen = () => {
       <View style={styles.emptyIconContainer}>
         <Ionicons name="clipboard-outline" size={64} color={COLORS.textLight} />
       </View>
-      <Text style={styles.emptyTitle}>Sin pedidos aún</Text>
+      <Text style={styles.emptyTitle}>{orders.length ? 'Sin pedidos en este estado' : 'Sin pedidos aún'}</Text>
       <Text style={styles.emptySubtitle}>
-        Los pedidos de tus clientes aparecerán aquí
+        {orders.length ? 'Selecciona otro filtro para verlos.' : 'Los pedidos de tus clientes aparecerán aquí'}
       </Text>
     </View>
   );
@@ -218,7 +232,7 @@ const StoreOrdersScreen = () => {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <FlatList
-        data={orders}
+        data={visibleOrders}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <OrderItem item={item} onStatusChange={handleStatusChange} onPickup={setPickupOrderId} />
@@ -272,6 +286,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: SPACING.md,
   },
+  subtitle: { color: COLORS.textSecondary, fontSize: 13, marginTop: -8, marginBottom: 16 },
+  filterRow: { gap: 8, paddingBottom: 16 },
+  filterChip: { paddingHorizontal: 13, paddingVertical: 9, backgroundColor: COLORS.primarySoft, borderRadius: 18 },
+  filterChipActive: { backgroundColor: COLORS.primary },
+  filterText: { color: COLORS.primaryDark, fontSize: 12, fontWeight: '700' },
+  filterTextActive: { color: COLORS.white },
   
   // Stats
   statsRow: {
@@ -300,7 +320,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     marginHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     ...SHADOWS.sm,
   },

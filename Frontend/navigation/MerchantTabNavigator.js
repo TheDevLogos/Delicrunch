@@ -1,6 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../src/constants/theme';
 
 // Importa las pantallas que usará el comercio.
 import MyProductsScreen from '../app/MyProductsScreen';
@@ -26,8 +27,8 @@ const MerchantTabNavigator = () => {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#30D158', // Verde para el comercio
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.textSecondary,
         headerShown: false, // Ocultamos el header por defecto en las pestañas
       })}
     >
