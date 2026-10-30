@@ -3,6 +3,7 @@ const { randomInt } = require('crypto');
 const { calculateCO2Saved } = require('../utils/co2Factors');
 const LEVEL_XP = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
 const asyncHandler = require('../middleware/asyncHandler');
+const { sendOrderPush } = require('../services/pushService');
 
 /**
  * Genera un código de recogida legible estilo TGTG (ej: AB-123)
@@ -28,12 +29,13 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         return res.status(403).json({ msg: 'Solo los compradores pueden realizar pedidos.' });
     }
 
-    const { productId, cantidad = 1, couponId = null } = req.body;
+    const { productId, cantidad = 1, couponId = null, notas = '' } = req.body;
     const userId = req.user.id;
 
     if (!Number.isSafeInteger(Number(productId)) || Number(productId) <= 0 ||
         !Number.isSafeInteger(Number(cantidad)) || Number(cantidad) <= 0 || Number(cantidad) > 100 ||
-        (couponId !== null && (!Number.isSafeInteger(Number(couponId)) || Number(couponId) <= 0))) {
+        (couponId !== null && (!Number.isSafeInteger(Number(couponId)) || Number(couponId) <= 0)) ||
+        typeof notas !== 'string' || notas.trim().length > 500) {
         return res.status(400).json({ msg: 'Producto o cantidad inválida.' });
     }
 
@@ -125,8 +127,8 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         const orderResult = await client.query(
             `INSERT INTO orders (
                 user_id, store_id, codigo_recogida, subtotal, 
-                total, comision_plataforma, estado, metodo_pago, coupon_id, coupon_discount
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                total, comision_plataforma, estado, metodo_pago, coupon_id, coupon_discount, notas
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *`,
             [
                 userId, 
@@ -138,7 +140,8 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
                 'confirmado',
                 'efectivo',
                 couponId,
-                discount
+                discount,
+                notas.trim() || null
             ]
         );
 
@@ -164,6 +167,13 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         await client.query('COMMIT');
         committed = true;
+
+        // El ticket ya está confirmado. Una falla de Expo no revierte la reserva.
+        try {
+            await sendOrderPush({ orderId: newOrder.id, storeId: product.store_id, productName: product.nombre });
+        } catch (pushError) {
+            console.error('No se pudo enviar el aviso del pedido:', pushError.message);
+        }
 
         res.status(201).json({
             ...newOrder,
@@ -191,6 +201,28 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
     } finally {
         client.release();
     }
+});
+
+// Detalle para el dueño del comercio. El código de recogida sigue siendo
+// exclusivo del cliente y se pide al entregar; aquí se muestra la referencia.
+exports.getMerchantOrderById = asyncHandler(async (req, res) => {
+    const orderId = Number(req.params.id);
+    if (!Number.isSafeInteger(orderId) || orderId <= 0) {
+        return res.status(400).json({ msg: 'Pedido inválido.' });
+    }
+    const result = await pool.query(
+        `SELECT o.id, o.estado, o.created_at, o.total, o.notas, o.metodo_pago,
+                u.nombre AS nombre_comprador, p.nombre AS nombre_producto,
+                oi.cantidad, oi.precio_unitario, s.nombre_comercio
+         FROM orders o JOIN stores s ON s.id = o.store_id
+         JOIN users u ON u.id = o.user_id
+         JOIN order_items oi ON oi.order_id = o.id
+         JOIN products p ON p.id = oi.product_id
+         WHERE o.id = $1 AND s.user_id = $2`,
+        [orderId, req.user.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ msg: 'Pedido no encontrado.' });
+    return res.json({ ...result.rows[0], ticket_reference: `DC-${String(orderId).padStart(6, '0')}` });
 });
 
 // @desc    Obtener un pedido específico por ID

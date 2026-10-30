@@ -34,7 +34,6 @@ module.exports = ({ config }) => {
       "android.permission.SCHEDULE_EXACT_ALARM",
       "android.permission.USE_EXACT_ALARM",
       "android.permission.RECEIVE_BOOT_COMPLETED",
-      "android.permission.POST_NOTIFICATIONS",
       "android.permission.CAMERA",
       "android.permission.RECORD_AUDIO",
       "android.permission.READ_EXTERNAL_STORAGE",

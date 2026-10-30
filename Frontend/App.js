@@ -6,7 +6,8 @@ import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './contexts/AuthProvider';
 import { LocationProvider } from './contexts/LocationContext';
 import { GamificationProvider } from './contexts/GamificationContext';
-// import { NotificationProvider } from './contexts/NotificationContext'; // DESACTIVADO: causaba error con ExpoPushTokenManager
+import PushBridge from './components/PushBridge';
+import { navigationRef } from './navigation/navigationRef';
 
 const linking = {
   prefixes: ['https://delicrunch.vercel.app', 'delicrunch://'],
@@ -20,12 +21,12 @@ const linking = {
 export default function App() {
   return (
     <SafeAreaProvider>
-      {/* NotificationProvider DESACTIVADO - causaba error con ExpoPushTokenManager */}
       <AuthProvider>
         <LocationProvider>
           <GamificationProvider>
-            <NavigationContainer linking={linking}>
-              <AppNavigator /> 
+            <NavigationContainer linking={linking} ref={navigationRef}>
+              <AppNavigator />
+              <PushBridge />
             </NavigationContainer>
           </GamificationProvider>
         </LocationProvider>

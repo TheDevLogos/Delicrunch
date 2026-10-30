@@ -3,6 +3,7 @@
  * Muestra métricas, pedidos pendientes, ganancias y acciones rápidas
  */
 import React, { useState, useCallback, useEffect } from 'react';
+import { subscribeNewOrders } from '../services/orderEvents';
 import {
   View,
   Text,
@@ -73,6 +74,8 @@ const MerchantDashboardScreen = () => {
     return () => clearInterval(intervalId);
   }, [isLoading, refreshing]);
 
+  useEffect(() => subscribeNewOrders(() => loadDashboardData()), []);
+
   useFocusEffect(
     useCallback(() => {
       loadDashboardData();
@@ -130,11 +133,11 @@ const MerchantDashboardScreen = () => {
         const orders = ordersRes.data || [];
         
         const today = new Date().toDateString();
-        const todayOrders = orders.filter(o => 
-          new Date(o.fecha_pedido).toDateString() === today
+        const todayOrders = orders.filter(o =>
+          new Date(o.created_at).toDateString() === today
         );
-        const pending = orders.filter(o => 
-          ['pendiente', 'confirmado'].includes(o.estado)
+        const pending = orders.filter(o =>
+          ['confirmado', 'en_preparacion', 'listo'].includes(o.estado)
         );
         const completed = orders.filter(o => o.estado === 'recogido');
         

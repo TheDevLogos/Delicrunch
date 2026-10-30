@@ -38,6 +38,7 @@ import BrowseScreen from '../app/BrowseScreen';
 
 // Pantallas de admin
 import AdminMetricsScreen from '../app/admin/AdminMetricsScreen';
+import AdminPushScreen from '../app/admin/AdminPushScreen';
 
 // Pantalla de notificaciones
 // import NotificationSettingsScreen from '../app/NotificationSettingsScreen'; // DESACTIVADO: expo-notifications removido
@@ -91,6 +92,7 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="Buscar" component={BrowseScreen} options={{ title: 'Buscar', headerShown: false }} />
     {/* Pantallas de admin accesibles desde perfil */}
     <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Métricas', headerShown: true }} />
+    <Stack.Screen name="AdminPush" component={AdminPushScreen} options={{ title: 'Notificaciones push', headerShown: true }} />
     {/* Pantalla de configuración de notificaciones */}
     {/* <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} options={{ title: 'Notificaciones', headerShown: true }} /> */}
   </Stack.Navigator>

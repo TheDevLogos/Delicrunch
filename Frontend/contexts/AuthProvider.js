@@ -76,6 +76,13 @@ export const AuthProvider = ({ children }) => {
     },
     signOut: async () => {
       setIsLoading(true);
+      try {
+        const pushToken = await AsyncStorage.getItem('@delicrunch_push_token');
+        if (pushToken) await api.delete('/push/devices', { data: { token: pushToken }, timeout: 3000 });
+        await AsyncStorage.removeItem('@delicrunch_push_token');
+      } catch (error) {
+        logger.warn('No se pudo retirar el dispositivo de notificaciones al cerrar sesión.');
+      }
       await AsyncStorage.removeItem('userToken');
       await AsyncStorage.removeItem('simulatedRole');
       setUser(null);

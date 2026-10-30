@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,6 +23,7 @@ const PaymentScreen = ({ route, navigation }) => {
   const [submitting, setSubmitting] = useState(false);
   const [coupons, setCoupons] = useState([]);
   const [couponId, setCouponId] = useState(null);
+  const [notes, setNotes] = useState('');
   const total = Number(product?.precio_descuento || 0) * Number(selectedQuantity);
 
   useEffect(() => {
@@ -47,6 +49,7 @@ const PaymentScreen = ({ route, navigation }) => {
         productId: product.id,
         cantidad: selectedQuantity,
         couponId,
+        notas: notes.trim(),
       });
       if (!order?.id || !order?.codigo_recogida) {
         throw new Error('El servidor no devolvió un ticket válido.');
@@ -100,6 +103,21 @@ const PaymentScreen = ({ route, navigation }) => {
             Recogida: {product.hora_recogida_inicio || 'Consultar con el comercio'}
             {product.hora_recogida_fin ? ` – ${product.hora_recogida_fin}` : ''}
           </Text>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.totalLabel}>¿Alguna petición para el comercio?</Text>
+          <Text style={styles.notice}>Opcional. El comercio la verá junto con tu reserva.</Text>
+          <TextInput
+            style={styles.notesInput}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Ej. Sin cebolla, por favor"
+            placeholderTextColor={COLORS.textSecondary}
+            multiline
+            maxLength={500}
+            accessibilityLabel="Petición especial para el comercio"
+          />
         </View>
 
         <View style={styles.card}>
@@ -171,6 +189,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 15, color: COLORS.textSecondary },
   price: { fontSize: 22, fontWeight: '800', color: COLORS.primaryDark },
   notice: { fontSize: 13, lineHeight: 20, color: COLORS.textSecondary, marginTop: 15 },
+  notesInput: { minHeight: 86, marginTop: 12, padding: 12, textAlignVertical: 'top', borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, color: COLORS.text, backgroundColor: COLORS.background },
   footer: { padding: 16, backgroundColor: COLORS.white, borderTopWidth: 1, borderColor: COLORS.border, width: '100%', maxWidth: 620, alignSelf: 'center' },
   button: { backgroundColor: COLORS.primary, borderRadius: 15, padding: 17, alignItems: 'center' },
   disabled: { opacity: 0.6 },

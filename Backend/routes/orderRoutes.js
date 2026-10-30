@@ -31,6 +31,7 @@ router.get('/store-metrics', getStoreId, orderController.getStoreMetrics);
 // @desc    Obtener estadísticas detalladas del comercio
 // @acceso  Privado (Comercio)
 router.get('/store-analytics', getStoreId, orderController.getStoreAnalytics);
+router.get('/:id/merchant', orderController.getMerchantOrderById);
 
 // @ruta    GET api/orders/:id
 // @desc    Obtener un pedido específico por ID
