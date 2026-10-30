@@ -5,7 +5,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 module.exports = ({ config }) => {
   // Prioridad: variable de entorno > .env > fallback
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001';
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://delicrunch.onrender.com/api';
   
   console.log('📱 [app.config.js] API URL:', apiUrl);
   
