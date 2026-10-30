@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
+import { subscribeNewOrders } from '../services/orderEvents';
 import PickupVerificationModal from '../components/PickupVerificationModal';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
 import { formatPrice } from '../src/utils/format';
@@ -24,7 +25,11 @@ const getStatusInfo = (status) => {
     case 'pendiente':
       return { color: COLORS.warning, icon: 'time-outline', label: 'Pendiente' };
     case 'confirmado':
-      return { color: COLORS.info, icon: 'checkmark-circle-outline', label: 'Confirmado' };
+      return { color: COLORS.info, icon: 'checkmark-circle-outline', label: 'Por preparar' };
+    case 'en_preparacion':
+      return { color: COLORS.primary, icon: 'restaurant-outline', label: 'En preparación' };
+    case 'listo':
+      return { color: COLORS.success, icon: 'checkmark-done-outline', label: 'Listo' };
     case 'recogido':
       return { color: COLORS.success, icon: 'bag-check-outline', label: 'Recogido' };
     case 'cancelado':
@@ -39,11 +44,11 @@ const OrderItem = ({ item, onStatusChange, onPickup }) => {
   
   const handleConfirm = () => {
     Alert.alert(
-      'Confirmar Pedido',
-      '¿Marcar este pedido como confirmado?',
+      'Comenzar preparación',
+      '¿Comenzar a preparar este pedido?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Confirmar', onPress: () => onStatusChange(item.id, 'confirmado') },
+        { text: 'Comenzar', onPress: () => onStatusChange(item.id, 'en_preparacion') },
       ]
     );
   };
@@ -58,7 +63,7 @@ const OrderItem = ({ item, onStatusChange, onPickup }) => {
       <View style={styles.orderHeader}>
         <View style={styles.orderIdContainer}>
           <Text style={styles.orderIdLabel}>Pedido</Text>
-          <Text style={styles.orderId}>#{item.id}</Text>
+          <Text style={styles.orderId}>DC-{String(item.id).padStart(6, '0')}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + '20' }]}>
           <Ionicons name={statusInfo.icon} size={14} color={statusInfo.color} />
@@ -81,6 +86,8 @@ const OrderItem = ({ item, onStatusChange, onPickup }) => {
         <Ionicons name="person-outline" size={16} color={COLORS.textLight} />
         <Text style={styles.buyerName}>{item.nombre_comprador}</Text>
       </View>
+      <Text style={styles.pickupTime}>Recibido: {new Date(item.created_at).toLocaleString('es-MX')}</Text>
+      {item.notas ? <Text style={styles.pickupTime}>Petición especial: {item.notas}</Text> : null}
 
       {/* Código de recogida - prominente */}
       <View style={styles.pickupCodeContainer}>
@@ -101,19 +108,19 @@ const OrderItem = ({ item, onStatusChange, onPickup }) => {
       )}
 
       {/* Botones de acción */}
-      {item.estado === 'pendiente' && (
+      {item.estado === 'confirmado' && (
         <View style={styles.actionsRow}>
           <TouchableOpacity 
             style={styles.confirmButton}
             onPress={handleConfirm}
           >
             <Ionicons name="checkmark" size={18} color={COLORS.white} />
-            <Text style={styles.confirmButtonText}>Confirmar</Text>
+            <Text style={styles.confirmButtonText}>Comenzar preparación</Text>
           </TouchableOpacity>
         </View>
       )}
       
-      {['confirmado', 'en_preparacion', 'listo'].includes(item.estado) && (
+      {['en_preparacion', 'listo'].includes(item.estado) && (
         <View style={styles.actionsRow}>
           <TouchableOpacity 
             style={styles.pickupButton}
@@ -146,6 +153,8 @@ const StoreOrdersScreen = () => {
       setRefreshing(false);
     }
   };
+
+  useEffect(() => subscribeNewOrders(() => fetchStoreOrders()), []);
 
   const handleStatusChange = async (orderId, newStatus) => {
     try {

@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "1042705451323",
+    "project_id": "delicrunch-95227",
+    "storage_bucket": "delicrunch-95227.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1042705451323:android:2d1a9a568fe60ed5bd4f1e",
+        "android_client_info": {
+          "package_name": "com.delicrunch.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1042705451323-i8afmbpbg4jb59b6cg5udlj5vkrb0k77.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA60WUaQCvLuQc9sC1xYHO82JkZGHYqGDM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1042705451323-i8afmbpbg4jb59b6cg5udlj5vkrb0k77.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1042705451323-ge2tag5cs2aese3926dm578p8ktl434l.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.delicrunch.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

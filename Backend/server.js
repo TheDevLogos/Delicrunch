@@ -65,6 +65,7 @@ app.use('/api/profiles', require('./routes/profileRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 // Usamos las rutas de pedidos
 app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/push', require('./routes/pushRoutes'));
 // Usamos las rutas de reseñas
 app.use('/api/reviews', require('./routes/reviewRoutes'));
 

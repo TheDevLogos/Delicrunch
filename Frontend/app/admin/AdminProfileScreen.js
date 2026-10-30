@@ -114,6 +114,7 @@ const AdminProfileScreen = () => {
             { icon: 'chatbubbles-outline', label: 'Moderar Reseñas', subtitle: 'Aprobar/eliminar reviews', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminReviews' }), color: '#ec4899' },
             { icon: 'receipt-outline', label: 'Tickets', subtitle: 'Historial de reservas', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminTransactions' }), color: '#14b8a6' },
             { icon: 'bar-chart-outline', label: 'Métricas', subtitle: 'Estadísticas globales', onPress: () => navigation.navigate('AdminMetrics'), color: '#f59e0b' },
+            { icon: 'notifications-outline', label: 'Notificaciones push', subtitle: 'Enviar y seguir avisos por dispositivo', onPress: () => navigation.navigate('AdminPush'), color: '#F46A16' },
           ]
         },
         {

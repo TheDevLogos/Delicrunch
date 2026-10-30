@@ -22,12 +22,13 @@
       "bundleIdentifier": "com.delicrunch.app"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#F46A16"
       },
       "package": "com.delicrunch.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
@@ -70,7 +71,15 @@
         }
       ],
       "expo-font",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#F46A16",
+          "defaultChannel": "orders"
+        }
+      ]
     ],
     "extra": {
       "apiUrl": "https://delicrunch.onrender.com/api",
