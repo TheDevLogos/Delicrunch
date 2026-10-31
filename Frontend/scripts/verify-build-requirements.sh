@@ -1,179 +1,71 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-# Script de Verificación Pre-Build para EAS Development Build
-# Verifica todos los requisitos antes de ejecutar el build
-
-echo "🔍 Verificación de Requisitos para EAS Build"
-echo "=============================================="
-echo ""
-
-# Colores
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
+FRONTEND_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$FRONTEND_DIR"
 ERRORS=0
 
-# 1. Verificar que estamos en el directorio correcto
-echo -n "📁 Verificando directorio... "
-if [ -f "package.json" ] && [ -f "app.json" ]; then
-    echo -e "${GREEN}✓${NC}"
+fail() {
+  printf '✗ %s\n' "$1" >&2
+  ERRORS=$((ERRORS + 1))
+}
+
+pass() {
+  printf '✓ %s\n' "$1"
+}
+
+for tool in node npm java keytool; do
+  if command -v "$tool" >/dev/null 2>&1; then
+    pass "$tool está instalado"
+  else
+    fail "Falta $tool en PATH"
+  fi
+done
+
+if [[ -z "${ANDROID_HOME:-}" || ! -d "$ANDROID_HOME" ]]; then
+  fail "Configura ANDROID_HOME con la ruta del Android SDK"
 else
-    echo -e "${RED}✗ No estás en el directorio Frontend${NC}"
-    exit 1
-fi
-
-# 2. Verificar node_modules
-echo -n "📦 Verificando node_modules... "
-if [ -d "node_modules" ]; then
-    echo -e "${GREEN}✓${NC}"
-else
-    echo -e "${RED}✗ Ejecuta: npm install${NC}"
-    ERRORS=$((ERRORS + 1))
-fi
-
-# 3. Verificar dependencias críticas
-echo "🔧 Verificando dependencias críticas..."
-
-# react-native-reanimated
-if npm ls react-native-reanimated 2>&1 | grep -q "react-native-reanimated@"; then
-    echo -e "   ${GREEN}✓${NC} react-native-reanimated instalado"
-else
-    echo -e "   ${RED}✗${NC} react-native-reanimated NO instalado"
-    ERRORS=$((ERRORS + 1))
-fi
-
-# react-native-worklets
-if npm ls react-native-worklets 2>&1 | grep -q "react-native-worklets@"; then
-    echo -e "   ${GREEN}✓${NC} react-native-worklets instalado"
-else
-    echo -e "   ${RED}✗${NC} react-native-worklets NO instalado"
-    echo -e "   ${YELLOW}→ Agregado a package.json, ejecuta: npm install${NC}"
-    ERRORS=$((ERRORS + 1))
-fi
-
-# expo
-if npm ls expo 2>&1 | grep -q "expo@"; then
-    echo -e "   ${GREEN}✓${NC} expo instalado"
-else
-    echo -e "   ${RED}✗${NC} expo NO instalado"
-    ERRORS=$((ERRORS + 1))
-fi
-
-# 4. Verificar archivos de configuración
-echo "⚙️  Verificando configuración..."
-
-if [ -f "app.json" ]; then
-    echo -e "   ${GREEN}✓${NC} app.json existe"
-    
-    # Verificar plugin reanimated
-    if grep -q "react-native-reanimated/plugin" app.json; then
-        echo -e "   ${GREEN}✓${NC} Plugin reanimated en app.json"
+  pass "Android SDK disponible"
+  for sdk_component in \
+    "platforms/android-36/android.jar" \
+    "build-tools/36.0.0/aapt2" \
+    "ndk/27.1.12297006"; do
+    if [[ -e "$ANDROID_HOME/$sdk_component" ]]; then
+      pass "Componente Android instalado: $sdk_component"
     else
-        echo -e "   ${RED}✗${NC} Plugin reanimated falta en app.json"
-        ERRORS=$((ERRORS + 1))
+      fail "Falta $sdk_component. Instálalo desde Android Studio > SDK Manager antes de compilar."
     fi
-    
-    # Verificar newArchEnabled
-    if grep -q '"newArchEnabled": false' app.json; then
-        echo -e "   ${GREEN}✓${NC} newArchEnabled: false configurado"
-    else
-        echo -e "   ${YELLOW}⚠${NC} newArchEnabled no está en false"
-    fi
-else
-    echo -e "   ${RED}✗${NC} app.json NO existe"
-    ERRORS=$((ERRORS + 1))
+  done
 fi
 
-if [ -f "eas.json" ]; then
-    echo -e "   ${GREEN}✓${NC} eas.json existe"
-else
-    echo -e "   ${RED}✗${NC} eas.json NO existe"
-    ERRORS=$((ERRORS + 1))
+if [[ -z "${DELICRUNCH_UPLOAD_KEYSTORE:-}" || ! -r "${DELICRUNCH_UPLOAD_KEYSTORE:-}" ]]; then
+  fail "DELICRUNCH_UPLOAD_KEYSTORE debe apuntar al archivo de clave de subida registrado en Play Console"
+fi
+for name in DELICRUNCH_UPLOAD_STORE_PASSWORD DELICRUNCH_UPLOAD_KEY_ALIAS DELICRUNCH_UPLOAD_KEY_PASSWORD; do
+  if [[ -z "${!name:-}" ]]; then
+    fail "$name debe estar configurada en el entorno local"
+  fi
+done
+if [[ -n "${DELICRUNCH_UPLOAD_KEYSTORE:-}" && -r "$DELICRUNCH_UPLOAD_KEYSTORE" \
+  && -n "${DELICRUNCH_UPLOAD_STORE_PASSWORD:-}" \
+  && -n "${DELICRUNCH_UPLOAD_KEY_ALIAS:-}" \
+  && -n "${DELICRUNCH_UPLOAD_KEY_PASSWORD:-}" ]]; then
+  if keytool -list -keystore "$DELICRUNCH_UPLOAD_KEYSTORE" \
+    -alias "$DELICRUNCH_UPLOAD_KEY_ALIAS" \
+    -storepass:env DELICRUNCH_UPLOAD_STORE_PASSWORD >/dev/null 2>&1; then
+    pass "La clave local y el alias se pueden abrir"
+  else
+    fail "No se pudo abrir el alias de la clave de subida; revisa la ruta, alias y contraseña"
+  fi
 fi
 
-if [ -f "babel.config.js" ]; then
-    echo -e "   ${GREEN}✓${NC} babel.config.js existe"
-    
-    # Verificar plugins en babel
-    if grep -q "react-native-worklets/plugin" babel.config.js; then
-        echo -e "   ${GREEN}✓${NC} worklets plugin en babel.config.js"
-    else
-        echo -e "   ${YELLOW}⚠${NC} worklets plugin NO está en babel.config.js"
-    fi
-    
-    if grep -q "react-native-reanimated/plugin" babel.config.js; then
-        echo -e "   ${GREEN}✓${NC} reanimated plugin en babel.config.js"
-    else
-        echo -e "   ${RED}✗${NC} reanimated plugin NO está en babel.config.js"
-        ERRORS=$((ERRORS + 1))
-    fi
-else
-    echo -e "   ${RED}✗${NC} babel.config.js NO existe"
-    ERRORS=$((ERRORS + 1))
+if [[ ! -f "$FRONTEND_DIR/package-lock.json" ]]; then
+  fail "Falta package-lock.json"
 fi
 
-# 5. Verificar .env
-echo "🔐 Verificando variables de entorno..."
-if [ -f ".env" ]; then
-    echo -e "   ${GREEN}✓${NC} .env existe"
-    
-    if grep -q "EXPO_PUBLIC_API_URL" .env; then
-        api_url=$(grep "EXPO_PUBLIC_API_URL" .env | cut -d '=' -f2)
-        echo -e "   ${GREEN}✓${NC} API_URL: $api_url"
-    else
-        echo -e "   ${YELLOW}⚠${NC} EXPO_PUBLIC_API_URL no definida en .env"
-    fi
-    
-else
-    echo -e "   ${YELLOW}⚠${NC} .env NO existe (se usarán valores de eas.json)"
+if [[ "$ERRORS" -gt 0 ]]; then
+  printf '\nFaltan %s requisitos. No se generó ningún AAB.\n' "$ERRORS" >&2
+  exit 1
 fi
 
-# 6. Verificar EAS CLI
-echo "🛠️  Verificando EAS CLI..."
-if command -v eas &> /dev/null; then
-    eas_version=$(eas --version 2>&1 | grep "eas-cli" | awk '{print $2}')
-    echo -e "   ${GREEN}✓${NC} EAS CLI instalado (v$eas_version)"
-    
-    # Verificar si hay actualización disponible
-    if eas --version 2>&1 | grep -q "is now available"; then
-        echo -e "   ${YELLOW}⚠${NC} Actualización disponible: npm install -g eas-cli"
-    fi
-else
-    echo -e "   ${RED}✗${NC} EAS CLI NO instalado"
-    echo -e "   ${YELLOW}→ Ejecuta: npm install -g eas-cli${NC}"
-    ERRORS=$((ERRORS + 1))
-fi
-
-# 7. Verificar autenticación EAS
-echo "🔑 Verificando autenticación EAS..."
-if eas whoami &> /dev/null; then
-    eas_user=$(eas whoami 2>&1)
-    echo -e "   ${GREEN}✓${NC} Autenticado como: $eas_user"
-else
-    echo -e "   ${RED}✗${NC} No autenticado en EAS"
-    echo -e "   ${YELLOW}→ Ejecuta: eas login${NC}"
-    ERRORS=$((ERRORS + 1))
-fi
-
-echo ""
-echo "=============================================="
-
-if [ $ERRORS -eq 0 ]; then
-    echo -e "${GREEN}✅ TODOS LOS REQUISITOS CUMPLIDOS${NC}"
-    echo ""
-    echo "Puedes ejecutar el build:"
-    echo "  eas build --platform android --profile development"
-    echo ""
-    exit 0
-else
-    echo -e "${RED}❌ ENCONTRADOS $ERRORS ERRORES${NC}"
-    echo ""
-    echo "Pasos sugeridos:"
-    echo "1. npm install"
-    echo "2. Corrige los errores mostrados arriba"
-    echo "3. Vuelve a ejecutar este script"
-    echo ""
-    exit 1
-fi
+printf '\nRequisitos locales listos para crear el AAB.\n'
