@@ -2,6 +2,7 @@
 // Lee variables de entorno desde .env y las inyecta en extra
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+const withLocalAndroidSigning = require('./plugins/withLocalAndroidSigning');
 
 module.exports = ({ config }) => {
   // Prioridad: variable de entorno > .env > fallback
@@ -20,13 +21,14 @@ module.exports = ({ config }) => {
   const androidConfig = {
     ...config.android,
     adaptiveIcon: {
-      foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#ffffff"
+      foregroundImage: "./assets/delicrunch-adaptive-foreground.png",
+      backgroundColor: "#F46A16"
     },
     package: "com.delicrunch.app",
     permissions: [
       "ACCESS_FINE_LOCATION",
-      "ACCESS_COARSE_LOCATION"
+      "ACCESS_COARSE_LOCATION",
+      "POST_NOTIFICATIONS"
     ],
     // La app no usa alarmas ni notificaciones programadas. Estas pueden
     // reaparecer por dependencias nativas, así que se excluyen del manifiesto.
@@ -37,7 +39,8 @@ module.exports = ({ config }) => {
       "android.permission.CAMERA",
       "android.permission.RECORD_AUDIO",
       "android.permission.READ_EXTERNAL_STORAGE",
-      "android.permission.WRITE_EXTERNAL_STORAGE"
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.SYSTEM_ALERT_WINDOW"
     ]
   };
   
@@ -50,6 +53,7 @@ module.exports = ({ config }) => {
         '@react-native-google-signin/google-signin',
         { iosUrlScheme },
       ]] : []),
+      withLocalAndroidSigning,
     ],
     extra: {
       ...(config.extra || {}),
@@ -58,6 +62,7 @@ module.exports = ({ config }) => {
         webClientId: googleWebClientId,
         iosClientId: googleIosClientId,
       },
+      // Este ID solo enruta tokens del servicio de push de Expo; no activa EAS Build.
       eas: {
         projectId: config.extra?.eas?.projectId,
       },

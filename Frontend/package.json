@@ -1,7 +1,7 @@
 {
   "name": "delicrunch-frontend",
   "license": "0BSD",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "scripts": {
     "start": "expo start",
     "start:dev": "expo start --dev-client",
@@ -13,11 +13,9 @@
     "tunnel": "bash ./scripts/start-expo-tunnel.sh",
     "start:public": "bash ./scripts/start-expo-public.sh",
     "web:clean": "bash ./scripts/start-expo-web.sh",
-    "prebuild": "expo prebuild",
-    "prebuild:clean": "expo prebuild --clean",
-    "build:android": "eas build --platform android --profile development",
-    "build:ios": "eas build --platform ios --profile development",
-    "build:all": "eas build --platform all --profile development"
+    "build:web": "expo export --platform web",
+    "prebuild:android": "expo prebuild --platform android --clean --no-install",
+    "build:android": "bash ./scripts/build-android-local.sh"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

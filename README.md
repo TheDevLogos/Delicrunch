@@ -290,9 +290,10 @@ npm install
 - Configurar variables de entorno
 
 ### Frontend
-- Puede construirse con EAS Build
-- Publicar en Google Play / App Store
-- O usar Expo Go para desarrollo
+- Web: desde `Frontend`, `npm ci && npm run build:web`; Vercel sirve `Frontend/dist`.
+- Android: desde `Frontend`, configura la clave de subida de Play en variables locales y ejecuta `npm run build:android` para generar un AAB firmado con Gradle.
+- EAS Build no se usa. El identificador de proyecto Expo se conserva para el servicio de notificaciones push.
+- Expo Go queda disponible para desarrollo visual; Google Sign-In y notificaciones requieren una compilación nativa.
 
 ---
 
