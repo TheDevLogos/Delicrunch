@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Image,
   ActivityIndicator,
   RefreshControl,
   Dimensions,
@@ -28,10 +27,13 @@ import { getAvatarById } from '../src/constants/profileAvatars';
 import { COLORS, SPACING, LAYOUT } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import FlashDealModal from '../components/FlashDealModal';
+import UploadedImage from '../components/UploadedImage';
+import FoodCategoryIcon from '../components/FoodCategoryIcon';
+import { getCanonicalCategory, getCanonicalCategoryLabel, normalizeCategoryName } from '../src/constants/categories';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(220, width * 0.42);
-const CATEGORY_ICONS = { Todos: 'grid-outline', Tacos: 'restaurant-outline', Pizza: 'pizza-outline', Sushi: 'fish-outline', Café: 'cafe-outline', Desayunos: 'sunny-outline', Postres: 'ice-cream-outline' };
+const CATEGORY_ICONS = { Todos: 'grid-outline', Desayunos: 'sunny-outline' };
 
 const DiscoverScreen = () => {
   const navigation = useNavigation();
@@ -46,7 +48,6 @@ const DiscoverScreen = () => {
   
   // Estado del perfil
   const [userProfile, setUserProfile] = useState(null);
-  const backendBase = (api.defaults?.baseURL || '').replace(/\/?api$/, '');
   
   // Estados
   const [products, setProducts] = useState([]);
@@ -54,7 +55,7 @@ const DiscoverScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [favoriteIds, setFavoriteIds] = useState([]);
-  const [categoryList, setCategoryList] = useState(['Todos', 'Tacos', 'Pizza', 'Sushi', 'Café', 'Desayunos', 'Postres']);
+  const [categoryList, setCategoryList] = useState(['Todos', 'Tacos', 'Pizza', 'Sushi', 'Cafés', 'Desayunos', 'Postres']);
   const [selectedCategory, setSelectedCategory] = useState('Todos');
   const [sections, setSections] = useState({ recommended: [], saving: [], surprise: [] });
   const [showFlashDealModal, setShowFlashDealModal] = useState(false);
@@ -99,11 +100,11 @@ const DiscoverScreen = () => {
           return product;
         });
         setProducts(productsWithDistance);
-        const categories = Array.from(new Set(productsWithDistance.map(p => p.categoria).filter(Boolean)));
+        const categories = Array.from(new Set(productsWithDistance.map((product) => getCanonicalCategoryLabel(product.categoria)).filter(Boolean)));
         setCategoryList(['Todos', ...categories.sort((a, b) => a.localeCompare(b, 'es'))]);
       } else {
         setProducts(data);
-        const categories = Array.from(new Set(data.map(p => p.categoria).filter(Boolean)));
+        const categories = Array.from(new Set(data.map((product) => getCanonicalCategoryLabel(product.categoria)).filter(Boolean)));
         setCategoryList(['Todos', ...categories.sort((a, b) => a.localeCompare(b, 'es'))]);
       }
     } catch (err) {
@@ -200,15 +201,22 @@ const DiscoverScreen = () => {
     }
     
     // Luego filtrar por búsqueda
-    const term = searchQuery.toLowerCase();
+    const term = normalizeCategoryName(searchQuery);
     base = base.filter(p =>
-      p.nombre?.toLowerCase().includes(term) ||
-      p.nombre_comercio?.toLowerCase().includes(term)
+      normalizeCategoryName(p.nombre).includes(term) ||
+      normalizeCategoryName(p.nombre_comercio).includes(term) ||
+      normalizeCategoryName(getCanonicalCategoryLabel(p.categoria)).includes(term)
     );
 
     // Finalmente filtrar por categoría
     if (selectedCategory === 'Todos') return base;
-    return base.filter(p => (p.categoria || '').toLowerCase() === selectedCategory.toLowerCase());
+    const selectedCategoryId = getCanonicalCategory(selectedCategory)?.id;
+    return base.filter((product) => {
+      const productCategory = getCanonicalCategory(product.categoria);
+      return selectedCategoryId && productCategory
+        ? productCategory.id === selectedCategoryId
+        : getCanonicalCategoryLabel(product.categoria).toLowerCase() === selectedCategory.toLowerCase();
+    });
   }, [products, searchQuery, selectedCategory, userLocation]);
 
   useEffect(() => {
@@ -306,10 +314,7 @@ const DiscoverScreen = () => {
         activeOpacity={0.9}
       >
         <View style={styles.imageContainer}>
-          <Image
-            source={product.imagen_url ? { uri: product.imagen_url } : require('../assets/Crunchy.png')}
-            style={styles.productImage}
-          />
+          <UploadedImage uri={product.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.productImage} />
           <View style={styles.stockBadge}>
             <Text style={styles.stockText}>{stockLeft} disponibles</Text>
           </View>
@@ -400,10 +405,7 @@ const DiscoverScreen = () => {
       );
     } else if (userProfile?.foto_perfil) {
       return (
-        <Image
-          source={{ uri: userProfile.foto_perfil.startsWith('http') ? userProfile.foto_perfil : (backendBase + userProfile.foto_perfil) }}
-          style={styles.greetingAvatarImage}
-        />
+        <UploadedImage uri={userProfile.foto_perfil} fallbackSource={require('../assets/Crunchy.png')} style={styles.greetingAvatarImage} />
       );
     }
     return (
@@ -525,7 +527,7 @@ const DiscoverScreen = () => {
               <Text style={styles.featuredSubtitle}>Ahorra {Math.round(discountPct(featuredOffer))}% en {featuredOffer.nombre}</Text>
               <View style={styles.featuredAction}><Text style={styles.featuredActionText}>Ver pack</Text><Ionicons name="arrow-forward" size={17} color={COLORS.white} /></View>
             </View>
-            <Image source={featuredOffer.imagen_url ? { uri: featuredOffer.imagen_url } : require('../assets/Crunchy.png')} style={styles.featuredImage} />
+            <UploadedImage uri={featuredOffer.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.featuredImage} />
           </TouchableOpacity>
         )}
         <View style={styles.categoryHeading}><Text style={styles.sectionTitle}>Categorías</Text><TouchableOpacity onPress={() => navigation.navigate('Buscar', { viewMode: 'list' })}><Text style={styles.seeAllText}>Explorar todo</Text></TouchableOpacity></View>
@@ -544,7 +546,16 @@ const DiscoverScreen = () => {
                   style={[styles.categoryChip, isActive && styles.categoryChipActive]}
                   onPress={() => setSelectedCategory(cat)}
                 >
-                  <Ionicons name={CATEGORY_ICONS[cat] || 'fast-food-outline'} size={17} color={isActive ? COLORS.white : COLORS.primaryDark} style={{ marginRight: 6 }} />
+                  {getCanonicalCategory(cat)?.foodIcon ? (
+                    <FoodCategoryIcon
+                      category={getCanonicalCategory(cat)}
+                      size={30}
+                      style={{ marginRight: 6 }}
+                      backgroundColor={isActive ? '#FFFFFF' : COLORS.primarySoft}
+                    />
+                  ) : (
+                    <Ionicons name={CATEGORY_ICONS[cat] || 'fast-food-outline'} size={17} color={isActive ? COLORS.white : COLORS.primaryDark} style={{ marginRight: 6 }} />
+                  )}
                   <Text style={[styles.categoryText, isActive && styles.categoryTextActive]}>
                     {cat}
                   </Text>

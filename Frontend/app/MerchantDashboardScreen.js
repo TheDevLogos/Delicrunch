@@ -15,7 +15,6 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
-  Image,
   ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +28,7 @@ import { formatPrice, formatNumber } from '../src/utils/format';
 import MerchantTipsModal from '../components/MerchantTipsModal';
 import UploadCoverModal from '../components/UploadCoverModal';
 import { getCategoryBackground } from '../src/constants/categories';
+import UploadedImage from '../components/UploadedImage';
 
 const { width } = Dimensions.get('window');
 
@@ -217,9 +217,9 @@ const MerchantDashboardScreen = () => {
   }
 
   // Obtener imagen de fondo basada en categoría del comercio
-  const backgroundImage = storeInfo?.categoria 
+  const backgroundImage = storeInfo?.cover_url || (storeInfo?.categoria
     ? getCategoryBackground(storeInfo.categoria)
-    : DEFAULT_BACKGROUNDS[0]; // Fallback si no hay categoría
+    : DEFAULT_BACKGROUNDS[0]); // Preferir la portada guardada del comercio
     
   // Logo del comercio
   const storeLogo = storeInfo?.foto_perfil;
@@ -258,10 +258,15 @@ const MerchantDashboardScreen = () => {
         {/* Hero Header con imagen de fondo */}
         <View style={styles.heroContainer}>
           <ImageBackground 
-            source={{ uri: backgroundImage }}
+            source={require('../assets/Crunchy.png')}
             style={styles.heroBackground}
             imageStyle={styles.heroBackgroundImage}
           >
+            <UploadedImage
+              uri={backgroundImage}
+              fallbackSource={require('../assets/Crunchy.png')}
+              style={StyleSheet.absoluteFillObject}
+            />
             <LinearGradient
               colors={['rgba(30,20,12,0.15)', 'rgba(44,24,14,0.92)']}
               style={styles.heroGradient}
@@ -270,7 +275,7 @@ const MerchantDashboardScreen = () => {
                 {/* Logo del comercio */}
                 <View style={styles.logoContainer}>
                   {storeLogo ? (
-                    <Image source={{ uri: storeLogo }} style={styles.storeLogo} />
+                    <UploadedImage uri={storeLogo} fallbackSource={require('../assets/Crunchy.png')} style={styles.storeLogo} />
                   ) : (
                     <View style={styles.storeInitials}>
                       <Text style={styles.storeInitialsText}>

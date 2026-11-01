@@ -5,7 +5,6 @@ import {
   StyleSheet, 
   Alert, 
   ScrollView, 
-  Image, 
   ActivityIndicator,
   TouchableOpacity,
   TextInput,
@@ -18,26 +17,29 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
+import { appendImageToFormData } from '../services/imageUpload';
+import UploadedImage from '../components/UploadedImage';
+import FoodCategoryIcon from '../components/FoodCategoryIcon';
 import logger from '../services/logger';
 import { formatPrice } from '../src/utils/format';
-import { BUSINESS_CATEGORIES, getCategoryLabels } from '../src/constants/categories';
+import { BUSINESS_CATEGORIES, getCanonicalCategoryLabel, matchesFoodCategory } from '../src/constants/categories';
 import { calculateCO2Saved } from '../src/constants/co2Factors';
 
 // Delicrunch palette
 const COLORS = {
-  primary: '#F46A16',
-  primaryDark: '#CE4D08',
+  primary: '#C94C06',
+  primaryDark: '#933805',
   secondary: '#FFF0E5',
-  accent: '#F46A16',
+  accent: '#C94C06',
   background: '#FFFFFF',
   surface: '#FFF9F4',
   text: '#24211F',
-  textSecondary: '#675F59',
-  textLight: '#9CA3AF',
+  textSecondary: '#554B44',
+  textLight: '#6D625B',
   border: '#EFE4DA',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
+  success: '#207338',
+  warning: '#995300',
+  error: '#B42318',
   inputBg: '#F9FAFB',
   info: '#3B82F6',
 };
@@ -124,7 +126,7 @@ const EditProductScreen = ({ route, navigation }) => {
         setHoraFin(product.hora_recogida_fin);
         setExistingImageUrl(product.imagen_url);
         setProductoListo(product.producto_listo || false);
-        setCategoria(product.categoria || 'Otros');
+        setCategoria(getCanonicalCategoryLabel(product.categoria, 'Otros'));
       } catch (error) {
         logger.error(error, 'fetchProduct for editing');
         Alert.alert('Error', 'No se pudieron cargar los datos del producto.');
@@ -145,10 +147,10 @@ const EditProductScreen = ({ route, navigation }) => {
       mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.7,
+      quality: 0.82,
     });
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      setImage(result.assets[0]);
     }
   };
 
@@ -171,19 +173,11 @@ const EditProductScreen = ({ route, navigation }) => {
 
       // Si se seleccionó una nueva imagen, la añadimos
       if (image) {
-        const filename = image.split('/').pop();
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : `image`;
-        formData.append('imagen', { uri: image, name: filename, type });
-      } else {
-        // Si no se selecciona una nueva imagen, enviamos la URL existente para que el backend no la borre.
-        formData.append('imagen_url', existingImageUrl);
+        await appendImageToFormData(formData, 'imagen', image, 'producto');
       }
 
       // Usamos el método PUT para actualizar el producto
-      await api.put(`/products/${productId}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.put(`/products/${productId}`, formData);
 
       Alert.alert('Éxito', 'El producto ha sido actualizado.');
       navigation.goBack();
@@ -274,8 +268,9 @@ const EditProductScreen = ({ route, navigation }) => {
         >
           {/* Preview de Imagen */}
           <TouchableOpacity style={styles.imagePickerContainer} onPress={pickImage}>
-            <Image
-              source={{ uri: image || existingImageUrl || 'https://via.placeholder.com/400' }}
+            <UploadedImage
+              uri={image?.uri || existingImageUrl}
+              fallbackSource={require('../assets/Crunchy.png')}
               style={styles.imagePreview}
             />
             <View style={styles.imageOverlay}>
@@ -578,20 +573,33 @@ const EditProductScreen = ({ route, navigation }) => {
               <View style={{ width: 60 }} />
             </View>
             <ScrollView style={styles.timePickerList}>
-              {BUSINESS_CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={[styles.timeOption, categoria === cat.label && styles.timeOptionSelected]}
-                  onPress={() => {
-                    setCategoria(cat.label);
-                    setShowCategoryPicker(false);
-                  }}
-                >
-                  <Text style={[styles.timeOptionText, categoria === cat.label && styles.timeOptionTextSelected]}>
-                    {cat.icon} {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {BUSINESS_CATEGORIES.map((cat) => {
+                const isSelectedCategory = categoria === cat.label || Boolean(
+                  cat.foodIcon && matchesFoodCategory(cat.foodIcon, [categoria])
+                );
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.timeOption, isSelectedCategory && styles.timeOptionSelected]}
+                    onPress={() => {
+                      setCategoria(cat.label);
+                      setShowCategoryPicker(false);
+                    }}
+                  >
+                    <View style={styles.categoryOptionContent}>
+                      {cat.foodIcon ? (
+                        <FoodCategoryIcon category={cat.foodIcon} size={44} style={styles.categoryOptionIcon} />
+                      ) : (
+                        <Text style={styles.categoryOptionEmoji}>{cat.icon}</Text>
+                      )}
+                      <Text style={[styles.timeOptionText, isSelectedCategory && styles.timeOptionTextSelected]}>
+                        {cat.label}
+                      </Text>
+                      {isSelectedCategory && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         </View>
@@ -876,10 +884,28 @@ const styles = StyleSheet.create({
     maxHeight: 250,
   },
   timeOption: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+  },
+  categoryOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  categoryOptionIcon: {
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  categoryOptionEmoji: {
+    width: 44,
+    height: 44,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 24,
+    marginRight: 12,
   },
   timeOptionSelected: {
     backgroundColor: COLORS.primary + '15',
@@ -887,6 +913,7 @@ const styles = StyleSheet.create({
   timeOptionText: {
     fontSize: 16,
     color: COLORS.text,
+    flex: 1,
   },
   timeOptionTextSelected: {
     color: COLORS.primary,

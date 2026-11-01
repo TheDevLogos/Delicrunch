@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
-  Image,
   Switch,
   Alert,
   Linking,
@@ -20,12 +19,14 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
+import { appendImageToFormData } from '../services/imageUpload';
 import { useAuth } from '../contexts/AuthContext';
 import ReadOnlyStarRating from '../components/ReadOnlyStarRating';
 import PromotionalOnboardingModal from '../components/PromotionalOnboardingModal';
 import { COLORS, SPACING, SHADOWS, LAYOUT } from '../src/constants/theme';
 import { getAvatarById } from '../src/constants/profileAvatars';
 import { formatNumber } from '../src/utils/format';
+import UploadedImage from '../components/UploadedImage';
 
 const PRIVACY_POLICY_URL = 'https://delicrunch.vercel.app/privacy-policy.html';
 const ACCOUNT_DELETION_URL = 'https://delicrunch.vercel.app/delete-account.html';
@@ -38,7 +39,6 @@ const formatRating = (rating) => {
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const backendBase = (api.defaults?.baseURL || '').replace(/\/?api$/, '');
   const { signOut } = useAuth();
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -99,7 +99,7 @@ const ProfileScreen = () => {
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        await uploadLogo(result.assets[0].uri);
+        await uploadLogo(result.assets[0]);
       }
     } catch (error) {
       console.error('Error picking logo:', error);
@@ -108,24 +108,12 @@ const ProfileScreen = () => {
   };
 
   // Función para subir logo al backend
-  const uploadLogo = async (imageUri) => {
+  const uploadLogo = async (asset) => {
     try {
       const formData = new FormData();
-      
-      const uriParts = imageUri.split('.');
-      const fileType = uriParts[uriParts.length - 1];
-      
-      formData.append('foto_perfil', {
-        uri: imageUri,
-        name: `logo_${Date.now()}.${fileType}`,
-        type: `image/${fileType}`,
-      });
+      await appendImageToFormData(formData, 'foto_perfil', asset, 'perfil');
 
-      await api.put('/profiles/me', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await api.put('/profiles/me', formData);
 
       Alert.alert('¡Éxito!', 'Logo actualizado correctamente');
       fetchProfile(); // Recargar perfil
@@ -306,10 +294,7 @@ const ProfileScreen = () => {
                 );
               })()
             ) : profile.foto_perfil ? (
-              <Image 
-                source={{ uri: profile.foto_perfil.startsWith('http') ? profile.foto_perfil : (backendBase + profile.foto_perfil) }} 
-                style={styles.avatarImage} 
-              />
+              <UploadedImage uri={profile.foto_perfil} fallbackSource={require('../assets/Crunchy.png')} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarInitial}>
@@ -363,14 +348,7 @@ const ProfileScreen = () => {
                 activeOpacity={0.7}
               >
                 {profile.foto_perfil ? (
-                  <Image 
-                    source={{ 
-                      uri: profile.foto_perfil.startsWith('http') 
-                        ? profile.foto_perfil 
-                        : (backendBase + profile.foto_perfil) 
-                    }} 
-                    style={styles.logoImage} 
-                  />
+                  <UploadedImage uri={profile.foto_perfil} fallbackSource={require('../assets/Crunchy.png')} style={styles.logoImage} />
                 ) : (
                   <View style={styles.logoPlaceholder}>
                     <Ionicons name="storefront-outline" size={40} color={COLORS.textLight} />

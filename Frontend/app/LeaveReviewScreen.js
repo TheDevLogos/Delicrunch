@@ -16,23 +16,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
+import { appendImageToFormData } from '../services/imageUpload';
 import logger from '../services/logger';
 
 // Delicrunch palette
 const COLORS = {
-  primary: '#F46A16',
-  primaryDark: '#CE4D08',
+  primary: '#C94C06',
+  primaryDark: '#933805',
   secondary: '#FFF0E5',
-  accent: '#F46A16',
+  accent: '#C94C06',
   background: '#FFFFFF',
   surface: '#FFF9F4',
   text: '#24211F',
-  textSecondary: '#675F59',
-  textLight: '#9CA3AF',
+  textSecondary: '#554B44',
+  textLight: '#6D625B',
   border: '#EFE4DA',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
+  success: '#207338',
+  warning: '#995300',
+  error: '#B42318',
   star: '#F59E0B',
 };
 
@@ -160,7 +161,7 @@ const LeaveReviewScreen = ({ route, navigation }) => {
           return;
         }
 
-        setImages([...images, { uri: selectedImage.uri, uploaded: false }]);
+        setImages([...images, { uri: selectedImage.uri, asset: selectedImage, uploaded: false }]);
       }
     } catch (error) {
       logger.error(error, 'pickImage');
@@ -200,7 +201,7 @@ const LeaveReviewScreen = ({ route, navigation }) => {
           return;
         }
 
-        setImages([...images, { uri: photo.uri, uploaded: false }]);
+        setImages([...images, { uri: photo.uri, asset: photo, uploaded: false }]);
       }
     } catch (error) {
       logger.error(error, 'takePhoto');
@@ -248,24 +249,13 @@ const LeaveReviewScreen = ({ route, navigation }) => {
 
       // Agregar imágenes si las hay
       if (images.length > 0) {
-        images.forEach((image, index) => {
-          const uriParts = image.uri.split('.');
-          const fileType = uriParts[uriParts.length - 1];
-          
-          formData.append('images', {
-            uri: Platform.OS === 'ios' ? image.uri.replace('file://', '') : image.uri,
-            name: `review_${Date.now()}_${index}.${fileType}`,
-            type: `image/${fileType}`,
-          });
-        });
+        for (const [index, image] of images.entries()) {
+          await appendImageToFormData(formData, 'images', image.asset, `resena_${index + 1}`);
+        }
       }
 
       // Enviar review con imágenes
-      await api.post('/reviews', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await api.post('/reviews', formData);
 
       Alert.alert(
         '¡Gracias por tu opinión!', 

@@ -25,6 +25,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 import { COLORS, SPACING, SHADOWS } from '../../src/constants/theme';
+import UploadedImage from '../../components/UploadedImage';
 
 const { width } = Dimensions.get('window');
 const IS_NARROW = width < 640;
@@ -604,7 +605,7 @@ const AdminStoresScreen = () => {
         <View style={styles.storeCardHeader}>
           <View style={styles.storeLogoContainer}>
             {store.logo_url ? (
-              <Image source={{ uri: store.logo_url }} style={styles.storeLogo} />
+              <UploadedImage uri={store.logo_url} fallbackSource={require('../../assets/Crunchy.png')} style={styles.storeLogo} />
             ) : (
               <View style={styles.storeLogoPlaceholder}>
                 <Text style={styles.storeLogoText}>
@@ -862,7 +863,7 @@ const AdminStoresScreen = () => {
               <View style={styles.modalStoreHeader}>
                 <View style={styles.modalLogoContainer}>
                   {selectedStore.logo_url ? (
-                    <Image source={{ uri: selectedStore.logo_url }} style={styles.modalLogo} />
+                    <UploadedImage uri={selectedStore.logo_url} fallbackSource={require('../../assets/Crunchy.png')} style={styles.modalLogo} />
                   ) : (
                     <View style={styles.modalLogoPlaceholder}>
                       <Ionicons name="storefront" size={40} color="#999" />

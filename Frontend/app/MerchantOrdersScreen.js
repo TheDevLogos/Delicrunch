@@ -23,20 +23,20 @@ import PickupVerificationModal from '../components/PickupVerificationModal';
 
 // Delicrunch palette
 const COLORS = {
-  primary: '#F46A16',
-  primaryDark: '#CE4D08',
+  primary: '#C94C06',
+  primaryDark: '#933805',
   secondary: '#FFF0E5',
-  accent: '#F46A16',
+  accent: '#C94C06',
   background: '#FFFFFF',
   surface: '#FFF9F4',
   text: '#24211F',
-  textSecondary: '#675F59',
-  textLight: '#9CA3AF',
+  textSecondary: '#554B44',
+  textLight: '#6D625B',
   border: '#EFE4DA',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  info: '#3B82F6',
+  success: '#207338',
+  warning: '#995300',
+  error: '#B42318',
+  info: '#075BA8',
 };
 
 const SPACING = {

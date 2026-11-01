@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Alert,
   TextInput,
   Platform,
@@ -20,6 +19,7 @@ import api from '../services/api';
 import logger from '../services/logger';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
 import { formatPrice } from '../src/utils/format';
+import UploadedImage from '../components/UploadedImage';
 
 // Mapeo de estados
 const STATUS_CONFIG = {
@@ -334,10 +334,7 @@ const OrderDetailScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Producto</Text>
           <View style={styles.productCard}>
-            <Image
-              source={{ uri: order.imagen_url || 'https://via.placeholder.com/100' }}
-              style={styles.productImage}
-            />
+            <UploadedImage uri={order.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.productImage} />
             <View style={styles.productInfo}>
               <Text style={styles.productName} numberOfLines={2}>
                 {order.nombre_producto || 'Surprise Bag'}

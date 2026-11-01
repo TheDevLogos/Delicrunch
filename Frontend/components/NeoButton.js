@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { COLORS } from '../src/constants/theme';
+import { COLORS, SHADOWS } from '../src/constants/theme';
 
 const NeoButton = ({ title, onPress, variant = 'primary', disabled = false, style, textStyle }) => {
   const secondary = variant === 'secondary';
@@ -9,20 +9,22 @@ const NeoButton = ({ title, onPress, variant = 'primary', disabled = false, styl
       style={[styles.button, secondary && styles.secondary, disabled && styles.disabled, style]}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.8}
+      activeOpacity={0.84}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
     >
-      <Text style={[styles.text, secondary && styles.secondaryText, textStyle]}>{title}</Text>
+      <Text style={[styles.text, secondary && styles.secondaryText, disabled && styles.disabledText, textStyle]}>{title}</Text>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  button: { minHeight: 52, backgroundColor: COLORS.primary, borderRadius: 15, paddingHorizontal: 20, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
-  secondary: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border },
-  disabled: { opacity: 0.55 },
-  text: { color: COLORS.white, fontSize: 15, fontWeight: '800', textAlign: 'center' },
+  button: { minHeight: 52, backgroundColor: COLORS.primary, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', ...SHADOWS.sm },
+  secondary: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, shadowOpacity: 0, elevation: 0 },
+  disabled: { backgroundColor: '#E8DED5', borderWidth: 1, borderColor: '#E8DED5', shadowOpacity: 0, elevation: 0 },
+  text: { color: COLORS.white, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   secondaryText: { color: COLORS.primaryDark },
+  disabledText: { color: COLORS.textSecondary },
 });
 
 export default NeoButton;

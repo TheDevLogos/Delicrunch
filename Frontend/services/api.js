@@ -86,6 +86,16 @@ const api = axios.create({
 // Este código se ejecutará ANTES de cada petición que hagamos con 'api'.
 api.interceptors.request.use(
   async (config) => {
+    // Deja que navegador y React Native agreguen el boundary multipart correcto.
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      if (typeof config.headers?.delete === 'function') {
+        config.headers.delete('Content-Type');
+      } else if (config.headers) {
+        delete config.headers['Content-Type'];
+        delete config.headers['content-type'];
+      }
+    }
+
     // 1. Obtener el token del almacenamiento
     const token = await AsyncStorage.getItem('userToken');
 

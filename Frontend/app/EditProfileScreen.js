@@ -5,7 +5,6 @@ import {
   StyleSheet, 
   Alert, 
   ScrollView, 
-  Image, 
   TouchableOpacity,
   TextInput,
   Platform,
@@ -19,22 +18,24 @@ import api from '../services/api';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PROFILE_AVATARS, getAvatarById } from '../src/constants/profileAvatars';
+import { appendImageToFormData } from '../services/imageUpload';
+import UploadedImage from '../components/UploadedImage';
 
 // Delicrunch palette
 const COLORS = {
-  primary: '#F46A16',
-  primaryDark: '#CE4D08',
+  primary: '#C94C06',
+  primaryDark: '#933805',
   secondary: '#FFF0E5',
-  accent: '#F46A16',
+  accent: '#C94C06',
   background: '#FFFFFF',
   surface: '#FFF9F4',
   text: '#24211F',
-  textSecondary: '#675F59',
-  textLight: '#9CA3AF',
+  textSecondary: '#554B44',
+  textLight: '#6D625B',
   border: '#EFE4DA',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
+  success: '#207338',
+  warning: '#995300',
+  error: '#B42318',
   inputBg: '#F9FAFB',
 };
 
@@ -98,18 +99,10 @@ const EditProfileScreen = ({ route, navigation }) => {
       if (ciudad) form.append('ciudad', ciudad);
       if (selectedAvatarId) form.append('avatar_icon_id', selectedAvatarId);
       if (fotoPerfil) {
-        const filename = fotoPerfil.split('/').pop();
-        const ext = filename?.split('.').pop();
-        form.append('foto_perfil', {
-          uri: fotoPerfil,
-          name: filename || `foto.${ext || 'jpg'}`,
-          type: 'image/' + (ext || 'jpeg'),
-        });
+        await appendImageToFormData(form, 'foto_perfil', fotoPerfil, 'perfil');
       }
 
-      await api.put('/profiles/me', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.put('/profiles/me', form);
 
       if (ciudad) {
         await AsyncStorage.setItem('preferredCity', ciudad);
@@ -138,7 +131,7 @@ const EditProfileScreen = ({ route, navigation }) => {
       quality: 0.8,
     });
     if (!result.canceled) {
-      setFotoPerfil(result.assets[0].uri);
+      setFotoPerfil(result.assets[0]);
     }
   };
 
@@ -210,7 +203,7 @@ const EditProfileScreen = ({ route, navigation }) => {
                 );
               })()
             ) : fotoPerfil ? (
-              <Image source={{ uri: fotoPerfil }} style={styles.avatarImage} />
+              <UploadedImage uri={fotoPerfil?.uri} fallbackSource={require('../assets/Crunchy.png')} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarInitial}>
@@ -317,7 +310,7 @@ const EditProfileScreen = ({ route, navigation }) => {
             onPress={handlePickImage}
           >
             {fotoPerfil ? (
-              <Image source={{ uri: fotoPerfil }} style={styles.photoPreview} />
+              <UploadedImage uri={fotoPerfil?.uri} fallbackSource={require('../assets/Crunchy.png')} style={styles.photoPreview} />
             ) : (
               <View style={styles.photoPlaceholder}>
                 <Ionicons name="camera-outline" size={32} color={COLORS.textLight} />

@@ -9,9 +9,10 @@
 // ============================================================
 export const COLORS = {
   // Marca
-  primary: '#F46A16',
-  primaryLight: '#FF8A3D',
-  primaryDark: '#CE4D08',
+  // Naranja Delicrunch con contraste suficiente para texto blanco en CTAs.
+  primary: '#C94C06',
+  primaryLight: '#F58A43',
+  primaryDark: '#933805',
   primarySoft: '#FFF0E5',
   
   // Contraste secundario
@@ -19,9 +20,9 @@ export const COLORS = {
   secondaryLight: '#E6F2E9',
   
   // Accent - Colores para CTAs y ofertas
-  accent: '#F46A16',
-  accentLight: '#FF9B59',
-  accentDark: '#CE4D08',
+  accent: '#C94C06',
+  accentLight: '#F58A43',
+  accentDark: '#933805',
   
   // Background
   background: '#FFF9F4',
@@ -31,20 +32,20 @@ export const COLORS = {
   
   // Text - Escala de grises
   text: '#24211F',
-  textSecondary: '#675F59',
-  textTertiary: '#8E8E93',   // Gris claro para placeholders
-  textLight: '#8E8E93',      // Alias para compatibilidad
+  textSecondary: '#554B44',
+  textTertiary: '#6D625B',   // Legible en fondos blancos y crema
+  textLight: '#6D625B',      // Alias para compatibilidad
   textWhite: '#FFFFFF',      // Blanco
-  textMuted: '#AEAEB2',      // Gris muy claro
+  textMuted: '#81756D',      // Texto auxiliar con contraste reforzado
   
   // Status Colors
-  success: '#34C759',        // Verde éxito (iOS style)
+  success: '#207338',        // Contraste adecuado en texto y badges
   successLight: '#E3F9E8',   // Fondo verde claro
-  warning: '#FF9500',        // Naranja advertencia
+  warning: '#995300',        // Ámbar oscuro legible en fondos claros
   warningLight: '#FFF4E6',   // Fondo naranja claro
-  error: '#FF3B30',          // Rojo error
+  error: '#B42318',          // Rojo con mejor contraste
   errorLight: '#FFEBEA',     // Fondo rojo claro
-  info: '#007AFF',           // Azul info
+  info: '#075BA8',           // Azul con mejor contraste
   infoLight: '#E5F1FF',      // Fondo azul claro
   
   // Borders

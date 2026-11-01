@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  Image,
   ActivityIndicator,
   Alert,
   Animated,
@@ -18,6 +17,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
+import { appendImageToFormData } from '../services/imageUpload';
+import UploadedImage from './UploadedImage';
 import { COLORS, SPACING, SHADOWS, LAYOUT } from '../src/constants/theme';
 
 const { width } = Dimensions.get('window');
@@ -87,22 +88,10 @@ const UploadCoverModal = ({ visible, onClose, onSuccess }) => {
       setIsUploading(true);
       
       const formData = new FormData();
-      
-      const uriParts = selectedImage.uri.split('.');
-      const fileType = uriParts[uriParts.length - 1];
-      
-      formData.append('cover_url', {
-        uri: selectedImage.uri,
-        name: `cover_${Date.now()}.${fileType}`,
-        type: `image/${fileType}`,
-      });
+      await appendImageToFormData(formData, 'cover_url', selectedImage, 'portada');
 
       // Subir al endpoint del backend
-      const response = await api.put('/stores/me/cover', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await api.put('/stores/me/cover', formData);
 
       if (response.data?.success) {
         Alert.alert('¡Éxito!', 'Portada actualizada correctamente');
@@ -178,10 +167,7 @@ const UploadCoverModal = ({ visible, onClose, onSuccess }) => {
           {/* Preview de imagen seleccionada */}
           {selectedImage ? (
             <View style={styles.previewContainer}>
-              <Image
-                source={{ uri: selectedImage.uri }}
-                style={styles.preview}
-              />
+              <UploadedImage uri={selectedImage.uri} fallbackSource={require('../assets/Crunchy.png')} style={styles.preview} />
               <TouchableOpacity
                 style={styles.changeImageButton}
                 onPress={pickImage}

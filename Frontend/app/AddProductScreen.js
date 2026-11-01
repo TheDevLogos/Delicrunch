@@ -5,7 +5,6 @@ import {
   StyleSheet, 
   Alert, 
   ScrollView, 
-  Image,
   TouchableOpacity,
   Platform,
   StatusBar,
@@ -17,9 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../services/api';
+import { appendImageToFormData } from '../services/imageUpload';
+import UploadedImage from '../components/UploadedImage';
+import FoodCategoryIcon from '../components/FoodCategoryIcon';
 import logger from '../services/logger';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
-import { BUSINESS_CATEGORIES, getCategoryLabels } from '../src/constants/categories';
+import { BUSINESS_CATEGORIES, matchesFoodCategory } from '../src/constants/categories';
 import { calculateCO2Saved } from '../src/constants/co2Factors';
 
 const AddProductScreen = ({ navigation }) => {
@@ -78,11 +80,11 @@ const AddProductScreen = ({ navigation }) => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.7,
+      quality: 0.82,
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      setImage(result.assets[0]);
     }
   };
 
@@ -120,17 +122,10 @@ const AddProductScreen = ({ navigation }) => {
       formData.append('producto_listo', productoListo);
 
       if (image) {
-        const filename = image.split('/').pop();
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : `image`;
-        formData.append('imagen', { uri: image, name: filename, type });
+        await appendImageToFormData(formData, 'imagen', image, 'producto');
       }
 
-      await api.post('/products', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      await api.post('/products', formData);
 
       Alert.alert('¡Publicado!', 'Tu pack está ahora disponible para los usuarios.', [
         { text: 'OK', onPress: () => navigation.goBack() }
@@ -176,7 +171,7 @@ const AddProductScreen = ({ navigation }) => {
           >
             {image ? (
               <>
-                <Image source={{ uri: image }} style={styles.imagePreview} />
+                <UploadedImage uri={image?.uri} fallbackSource={require('../assets/Crunchy.png')} style={styles.imagePreview} />
                 <View style={styles.imageOverlay}>
                   <Ionicons name="camera" size={24} color={COLORS.white} />
                   <Text style={styles.changeImageText}>Cambiar imagen</Text>
@@ -472,20 +467,33 @@ const AddProductScreen = ({ navigation }) => {
               <View style={{ width: 60 }} />
             </View>
             <ScrollView style={styles.timePickerList}>
-              {BUSINESS_CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={[styles.timeOption, categoria === cat.label && styles.timeOptionSelected]}
-                  onPress={() => {
-                    setCategoria(cat.label);
-                    setShowCategoryPicker(false);
-                  }}
-                >
-                  <Text style={[styles.timeOptionText, categoria === cat.label && styles.timeOptionTextSelected]}>
-                    {cat.icon} {cat.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {BUSINESS_CATEGORIES.map((cat) => {
+                const isSelectedCategory = categoria === cat.label || Boolean(
+                  cat.foodIcon && matchesFoodCategory(cat.foodIcon, [categoria])
+                );
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.timeOption, isSelectedCategory && styles.timeOptionSelected]}
+                    onPress={() => {
+                      setCategoria(cat.label);
+                      setShowCategoryPicker(false);
+                    }}
+                  >
+                    <View style={styles.categoryOptionContent}>
+                      {cat.foodIcon ? (
+                        <FoodCategoryIcon category={cat.foodIcon} size={44} style={styles.categoryOptionIcon} />
+                      ) : (
+                        <Text style={styles.categoryOptionEmoji}>{cat.icon}</Text>
+                      )}
+                      <Text style={[styles.timeOptionText, isSelectedCategory && styles.timeOptionTextSelected]}>
+                        {cat.label}
+                      </Text>
+                      {isSelectedCategory && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         </View>
@@ -765,10 +773,28 @@ const styles = StyleSheet.create({
     maxHeight: 250,
   },
   timeOption: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
+  },
+  categoryOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  categoryOptionIcon: {
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  categoryOptionEmoji: {
+    width: 44,
+    height: 44,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 24,
+    marginRight: 12,
   },
   timeOptionSelected: {
     backgroundColor: COLORS.primary + '15',
@@ -776,6 +802,7 @@ const styles = StyleSheet.create({
   timeOptionText: {
     fontSize: 16,
     color: COLORS.text,
+    flex: 1,
   },
   timeOptionTextSelected: {
     color: COLORS.primary,

@@ -9,7 +9,6 @@ import {
   Alert,
   RefreshControl,
   FlatList,
-  Image,
   Dimensions,
   Platform,
   StatusBar,
@@ -22,6 +21,7 @@ import api, { publicApi } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import { COLORS, SPACING } from '../src/constants/theme';
+import UploadedImage from '../components/UploadedImage';
 
 const { width } = Dimensions.get('window');
 
@@ -84,10 +84,7 @@ const FavoritesScreen = ({ navigation }) => {
       onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
       activeOpacity={0.9}
     >
-      <Image
-        source={item.imagen_url ? { uri: item.imagen_url } : require('../assets/Crunchy.png')}
-        style={styles.cardImage}
-      />
+      <UploadedImage uri={item.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.cardImage} />
       <View style={styles.cardContent}>
         <View style={styles.cardHeader}>
           <View style={styles.storeInfo}>

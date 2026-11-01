@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
+import UploadedImage from '../components/UploadedImage';
 
 const MyReviewsScreen = () => {
   const navigation = useNavigation();
@@ -90,6 +91,19 @@ const MyReviewsScreen = () => {
       </View>
       
       <Text style={styles.reviewComment}>{item.comentario || 'Sin comentario'}</Text>
+
+      {Array.isArray(item.images) && item.images.length > 0 && (
+        <View style={styles.reviewImages}>
+          {item.images.map((image, index) => (
+            <UploadedImage
+              key={`${item.id}-image-${index}`}
+              uri={typeof image === 'string' ? image : image?.url}
+              fallbackSource={require('../assets/Crunchy.png')}
+              style={styles.reviewImage}
+            />
+          ))}
+        </View>
+      )}
       
       {item.respuesta_admin && (
         <View style={styles.adminResponseContainer}>
@@ -260,6 +274,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
     lineHeight: 22,
+  },
+  reviewImages: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  reviewImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 10,
+    backgroundColor: COLORS.background,
   },
   
   // Respuesta del admin/comercio

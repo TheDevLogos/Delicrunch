@@ -8,7 +8,6 @@ import {
   ScrollView,
   View,
   Text,
-  Image,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
@@ -27,6 +26,8 @@ import { useLocation } from '../contexts/LocationContext';
 import { COLORS, SPACING, BORDERS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import UploadCoverModal from '../components/UploadCoverModal';
+import UploadedImage from '../components/UploadedImage';
+import { getCanonicalCategoryLabel } from '../src/constants/categories';
 
 const { width } = Dimensions.get('window');
 
@@ -182,10 +183,7 @@ const StoreProfileScreen = () => {
         onPress={() => navigation.navigate('ProductDetail', { productId: product.id })}
         activeOpacity={0.9}
       >
-        <Image
-          source={{ uri: product.imagen_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400' }}
-          style={styles.productImage}
-        />
+        <UploadedImage uri={product.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.productImage} />
         
         {/* Badge descuento */}
         <View style={styles.discountBadge}>
@@ -259,6 +257,18 @@ const StoreProfileScreen = () => {
       {review.comentario && (
         <Text style={styles.reviewComment}>{review.comentario}</Text>
       )}
+      {Array.isArray(review.images) && review.images.length > 0 && (
+        <View style={styles.reviewImages}>
+          {review.images.map((image, index) => (
+            <UploadedImage
+              key={`${review.id}-image-${index}`}
+              uri={typeof image === 'string' ? image : image?.url}
+              fallbackSource={require('../assets/Crunchy.png')}
+              style={styles.reviewImage}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 
@@ -290,10 +300,7 @@ const StoreProfileScreen = () => {
       
       {/* Header con imagen */}
       <View style={styles.headerImageContainer}>
-        <Image
-          source={{ uri: store.cover_url || products[0]?.imagen_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800' }}
-          style={styles.headerImage}
-        />
+        <UploadedImage uri={store.cover_url || products[0]?.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.headerImage} />
         <View style={styles.headerOverlay} />
         
         {/* Botón para editar portada (solo owner) */}
@@ -450,7 +457,7 @@ const StoreProfileScreen = () => {
                 <Ionicons name="pricetag-outline" size={20} color={COLORS.primary} />
                 <View style={styles.infoRowContent}>
                   <Text style={styles.infoLabel}>Categoría</Text>
-                  <Text style={styles.infoValue}>{products[0]?.categoria || 'Restaurante'}</Text>
+                  <Text style={styles.infoValue}>{getCanonicalCategoryLabel(products[0]?.categoria, 'Restaurante')}</Text>
                 </View>
               </View>
             </View>
@@ -1156,6 +1163,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
+  },
+  reviewImages: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  reviewImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 10,
+    backgroundColor: COLORS.surface,
   },
   emptyReviews: {
     alignItems: 'center',

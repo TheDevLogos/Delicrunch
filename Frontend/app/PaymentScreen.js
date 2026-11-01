@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { formatPrice } from '../src/utils/format';
 import { COLORS } from '../src/constants/theme';
+import UploadedImage from '../components/UploadedImage';
 
 // This screen reserves a pack. Payment happens directly at the store.
 const PaymentScreen = ({ route, navigation }) => {
@@ -86,9 +86,7 @@ const PaymentScreen = ({ route, navigation }) => {
         </Text>
 
         <View style={styles.card}>
-          {product.imagen_url ? (
-            <Image source={{ uri: product.imagen_url }} style={styles.image} />
-          ) : null}
+          <UploadedImage uri={product.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.image} />
           <Text style={styles.product}>{product.nombre}</Text>
           <Text style={styles.detail}>{product.nombre_comercio}</Text>
           <View style={styles.quantityRow}>

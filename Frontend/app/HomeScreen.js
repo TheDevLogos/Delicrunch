@@ -21,10 +21,12 @@ import { useAuth } from '../contexts/AuthContext';
 import * as Location from 'expo-location';
 import api, { publicApi } from '../services/api';
 import ProductCard from '../components/ProductCard';
+import FoodCategoryIcon from '../components/FoodCategoryIcon';
 import FlashDealModal from '../components/FlashDealModal';
 import MapSection from '../components/MapSection';
 import SpecialNotificationModal from '../components/SpecialNotificationModal';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS, LAYOUT } from '../src/constants/theme';
+import { FOOD_CATEGORIES, getCanonicalCategoryLabel, matchesFoodCategory, normalizeCategoryName } from '../src/constants/categories';
 
   const HomeScreen = () => {
 const navigation = useNavigation(); 
@@ -34,6 +36,7 @@ const navigation = useNavigation();
   const [products, setProducts] = useState([]); // Para almacenar la lista de productos
   const [filteredProducts, setFilteredProducts] = useState([]); // Para la lista filtrada
   const [searchQuery, setSearchQuery] = useState(''); // Para el texto de búsqueda
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [isLoading, setIsLoading] = useState(false); // Para mostrar un indicador de carga
   const [isRefreshing, setIsRefreshing] = useState(false); // Para el "pull-to-refresh"
   const [error, setError] = useState(null); // Para almacenar cualquier error de la API
@@ -248,16 +251,21 @@ const navigation = useNavigation();
   // --- LÓGICA DE FILTRADO ---
   // Este efecto se ejecuta cada vez que el texto de búsqueda o la lista de productos cambia.
   useEffect(() => {
-    if (searchQuery === '') {
-      setFilteredProducts(products); // Si no hay búsqueda, mostramos todos
-    } else {
-      // Filtramos los productos cuyo nombre (en minúsculas) incluya el texto de búsqueda (en minúsculas)
-      const filtered = products.filter(product =>
-        product.nombre.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredProducts(filtered);
+    const query = normalizeCategoryName(searchQuery);
+    let filtered = query
+      ? products.filter((product) => [product.nombre, product.nombre_comercio, getCanonicalCategoryLabel(product.categoria)]
+        .some((value) => normalizeCategoryName(value).includes(query)))
+      : products;
+
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter((product) => matchesFoodCategory(selectedCategory, [
+        product.categoria,
+        product.nombre,
+        product.nombre_comercio,
+      ]));
     }
-  }, [searchQuery, products]);
+    setFilteredProducts(filtered);
+  }, [searchQuery, products, selectedCategory]);
 
 
   // --- EFECTO DE CARGA INICIAL (usando useFocusEffect) ---
@@ -290,7 +298,7 @@ const navigation = useNavigation();
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="medium" color="#0A84FF" />
+        <ActivityIndicator size="medium" color={COLORS.primary} />
       </View>
     );
   }
@@ -345,6 +353,14 @@ const navigation = useNavigation();
             <Ionicons name="close-circle" size={20} color={COLORS.textTertiary} />
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={styles.searchFilterButton}
+          onPress={() => navigation.navigate('Buscar', { viewMode: 'list', initialSearch: searchQuery })}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir filtros de búsqueda"
+        >
+          <Ionicons name="options-outline" size={19} color={COLORS.white} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -364,10 +380,10 @@ const navigation = useNavigation();
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="food-off" size={64} color={COLORS.textTertiary} />
             <Text style={styles.emptyTitle}>
-              {searchQuery ? 'No se encontraron resultados' : 'No hay packs disponibles'}
+              {searchQuery || selectedCategory !== 'all' ? 'No se encontraron resultados' : 'No hay packs disponibles'}
             </Text>
             <Text style={styles.emptySubtitle}>
-              {searchQuery ? 'Intenta con otra búsqueda' : 'Vuelve más tarde para ver nuevas ofertas'}
+              {searchQuery || selectedCategory !== 'all' ? 'Prueba otra categoría o búsqueda' : 'Vuelve más tarde para ver nuevas ofertas'}
             </Text>
           </View>
         )}
@@ -378,6 +394,58 @@ const navigation = useNavigation();
               products={products || []}
               navigation={navigation}
             />
+
+            <View style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <View>
+                  <Text style={styles.categoryTitle}>¿Qué se te antoja?</Text>
+                  <Text style={styles.categorySubtitle}>Encuentra algo rico cerca de ti</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('Buscar', { viewMode: 'list' })}
+                  accessibilityRole="button"
+                  accessibilityLabel="Explorar todas las categorías"
+                >
+                  <Text style={styles.seeAll}>Explorar</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryRail}
+              >
+                {[{ id: 'all', label: 'Todo' }, ...FOOD_CATEGORIES].map((category) => {
+                  const isSelected = selectedCategory === category.id;
+                  return (
+                    <TouchableOpacity
+                      key={category.id}
+                      style={styles.categoryTile}
+                      onPress={() => setSelectedCategory(category.id)}
+                      activeOpacity={0.82}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      accessibilityLabel={`Filtrar por ${category.label}`}
+                    >
+                      <View style={[styles.categoryIconFrame, isSelected && styles.categoryIconFrameSelected]}>
+                        {category.id === 'all' ? (
+                          <Ionicons name="grid-outline" size={26} color={isSelected ? COLORS.primary : COLORS.textSecondary} />
+                        ) : (
+                          <FoodCategoryIcon
+                            category={category.iconKey}
+                            size={60}
+                            style={styles.categoryFoodIcon}
+                            backgroundColor={isSelected ? COLORS.primarySoft : '#FFF0E5'}
+                          />
+                        )}
+                      </View>
+                      <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]} numberOfLines={2}>
+                        {category.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
             
             {/* Map Section */}
             <View style={styles.mapCard}>
@@ -457,6 +525,15 @@ const styles = StyleSheet.create({
     borderRadius: BORDERS.radius.lg,
     ...SHADOWS.sm,
   },
+  searchFilterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.xs,
+  },
   searchIcon: {
     marginRight: SPACING.sm,
   },
@@ -468,6 +545,66 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: SPACING.xs,
+  },
+  categorySection: {
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  categoryTitle: {
+    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontWeight: TYPOGRAPHY.fontWeight.bold,
+    color: COLORS.text,
+  },
+  categorySubtitle: {
+    fontSize: TYPOGRAPHY.fontSize.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  categoryRail: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xs,
+  },
+  categoryTile: {
+    width: 72,
+    alignItems: 'center',
+    marginRight: SPACING.sm,
+  },
+  categoryIconFrame: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    ...SHADOWS.sm,
+  },
+  categoryIconFrameSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primarySoft,
+  },
+  categoryFoodIcon: {
+    borderWidth: 0,
+  },
+  categoryLabel: {
+    minHeight: 30,
+    marginTop: SPACING.xs,
+    fontSize: 11,
+    fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  categoryLabelSelected: {
+    color: COLORS.primaryDark,
   },
   // Loading & Error
   center: {

@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
-  Image,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +17,7 @@ import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, SPACING, SHADOWS } from '../../src/constants/theme';
 import { getAvatarById } from '../../src/constants/profileAvatars';
+import UploadedImage from '../../components/UploadedImage';
 
 /**
  * AdminProfileScreen - Pantalla de perfil especial para administradores
@@ -31,7 +31,6 @@ import { getAvatarById } from '../../src/constants/profileAvatars';
 
 const AdminProfileScreen = () => {
   const navigation = useNavigation();
-  const backendBase = (api.defaults?.baseURL || '').replace(/\/?api$/, '');
   const { signOut, user, simulatedRole, effectiveRole, setSimulatedRole } = useAuth();
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -182,10 +181,7 @@ const AdminProfileScreen = () => {
                 );
               })()
             ) : profile.foto_perfil ? (
-              <Image 
-                source={{ uri: profile.foto_perfil.startsWith('http') ? profile.foto_perfil : (backendBase + profile.foto_perfil) }} 
-                style={styles.avatarImage} 
-              />
+              <UploadedImage uri={profile.foto_perfil} fallbackSource={require('../../assets/Crunchy.png')} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Ionicons name="shield-checkmark" size={40} color={COLORS.white} />

@@ -23,22 +23,23 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { formatNumber } from '../src/utils/format';
+import UploadedImage from '../components/UploadedImage';
 
 // Delicrunch palette
 const COLORS = {
-  primary: '#F46A16',
-  primaryDark: '#CE4D08',
+  primary: '#C94C06',
+  primaryDark: '#933805',
   secondary: '#FFF0E5',
-  accent: '#F46A16',
+  accent: '#C94C06',
   background: '#FFFFFF',
   surface: '#FFF9F4',
   text: '#24211F',
-  textSecondary: '#675F59',
-  textLight: '#9CA3AF',
+  textSecondary: '#554B44',
+  textLight: '#6D625B',
   border: '#EFE4DA',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
+  success: '#207338',
+  warning: '#995300',
+  error: '#B42318',
   star: '#F59E0B',
 };
 
@@ -225,6 +226,19 @@ const StoreReviewsScreen = () => {
       <Text style={styles.reviewComment}>
         {item.comentario || 'Sin comentario'}
       </Text>
+
+      {Array.isArray(item.images) && item.images.length > 0 && (
+        <View style={styles.reviewImages}>
+          {item.images.map((image, index) => (
+            <UploadedImage
+              key={`${item.id}-image-${index}`}
+              uri={typeof image === 'string' ? image : image?.url}
+              fallbackSource={require('../assets/Crunchy.png')}
+              style={styles.reviewImage}
+            />
+          ))}
+        </View>
+      )}
 
       {/* Respuesta del comercio */}
       {item.respuesta_admin ? (
@@ -611,6 +625,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
     lineHeight: 20,
+  },
+  reviewImages: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: SPACING.sm,
+  },
+  reviewImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 10,
+    backgroundColor: COLORS.surface,
   },
   adminResponse: {
     marginTop: SPACING.md,

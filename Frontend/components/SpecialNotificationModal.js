@@ -10,7 +10,6 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  Image,
   Animated,
   Dimensions,
   Platform,
@@ -20,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import { calculateXP } from '../src/constants/gamification';
+import UploadedImage from './UploadedImage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -225,17 +225,7 @@ const SpecialNotificationModal = ({
           >
             {/* Imagen grande */}
             <View style={styles.imageContainerLarge}>
-              {product.imagen_url ? (
-                <Image
-                  source={{ uri: product.imagen_url }}
-                  style={styles.productImageLarge}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.imagePlaceholderLarge}>
-                  <MaterialCommunityIcons name="food" size={64} color="#ccc" />
-                </View>
-              )}
+              <UploadedImage uri={product.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.productImageLarge} />
 
               {/* Badge descuento prominente */}
               {discount > 0 && (

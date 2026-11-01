@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Image,
   ActivityIndicator,
   Dimensions,
   Platform,
@@ -27,6 +26,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocation } from '../contexts/LocationContext';
 import { COLORS, SPACING, LAYOUT } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
+import UploadedImage from '../components/UploadedImage';
+import FoodCategoryIcon from '../components/FoodCategoryIcon';
+import { FOOD_CATEGORIES, getCanonicalCategoryLabel, matchesFoodCategory, normalizeCategoryName } from '../src/constants/categories';
 // WebView se cargará dinámicamente para evitar fallos en Expo Go
 
 const { width, height } = Dimensions.get('window');
@@ -42,13 +44,7 @@ try {
 // Categorías de comercio disponibles
 const CATEGORIES = [
   { id: 'all', name: 'Todos', icon: 'grid-outline' },
-  { id: 'tacos', name: 'Tacos', icon: 'restaurant-outline' },
-  { id: 'pizza', name: 'Pizza', icon: 'pizza-outline' },
-  { id: 'sushi', name: 'Sushi', icon: 'fish-outline' },
-  { id: 'cafe', name: 'Café', icon: 'cafe-outline' },
-  { id: 'desayunos', name: 'Desayunos', icon: 'sunny-outline' },
-  { id: 'postres', name: 'Postres', icon: 'ice-cream-outline' },
-  { id: 'barbacoa', name: 'Barbacoa', icon: 'flame-outline' },
+  ...FOOD_CATEGORIES.map(({ id, label, iconKey }) => ({ id, name: label, iconKey })),
 ];
 
 // Rangos de precios
@@ -189,11 +185,11 @@ const BrowseScreen = () => {
     
     // Filtrar por búsqueda
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+      const query = normalizeCategoryName(searchQuery);
       filtered = filtered.filter(p =>
-        p.nombre?.toLowerCase().includes(query) ||
-        p.nombre_comercio?.toLowerCase().includes(query) ||
-        p.categoria?.toLowerCase().includes(query)
+        normalizeCategoryName(p.nombre).includes(query) ||
+        normalizeCategoryName(p.nombre_comercio).includes(query) ||
+        normalizeCategoryName(getCanonicalCategoryLabel(p.categoria)).includes(query)
       );
       filteredS = filteredS.filter(s =>
         s.nombre_comercio?.toLowerCase().includes(query)
@@ -202,13 +198,11 @@ const BrowseScreen = () => {
     
     // Filtrar por categoría
     if (selectedCategory !== 'all') {
-      const catQuery = selectedCategory.toLowerCase();
       filtered = filtered.filter(p =>
-        p.categoria?.toLowerCase().includes(catQuery) ||
-        p.nombre_comercio?.toLowerCase().includes(catQuery)
+        matchesFoodCategory(selectedCategory, [p.categoria, p.nombre, p.nombre_comercio])
       );
       filteredS = filteredS.filter(s =>
-        s.nombre_comercio?.toLowerCase().includes(catQuery)
+        matchesFoodCategory(selectedCategory, [s.categoria, s.nombre_comercio])
       );
     }
     
@@ -351,11 +345,19 @@ const BrowseScreen = () => {
                   style={[styles.filterChip, selectedCategory === cat.id && styles.filterChipActive]}
                   onPress={() => setSelectedCategory(cat.id)}
                 >
-                  <Ionicons 
-                    name={cat.icon} 
-                    size={16} 
-                    color={selectedCategory === cat.id ? '#FFFFFF' : COLORS.text} 
-                  />
+                  {cat.iconKey ? (
+                    <FoodCategoryIcon
+                      category={cat.iconKey}
+                      size={28}
+                      backgroundColor={selectedCategory === cat.id ? '#FFFFFF' : COLORS.primarySoft}
+                    />
+                  ) : (
+                    <Ionicons
+                      name={cat.icon}
+                      size={16}
+                      color={selectedCategory === cat.id ? '#FFFFFF' : COLORS.text}
+                    />
+                  )}
                   <Text style={[styles.filterChipText, selectedCategory === cat.id && styles.filterChipTextActive]}>
                     {cat.name}
                   </Text>
@@ -435,10 +437,7 @@ const BrowseScreen = () => {
         activeOpacity={0.9}
       >
         <View style={styles.listCardImageWrapper}>
-          <Image
-            source={product.imagen_url ? { uri: product.imagen_url } : require('../assets/Crunchy.png')}
-            style={styles.listCardImage}
-          />
+          <UploadedImage uri={product.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.listCardImage} />
           <View style={styles.stockBadgeList}>
             <Text style={styles.stockBadgeText}>{product.cantidad_disponible || 0} disponibles</Text>
           </View>
@@ -462,7 +461,7 @@ const BrowseScreen = () => {
               <Ionicons 
                 name={favoriteIds.includes(product.id) ? 'heart' : 'heart-outline'} 
                 size={22} 
-                color={favoriteIds.includes(product.id) ? COLORS.primary : '#8E8E93'} 
+                color={favoriteIds.includes(product.id) ? COLORS.primary : COLORS.textSecondary}
               />
             </TouchableOpacity>
           </View>
@@ -505,10 +504,7 @@ const BrowseScreen = () => {
         onPress={() => navigation.navigate('StoreProfile', { storeId: store.id })}
         activeOpacity={0.9}
       >
-        <Image
-          source={mainProduct?.imagen_url ? { uri: mainProduct.imagen_url } : require('../assets/Crunchy.png')}
-          style={styles.previewImage}
-        />
+        <UploadedImage uri={mainProduct?.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.previewImage} />
         <View style={styles.previewContent}>
           <Text style={styles.previewStoreName} numberOfLines={1}>
             {store.nombre_comercio || 'Tienda'}
@@ -531,7 +527,7 @@ const BrowseScreen = () => {
             <Text style={styles.navigateBtnText}>Cómo llegar</Text>
           </TouchableOpacity>
         </View>
-        <Ionicons name="chevron-forward" size={24} color="#8E8E93" />
+        <Ionicons name="chevron-forward" size={24} color={COLORS.textTertiary} />
       </TouchableOpacity>
     );
   };
@@ -666,7 +662,7 @@ const BrowseScreen = () => {
       }
       ListEmptyComponent={
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="food-off" size={48} color="#8E8E93" />
+          <MaterialCommunityIcons name="food-off" size={48} color={COLORS.textTertiary} />
           <Text style={styles.emptyText}>No se encontraron resultados</Text>
           <Text style={styles.emptySubtext}>Intenta ajustar los filtros</Text>
         </View>
@@ -714,17 +710,17 @@ const BrowseScreen = () => {
       {/* Barra de búsqueda y filtro */}
       <View style={styles.searchRow}>
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#8E8E93" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color={COLORS.textTertiary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar tiendas o productos"
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={COLORS.textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#8E8E93" />
+              <Ionicons name="close-circle" size={20} color={COLORS.textTertiary} />
             </TouchableOpacity>
           )}
         </View>
@@ -747,7 +743,7 @@ const BrowseScreen = () => {
           style={[styles.toggleButton, viewMode === 'list' && styles.toggleActive]}
           onPress={() => setViewMode('list')}
         >
-          <Ionicons name="list" size={18} color={viewMode === 'list' ? '#FFFFFF' : '#8E8E93'} />
+          <Ionicons name="list" size={18} color={viewMode === 'list' ? '#FFFFFF' : COLORS.textSecondary} />
           <Text style={[styles.toggleText, viewMode === 'list' && styles.toggleTextActive]}>
             Lista
           </Text>
@@ -756,7 +752,7 @@ const BrowseScreen = () => {
           style={[styles.toggleButton, viewMode === 'map' && styles.toggleActive]}
           onPress={() => setViewMode('map')}
         >
-          <Ionicons name="map" size={18} color={viewMode === 'map' ? '#FFFFFF' : '#8E8E93'} />
+          <Ionicons name="map" size={18} color={viewMode === 'map' ? '#FFFFFF' : COLORS.textSecondary} />
           <Text style={[styles.toggleText, viewMode === 'map' && styles.toggleTextActive]}>
             Mapa
           </Text>
@@ -779,7 +775,7 @@ const styles = StyleSheet.create({
   locationContainer: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   locationTextContainer: { marginLeft: 6, marginRight: 4 },
   locationTitle: { fontSize: 16, fontWeight: '600', color: COLORS.primary },
-  locationSubtitle: { fontSize: 12, color: '#8E8E93' },
+  locationSubtitle: { fontSize: 12, color: COLORS.textSecondary },
 
   // Búsqueda
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
@@ -788,14 +784,14 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 16, color: COLORS.text },
   filterButton: { width: 52, height: 52, borderRadius: 15, backgroundColor: COLORS.primary, borderWidth: 1, borderColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
   filterButtonActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterBadge: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'center' },
+  filterBadge: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.error, justifyContent: 'center', alignItems: 'center' },
   filterBadgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
 
   // Toggle
   toggleContainer: { flexDirection: 'row', marginHorizontal: SPACING.md, marginBottom: SPACING.sm, backgroundColor: COLORS.primarySoft, borderRadius: 14, padding: SPACING.xs },
   toggleButton: { flex: 1, flexDirection: 'row', paddingVertical: 10, alignItems: 'center', justifyContent: 'center', borderRadius: 8 },
   toggleActive: { backgroundColor: COLORS.primary },
-  toggleText: { fontSize: 14, fontWeight: '600', color: '#8E8E93', marginLeft: 6 },
+  toggleText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary, marginLeft: 6 },
   toggleTextActive: { color: '#FFFFFF' },
 
   // Modal de filtros
@@ -805,7 +801,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text },
   filterSectionTitle: { fontSize: 16, fontWeight: '600', color: COLORS.text, marginTop: 16, marginBottom: 12 },
   filterChipsContainer: { flexDirection: 'row', flexWrap: 'wrap' },
-  filterChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F2F2F7', marginRight: 8, marginBottom: 8 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', minHeight: 44, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 16, backgroundColor: COLORS.surfaceSecondary, borderWidth: 1, borderColor: COLORS.borderLight, marginRight: 8, marginBottom: 8 },
   filterChipActive: { backgroundColor: COLORS.primary },
   filterChipText: { fontSize: 14, color: COLORS.text, marginLeft: 4 },
   filterChipTextActive: { color: '#FFFFFF' },
@@ -822,8 +818,8 @@ const styles = StyleSheet.create({
   marker: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
   markerSelected: { transform: [{ scale: 1.2 }] },
   markerEmpty: { opacity: 0.6 },
-  markerEmptyInner: { backgroundColor: '#8E8E93' },
-  markerBadge: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: '#FF3B30', justifyContent: 'center', alignItems: 'center' },
+  markerEmptyInner: { backgroundColor: COLORS.textMuted },
+  markerBadge: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.error, justifyContent: 'center', alignItems: 'center' },
   markerBadgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
   centerBtn: { position: 'absolute', top: 16, right: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 4 },
 
@@ -835,16 +831,16 @@ const styles = StyleSheet.create({
   previewStoreName: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 4 },
   previewRatingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   previewRating: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginLeft: 4 },
-  previewDistance: { fontSize: 13, color: '#8E8E93', marginLeft: 4 },
-  previewProducts: { fontSize: 12, color: '#8E8E93', marginBottom: 2 },
-  previewLastReview: { fontSize: 12, color: '#8E8E93', fontStyle: 'italic', marginBottom: 4 },
+  previewDistance: { fontSize: 13, color: COLORS.textSecondary, marginLeft: 4 },
+  previewProducts: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
+  previewLastReview: { fontSize: 12, color: COLORS.textSecondary, fontStyle: 'italic', marginBottom: 4 },
   previewPrice: { fontSize: 14, fontWeight: '700', color: COLORS.primary },
   navigateBtn: { marginTop: SPACING.sm, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingHorizontal: SPACING.smd, paddingVertical: SPACING.sm, borderRadius: SPACING.mld },
   navigateBtnText: { marginLeft: 6, color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
 
   // Lista
   listContent: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.mld },
-  resultsCount: { fontSize: 14, color: '#8E8E93', marginBottom: 12 },
+  resultsCount: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 12 },
   listCard: { flexDirection: 'row', backgroundColor: '#FFFFFF', borderRadius: 20, overflow: 'hidden', marginBottom: 12, borderWidth: 1, borderColor: COLORS.borderLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
   listCardImageWrapper: { position: 'relative' },
   listCardImage: { width: 112, height: 146, resizeMode: 'cover' },
@@ -858,24 +854,24 @@ const styles = StyleSheet.create({
   listStoreName: { fontSize: 13, fontWeight: '600', color: COLORS.text, flex: 1 },
   listFavoriteBtn: { padding: 4 },
   listProductName: { fontSize: 15, fontWeight: '600', color: COLORS.text, marginBottom: 4 },
-  listPickupTime: { fontSize: 12, color: '#8E8E93', marginBottom: 8 },
+  listPickupTime: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 8 },
   listCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   ratingContainer: { flexDirection: 'row', alignItems: 'center' },
   ratingText: { fontSize: 12, fontWeight: '600', color: COLORS.text, marginLeft: 2 },
-  distanceText: { fontSize: 12, color: '#8E8E93' },
+  distanceText: { fontSize: 12, color: COLORS.textSecondary },
   priceContainer: { flexDirection: 'row', alignItems: 'center' },
-  originalPrice: { fontSize: 12, color: '#8E8E93', textDecorationLine: 'line-through', marginRight: 6 },
+  originalPrice: { fontSize: 12, color: COLORS.textTertiary, textDecorationLine: 'line-through', marginRight: 6 },
   listPrice: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
 
   // Empty state
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
-  emptyText: { marginTop: 12, fontSize: 16, color: '#8E8E93' },
-  emptySubtext: { fontSize: 14, color: '#C7C7CC', marginTop: 4 },
+  emptyText: { marginTop: 12, fontSize: 16, color: COLORS.textSecondary },
+  emptySubtext: { fontSize: 14, color: COLORS.textSecondary, marginTop: 4 },
 
   // Map placeholder
   mapPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F2F2F7', padding: 40 },
   mapPlaceholderTitle: { fontSize: 20, fontWeight: '600', color: COLORS.text, marginTop: 16, marginBottom: 8 },
-  mapPlaceholderText: { fontSize: 14, color: '#8E8E93', textAlign: 'center', marginBottom: 24 },
+  mapPlaceholderText: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 24 },
   switchToListBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
   switchToListText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
 });

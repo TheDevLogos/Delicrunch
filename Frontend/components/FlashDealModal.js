@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS, SPACING } from '../src/constants/theme';
 import { formatPrice } from '../src/utils/format';
 import { publicApi } from '../services/api';
+import UploadedImage from './UploadedImage';
 
 const COUNTDOWN_START = 20 * 60; // 20 minutos en segundos
 
@@ -64,11 +65,7 @@ export default function FlashDealModal({ products = [], navigation }) {
       <Text style={styles.flashTitle}>⚡ Flash Rescue</Text>
       <Text style={styles.timer}>{`00:${min}:${sec}`}</Text>
       <View style={styles.productBox}>
-        {product?.imagen_url ? (
-          <Image source={{ uri: product.imagen_url }} style={styles.image} />
-        ) : (
-          <View style={styles.imagePlaceholder}><Text>Sin imagen</Text></View>
-        )}
+        <UploadedImage uri={product?.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.image} />
         <View style={styles.infoBox}>
           <Text style={styles.productName}>{product?.nombre || 'Oferta'}</Text>
           <Text style={styles.productDesc}>{product?.descripcion || ''}</Text>

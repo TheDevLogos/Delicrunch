@@ -5,7 +5,6 @@ import {
   StyleSheet, 
   FlatList, 
   ActivityIndicator, 
-  Image,
   TouchableOpacity,
   TextInput,
   Platform,
@@ -17,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import { COLORS, SPACING, SHADOWS } from '../src/constants/theme';
 import { formatPrice } from '../src/utils/format';
+import UploadedImage from '../components/UploadedImage';
 
 // Componente para renderizar cada producto - estilo TGTG
 const ProductItem = ({ item }) => {
@@ -33,10 +33,7 @@ const ProductItem = ({ item }) => {
       activeOpacity={0.7}
     >
       <View style={styles.productImageContainer}>
-        <Image 
-          source={item.imagen_url ? { uri: item.imagen_url } : require('../assets/Crunchy.png')}
-          style={styles.productImage} 
-        />
+        <UploadedImage uri={item.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.productImage} />
         {discount > 0 && (
           <View style={styles.discountBadge}>
             <Text style={styles.discountText}>-{discount}%</Text>

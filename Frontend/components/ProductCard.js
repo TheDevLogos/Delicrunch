@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import UploadedImage from './UploadedImage';
 import { COLORS, SHADOWS } from '../src/constants/theme';
 import { formatPrice } from '../src/utils/format';
 
@@ -11,13 +12,16 @@ const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
     : 0;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={0.92}
+      accessibilityRole="button"
+      accessibilityLabel={`${product.nombre || 'Pack sorpresa'} de ${product.nombre_comercio || 'tienda'}, $${formatPrice(product.precio_descuento)}`}
+    >
       {/* Imagen del producto */}
       <View style={styles.imageContainer}>
-        <Image
-          source={product.imagen_url ? { uri: product.imagen_url } : require('../assets/Crunchy.png')}
-          style={styles.image}
-        />
+        <UploadedImage uri={product.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.image} />
         
         {/* Badge de descuento */}
         {discount > 0 && (
@@ -36,7 +40,7 @@ const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
             <Ionicons 
               name={isFavorite ? 'heart' : 'heart-outline'} 
               size={22} 
-              color={isFavorite ? COLORS.accent : COLORS.white} 
+              color={isFavorite ? COLORS.error : COLORS.textSecondary}
             />
           </TouchableOpacity>
         )}
@@ -110,9 +114,9 @@ const ProductCard = ({ product, onPress, onFavoritePress, isFavorite }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
-    marginBottom: 16,
+    marginBottom: 18,
     marginHorizontal: 16,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
@@ -122,19 +126,21 @@ const styles = StyleSheet.create({
   // Imagen
   imageContainer: {
     position: 'relative',
+    backgroundColor: '#F1E6DC',
   },
   image: {
     width: '100%',
-    height: 170,
+    height: 190,
   },
   discountBadge: {
     position: 'absolute',
     top: 12,
     left: 12,
     backgroundColor: COLORS.accent,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    ...SHADOWS.sm,
   },
   discountBadgeText: {
     color: COLORS.white,
@@ -148,7 +154,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.75)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -158,9 +166,9 @@ const styles = StyleSheet.create({
     left: 14,
   },
   storeLogo: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    width: 46,
+    height: 46,
+    borderRadius: 16,
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -229,10 +237,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stockContainer: {
-    backgroundColor: COLORS.surfaceLight,
+    backgroundColor: COLORS.successLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 999,
   },
   stockText: {
     fontSize: 12,
@@ -257,7 +265,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   discountPrice: {
     fontSize: 16,

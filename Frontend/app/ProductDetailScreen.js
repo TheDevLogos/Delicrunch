@@ -8,7 +8,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
@@ -21,6 +20,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import api, { publicApi } from '../services/api';
 import logger from '../services/logger';
 import ReadOnlyStarRating from '../components/ReadOnlyStarRating';
+import UploadedImage from '../components/UploadedImage';
 import { COLORS, TYPOGRAPHY, SPACING, BORDERS, SHADOWS } from '../src/constants/theme';
 import { formatPrice, formatNumber } from '../src/utils/format';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -48,6 +48,18 @@ const ReviewItem = ({ review }) => (
       <ReadOnlyStarRating rating={review.calificacion} size={14} />
     </View>
     <Text style={styles.reviewComment}>{review.comentario}</Text>
+    {Array.isArray(review.images) && review.images.length > 0 && (
+      <View style={styles.reviewImages}>
+        {review.images.map((image, index) => (
+          <UploadedImage
+            key={`${review.id}-image-${index}`}
+            uri={typeof image === 'string' ? image : image?.url}
+            fallbackSource={require('../assets/Crunchy.png')}
+            style={styles.reviewImage}
+          />
+        ))}
+      </View>
+    )}
     <Text style={styles.reviewDate}>
       {new Date(review.created_at).toLocaleDateString('es-MX', { 
         day: 'numeric', month: 'short', year: 'numeric' 
@@ -158,10 +170,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
       
       {/* Header Image con overlay */}
       <View style={styles.imageContainer}>
-        <Image
-          source={product.imagen_url ? { uri: product.imagen_url } : require('../assets/Crunchy.png')}
-          style={styles.heroImage}
-        />
+        <UploadedImage uri={product.imagen_url} fallbackSource={require('../assets/Crunchy.png')} style={styles.heroImage} />
         <View style={styles.imageOverlay} />
         
         {/* Navigation buttons */}
@@ -438,6 +447,8 @@ const styles = StyleSheet.create({
   reviewerInitial: { color: COLORS.white, fontSize: TYPOGRAPHY.fontSize.sm, fontWeight: TYPOGRAPHY.fontWeight.bold },
   reviewAuthor: { fontSize: TYPOGRAPHY.fontSize.base, fontWeight: TYPOGRAPHY.fontWeight.semibold, color: COLORS.text },
   reviewComment: { fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textSecondary, lineHeight: 22 },
+  reviewImages: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: SPACING.sm },
+  reviewImage: { width: 76, height: 76, borderRadius: 10, backgroundColor: COLORS.surface },
   reviewDate: { fontSize: TYPOGRAPHY.fontSize.sm, color: COLORS.textTertiary, marginTop: SPACING.sm },
   noReviews: { alignItems: 'center', padding: SPACING.xl },
   noReviewsText: { marginTop: SPACING.sm, fontSize: TYPOGRAPHY.fontSize.base, color: COLORS.textTertiary, textAlign: 'center' },
