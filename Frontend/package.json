@@ -1,7 +1,7 @@
 {
   "name": "delicrunch-frontend",
   "license": "0BSD",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "scripts": {
     "start": "expo start",
     "start:dev": "expo start --dev-client",

@@ -21,7 +21,7 @@ module.exports = ({ config }) => {
     ...config.android,
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#ffffff"
+      backgroundColor: "#FFF7E6"
     },
     package: "com.delicrunch.app",
     permissions: [
