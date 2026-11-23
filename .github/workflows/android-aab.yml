@@ -1,0 +1,124 @@
+name: Delicrunch signed Android AAB
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [Frontend/app.json]
+permissions:
+  contents: read
+concurrency:
+  group: delicrunch-android-aab
+  cancel-in-progress: false
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: Frontend
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Check signing configuration
+        env:
+          KEYSTORE: ${{ secrets.DELICRUNCH_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.DELICRUNCH_UPLOAD_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.DELICRUNCH_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.DELICRUNCH_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo '::error::Configure the four DELICRUNCH_UPLOAD_* repository secrets with the CURRENT upload keystore. No new key will be generated.'
+              exit 1
+            fi
+          done
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+      - name: Prepare and verify current upload key
+        env:
+          KEYSTORE: ${{ secrets.DELICRUNCH_UPLOAD_KEYSTORE_BASE64 }}
+          DELICRUNCH_UPLOAD_STORE_PASSWORD: ${{ secrets.DELICRUNCH_UPLOAD_STORE_PASSWORD }}
+          DELICRUNCH_UPLOAD_KEY_ALIAS: ${{ secrets.DELICRUNCH_UPLOAD_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/delicrunch-upload.jks"
+          keytool -exportcert -keystore "$RUNNER_TEMP/delicrunch-upload.jks" -alias "$DELICRUNCH_UPLOAD_KEY_ALIAS" -storepass:env DELICRUNCH_UPLOAD_STORE_PASSWORD > "$RUNNER_TEMP/upload.der"
+          fingerprint="$(openssl x509 -inform DER -in "$RUNNER_TEMP/upload.der" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':[:space:]')"
+          test "$fingerprint" = '5ADEA5490EB3C2C22547FB49D3CDA7DAA2BF5AD987B35016DC2D4E179DC338FD' || { echo '::error::Upload certificate differs from the current Google Play certificate. Build stopped; no key reset requested.'; exit 1; }
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Set unique build number
+        run: |
+          node <<'JS'
+          const fs=require('fs');
+          const file='app.json', config=JSON.parse(fs.readFileSync(file));
+          // This workflow starts after uploaded code 5. Its run number increases on every new build.
+          const code=Math.max(config.expo.android.versionCode,5+Number(process.env.GITHUB_RUN_NUMBER));
+          if (!Number.isSafeInteger(code)||code>2100000000) throw Error('Invalid versionCode');
+          config.expo.android.versionCode=code;
+          fs.writeFileSync(file,JSON.stringify(config,null,2)+'\n');
+          fs.appendFileSync(process.env.GITHUB_ENV,`AAB_VERSION=${config.expo.version}\nAAB_CODE=${code}\n`);
+          JS
+      - name: Generate native Android project
+        env:
+          NODE_ENV: production
+          EXPO_PUBLIC_API_URL: https://delicrunch.onrender.com/api
+        run: npx expo prebuild --platform android --no-install
+      - name: Configure release signing
+        run: |
+          cat >> android/app/build.gradle <<'GRADLE'
+          android {
+              signingConfigs {
+                  delicrunchUpload {
+                      storeFile file(System.getenv("DELICRUNCH_UPLOAD_KEYSTORE"))
+                      storePassword System.getenv("DELICRUNCH_UPLOAD_STORE_PASSWORD")
+                      keyAlias System.getenv("DELICRUNCH_UPLOAD_KEY_ALIAS")
+                      keyPassword System.getenv("DELICRUNCH_UPLOAD_KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release { signingConfig signingConfigs.delicrunchUpload }
+              }
+          }
+          GRADLE
+      - name: Build signed AAB
+        env:
+          NODE_ENV: production
+          DELICRUNCH_UPLOAD_KEYSTORE: ${{ runner.temp }}/delicrunch-upload.jks
+          DELICRUNCH_UPLOAD_STORE_PASSWORD: ${{ secrets.DELICRUNCH_UPLOAD_STORE_PASSWORD }}
+          DELICRUNCH_UPLOAD_KEY_ALIAS: ${{ secrets.DELICRUNCH_UPLOAD_KEY_ALIAS }}
+          DELICRUNCH_UPLOAD_KEY_PASSWORD: ${{ secrets.DELICRUNCH_UPLOAD_KEY_PASSWORD }}
+        run: cd android && bash ./gradlew --no-daemon bundleRelease
+      - name: Verify signed bundle
+        run: |
+          set -euo pipefail
+          bundle=android/app/build/outputs/bundle/release/app-release.aab
+          LC_ALL=C jarsigner -verify "$bundle" > "$RUNNER_TEMP/verify.txt" 2>&1
+          grep -q 'jar verified' "$RUNNER_TEMP/verify.txt"
+          keytool -printcert -rfc -jarfile "$bundle" > "$RUNNER_TEMP/bundle-cert.pem"
+          fingerprint="$(openssl x509 -in "$RUNNER_TEMP/bundle-cert.pem" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':[:space:]')"
+          test "$fingerprint" = '5ADEA5490EB3C2C22547FB49D3CDA7DAA2BF5AD987B35016DC2D4E179DC338FD'
+          mkdir -p release
+          cp "$bundle" "release/Delicrunch-${AAB_VERSION}-codigo-${AAB_CODE}.aab"
+          sha256sum release/*.aab > release/SHA256SUMS.txt
+          printf 'Signed AAB %s, code %s. Current Play upload certificate verified.\n' "$AAB_VERSION" "$AAB_CODE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload verified AAB
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Delicrunch-${{ env.AAB_VERSION }}-codigo-${{ env.AAB_CODE }}
+          path: Frontend/release/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/delicrunch-upload.jks" "$RUNNER_TEMP/upload.der" "$RUNNER_TEMP/bundle-cert.pem"
