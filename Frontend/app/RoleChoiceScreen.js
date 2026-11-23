@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
 import AuthVideoBackground from '../components/AuthVideoBackground';
 import { COLORS } from '../src/constants/theme';
@@ -10,6 +11,7 @@ export default function RoleChoiceScreen() {
   const { chooseRole, signOut } = useAuth();
   const [saving, setSaving] = useState(false);
   const [selectedRole, setSelectedRole] = useState(null);
+  useEffect(() => { AsyncStorage.getItem('delicrunch.preferredRole').then(role => { if (role === 'comercio' || role === 'comprador') setSelectedRole(role); }).catch(() => {}); }, []);
   const [storeName, setStoreName] = useState('');
   const [storeAddress, setStoreAddress] = useState('');
   const [storePhone, setStorePhone] = useState('');
@@ -23,6 +25,7 @@ export default function RoleChoiceScreen() {
         direccion: storeAddress.trim(),
         telefono: storePhone.trim(),
       } : undefined);
+      await AsyncStorage.removeItem('delicrunch.preferredRole').catch(() => {});
     } catch (error) {
       Alert.alert('No se pudo guardar tu elección', error.response?.data?.msg || error.message || 'Inténtalo otra vez.');
     } finally {
@@ -39,7 +42,7 @@ export default function RoleChoiceScreen() {
           <Image source={require('../assets/Crunchy.png')} resizeMode="contain" style={styles.mascot} />
           <Text style={styles.brand}>Delicrunch</Text>
           <View style={styles.card}>
-            <Text style={styles.eyebrow}>UN PASO MÁS</Text>
+            <Text style={styles.eyebrow}>CONFIRMA TU PERFIL{selectedRole === 'comprador' ? ' · CLIENTE' : selectedRole === 'comercio' ? ' · COMERCIO' : ''}</Text>
             <Text style={styles.title}>¿Cómo usarás Delicrunch?</Text>
             <Text style={styles.subtitle}>Elige el tipo de cuenta para preparar tu espacio. Esta elección quedará ligada a tu perfil.</Text>
             <TouchableOpacity style={styles.option} onPress={() => selectRole('comprador')} disabled={saving} accessibilityRole="button" accessibilityLabel="Continuar como cliente">

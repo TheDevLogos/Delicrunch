@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  ActivityIndicator, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
   Image,
   TouchableOpacity,
   TextInput,
@@ -21,21 +21,21 @@ import { formatPrice } from '../src/utils/format';
 // Componente para renderizar cada producto - estilo TGTG
 const ProductItem = ({ item }) => {
   const navigation = useNavigation();
-  
-  const discount = item.precio_original > 0 
+
+  const discount = item.precio_original > 0
     ? Math.round((1 - item.precio_descuento / item.precio_original) * 100)
     : 0;
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.productCard}
       onPress={() => navigation.getParent()?.navigate('EditProduct', { productId: item.id })}
       activeOpacity={0.7}
     >
       <View style={styles.productImageContainer}>
-        <Image 
+        <Image
           source={item.imagen_url ? { uri: item.imagen_url } : require('../assets/Crunchy.png')}
-          style={styles.productImage} 
+          style={styles.productImage}
         />
         {discount > 0 && (
           <View style={styles.discountBadge}>
@@ -51,24 +51,24 @@ const ProductItem = ({ item }) => {
           </Text>
         </View>
       </View>
-      
+
       <View style={styles.productInfo}>
         <Text style={styles.productTitle} numberOfLines={1}>{item.nombre}</Text>
-        
+
         <View style={styles.priceRow}>
           <Text style={styles.originalPrice}>${formatPrice(item.precio_original)}</Text>
           <Text style={styles.discountPrice}>${formatPrice(item.precio_descuento)}</Text>
         </View>
-        
+
         <View style={styles.actionsRow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.editButton}
             onPress={() => navigation.getParent()?.navigate('EditProduct', { productId: item.id })}
           >
             <Ionicons name="create-outline" size={16} color={COLORS.white} />
             <Text style={styles.editButtonText}>Editar</Text>
           </TouchableOpacity>
-          
+
           <View style={[
             styles.statusIndicator,
             item.activo ? styles.statusActive : styles.statusInactive
@@ -106,7 +106,7 @@ const MyProductsScreen = () => {
     try {
       const response = await api.get('/products/mystore');
       setProducts(response.data);
-      
+
       // Calcular estadísticas
       const active = response.data.filter(p => p.activo).length;
       const lowStock = response.data.filter(p => p.cantidad_disponible <= 3).length;
@@ -130,7 +130,7 @@ const MyProductsScreen = () => {
       {/* Título */}
       <View style={styles.titleRow}>
         <Text style={styles.title}>Mis Productos</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('AddProduct')}
         >
@@ -168,7 +168,7 @@ const MyProductsScreen = () => {
       </View>
 
       {/* Botón añadir prominente */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.addProductButton}
         onPress={() => navigation.navigate('AddProduct')}
         activeOpacity={0.8}
@@ -188,7 +188,7 @@ const MyProductsScreen = () => {
       <Text style={styles.emptySubtitle}>
         {products.length ? 'Prueba otra búsqueda o filtro.' : 'Empieza a publicar tus packs sorpresa y ayuda a reducir el desperdicio de alimentos'}
       </Text>
-      {products.length === 0 && <TouchableOpacity 
+      {products.length === 0 && <TouchableOpacity
         style={styles.emptyAddButton}
         onPress={() => navigation.navigate('AddProduct')}
       >
@@ -222,8 +222,8 @@ const MyProductsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: COLORS.background,
   },
   loadingContainer: {
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 100,
   },
-  
+
   // Header
   headerContainer: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 16 : 16,
@@ -253,9 +253,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
-  title: { 
-    fontSize: 28, 
-    fontWeight: '700', 
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
     color: COLORS.text,
   },
   searchBox: { height: 50, flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: COLORS.surfaceLight, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, marginBottom: 12 },
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...SHADOWS.sm,
   },
-  
+
   // Stats
   statsRow: {
     flexDirection: 'row',
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginTop: 2,
   },
-  
+
   // Add product button
   addProductButton: {
     flexDirection: 'row',
@@ -362,12 +362,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 11,
   },
-  
+
   productInfo: {
     padding: 14,
   },
-  productTitle: { 
-    fontSize: 17, 
+  productTitle: {
+    fontSize: 17,
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: 8,
@@ -377,18 +377,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  originalPrice: { 
-    fontSize: 14, 
-    color: COLORS.textLight, 
+  originalPrice: {
+    fontSize: 14,
+    color: COLORS.textLight,
     textDecorationLine: 'line-through',
     marginRight: 8,
   },
-  discountPrice: { 
-    fontSize: 18, 
+  discountPrice: {
+    fontSize: 18,
     fontWeight: '700',
     color: COLORS.primary,
   },
-  
+
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -454,8 +454,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  emptyTitle: { 
-    fontSize: 22, 
+  emptyTitle: {
+    fontSize: 22,
     fontWeight: '700',
     color: COLORS.text,
     marginBottom: 8,

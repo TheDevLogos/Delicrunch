@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ActivityIndicator, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
   ScrollView,
   TouchableOpacity,
   Platform,
@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, CommonActions } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import AdminVisitBell from '../../components/AdminVisitBell';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, SPACING, SHADOWS } from '../../src/constants/theme';
@@ -21,7 +22,7 @@ import { getAvatarById } from '../../src/constants/profileAvatars';
 
 /**
  * AdminProfileScreen - Pantalla de perfil especial para administradores
- * 
+ *
  * Funcionalidades:
  * - Cambiar de vista entre Admin / Comprador / Comercio (simular roles)
  * - Acceso a todas las funciones de todos los roles
@@ -35,7 +36,7 @@ const AdminProfileScreen = () => {
   const { signOut, user, simulatedRole, effectiveRole, setSimulatedRole } = useAuth();
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // El rol que se muestra actualmente (admin si no hay simulación, o el simulado)
   const currentViewRole = simulatedRole || 'admin';
 
@@ -63,7 +64,7 @@ const AdminProfileScreen = () => {
       // Ya está en ese rol
       return;
     }
-    
+
     // Si selecciona admin, quitar la simulación
     if (newRole === 'admin') {
       await setSimulatedRole(null);
@@ -79,8 +80,8 @@ const AdminProfileScreen = () => {
       '¿Deseas cerrar sesión e ir a la pantalla de login?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Sí, salir', 
+        {
+          text: 'Sí, salir',
           style: 'destructive',
           onPress: async () => {
             await signOut();
@@ -109,9 +110,9 @@ const AdminProfileScreen = () => {
         {
           title: '🛡️ Panel de Administración',
           items: [
-            { icon: 'shield-checkmark-outline', label: 'Dashboard Admin', subtitle: 'Panel principal', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminDashboard' }), color: '#6366f1' },
-            { icon: 'storefront-outline', label: 'Gestionar Comercios', subtitle: 'Ver y moderar tiendas', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminStores' }), color: '#8b5cf6' },
-            { icon: 'chatbubbles-outline', label: 'Moderar Reseñas', subtitle: 'Aprobar/eliminar reviews', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminReviews' }), color: '#ec4899' },
+            { icon: 'shield-checkmark-outline', label: 'Dashboard Admin', subtitle: 'Panel principal', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminDashboard' }), color: COLORS.primary },
+            { icon: 'storefront-outline', label: 'Gestionar Comercios', subtitle: 'Ver y moderar tiendas', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminStores' }), color: COLORS.primary },
+            { icon: 'chatbubbles-outline', label: 'Moderar Reseñas', subtitle: 'Aprobar/eliminar reviews', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminReviews' }), color: COLORS.primary },
             { icon: 'receipt-outline', label: 'Tickets', subtitle: 'Historial de reservas', onPress: () => navigation.navigate('MainTabs', { screen: 'AdminTransactions' }), color: '#14b8a6' },
             { icon: 'bar-chart-outline', label: 'Métricas', subtitle: 'Estadísticas globales', onPress: () => navigation.navigate('AdminMetrics'), color: '#f59e0b' },
             { icon: 'notifications-outline', label: 'Notificaciones push', subtitle: 'Enviar y seguir avisos por dispositivo', onPress: () => navigation.navigate('AdminPush'), color: '#F46A16' },
@@ -120,7 +121,7 @@ const AdminProfileScreen = () => {
         {
           title: '👥 Gestión de Usuarios',
           items: [
-            { icon: 'people-outline', label: 'Ver Usuarios', subtitle: 'Lista de todos los usuarios', onPress: () => Alert.alert('Próximamente', 'Gestión de usuarios en desarrollo'), color: '#3b82f6' },
+            { icon: 'people-outline', label: 'Ver Usuarios', subtitle: 'Lista de todos los usuarios', onPress: () => Alert.alert('Próximamente', 'Gestión de usuarios en desarrollo'), color: COLORS.primary },
             { icon: 'person-add-outline', label: 'Crear Usuario', subtitle: 'Añadir nuevo usuario', onPress: () => Alert.alert('Próximamente', 'Crear usuario en desarrollo'), color: '#10b981' },
           ]
         }
@@ -130,9 +131,9 @@ const AdminProfileScreen = () => {
           title: '🛒 Funciones de Comprador',
           items: [
             { icon: 'compass-outline', label: 'Descubrir', subtitle: 'Explorar tiendas cerca', onPress: () => navigation.navigate('Descubre'), color: COLORS.primary },
-            { icon: 'search-outline', label: 'Buscar Productos', subtitle: 'Encontrar ofertas', onPress: () => navigation.navigate('Buscar'), color: '#3b82f6' },
+            { icon: 'search-outline', label: 'Buscar Productos', subtitle: 'Encontrar ofertas', onPress: () => navigation.navigate('Buscar'), color: COLORS.primary },
             { icon: 'heart-outline', label: 'Mis Favoritos', subtitle: 'Tiendas guardadas', onPress: () => navigation.navigate('Favoritos'), color: '#ef4444' },
-            { icon: 'bag-handle-outline', label: 'Mis Pedidos', subtitle: 'Historial de compras', onPress: () => navigation.navigate('MyOrders'), color: '#8b5cf6' },
+            { icon: 'bag-handle-outline', label: 'Mis Pedidos', subtitle: 'Historial de compras', onPress: () => navigation.navigate('MyOrders'), color: COLORS.primary },
             { icon: 'star-outline', label: 'Mis Reseñas', subtitle: 'Opiniones dejadas', onPress: () => navigation.navigate('MyReviews'), color: '#f59e0b' },
             { icon: 'trophy-outline', label: 'Recompensas', subtitle: 'Puntos y premios', onPress: () => navigation.navigate('Recompensas'), color: '#eab308' },
           ]
@@ -142,11 +143,11 @@ const AdminProfileScreen = () => {
         {
           title: '🏪 Funciones de Comercio',
           items: [
-            { icon: 'fast-food-outline', label: 'Mis Productos', subtitle: 'Gestionar packs', onPress: () => navigation.navigate('MyProducts'), color: '#f97316' },
+            { icon: 'fast-food-outline', label: 'Mis Productos', subtitle: 'Gestionar packs', onPress: () => navigation.navigate('MyProducts'), color: COLORS.primary },
             { icon: 'add-circle-outline', label: 'Añadir Producto', subtitle: 'Publicar nuevo pack', onPress: () => navigation.navigate('AddProduct'), color: '#22c55e' },
-            { icon: 'clipboard-outline', label: 'Pedidos Entrantes', subtitle: 'Gestionar pedidos', onPress: () => navigation.navigate('StoreOrders'), color: '#3b82f6' },
+            { icon: 'clipboard-outline', label: 'Pedidos Entrantes', subtitle: 'Gestionar pedidos', onPress: () => navigation.navigate('StoreOrders'), color: COLORS.primary },
             { icon: 'star-outline', label: 'Reseñas de Tienda', subtitle: 'Ver opiniones', onPress: () => navigation.navigate('StoreReviews'), color: '#f59e0b' },
-            { icon: 'analytics-outline', label: 'Estadísticas', subtitle: 'Rendimiento', onPress: () => Alert.alert('Próximamente', 'Estadísticas en desarrollo'), color: '#8b5cf6' },
+            { icon: 'analytics-outline', label: 'Estadísticas', subtitle: 'Rendimiento', onPress: () => Alert.alert('Próximamente', 'Estadísticas en desarrollo'), color: COLORS.primary },
           ]
         }
       ]
@@ -160,20 +161,20 @@ const AdminProfileScreen = () => {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        
+
         {/* Header con badge de SuperAdmin */}
         <View style={styles.header}>
           <View style={styles.superAdminBadge}>
             <FontAwesome5 name="crown" size={12} color="#fbbf24" />
             <Text style={styles.superAdminText}>SUPER ADMIN</Text>
           </View>
-          
+
           <View style={styles.avatarContainer}>
             {profile.avatar_icon_id ? (
               (() => {
                 const avatar = getAvatarById(profile.avatar_icon_id);
-                const IconComp = avatar.iconSet === 'material' 
-                  ? MaterialCommunityIcons 
+                const IconComp = avatar.iconSet === 'material'
+                  ? MaterialCommunityIcons
                   : Ionicons;
                 return (
                   <View style={[styles.avatarIconContainer, { backgroundColor: avatar.backgroundColor }]}>
@@ -182,9 +183,9 @@ const AdminProfileScreen = () => {
                 );
               })()
             ) : profile.foto_perfil ? (
-              <Image 
-                source={{ uri: profile.foto_perfil.startsWith('http') ? profile.foto_perfil : (backendBase + profile.foto_perfil) }} 
-                style={styles.avatarImage} 
+              <Image
+                source={{ uri: profile.foto_perfil.startsWith('http') ? profile.foto_perfil : (backendBase + profile.foto_perfil) }}
+                style={styles.avatarImage}
               />
             ) : (
               <View style={styles.avatarPlaceholder}>
@@ -192,41 +193,42 @@ const AdminProfileScreen = () => {
               </View>
             )}
           </View>
-          
+
           <Text style={styles.userName}>{profile.nombre}</Text>
           <Text style={styles.userEmail}>{profile.email}</Text>
-          
+
           <View style={styles.rolBadgeAdmin}>
             <Ionicons name="shield" size={14} color={COLORS.white} />
             <Text style={styles.rolText}>Administrador</Text>
           </View>
         </View>
 
+        <AdminVisitBell />
         {/* Selector de Rol (Modo de Vista) */}
         <View style={styles.roleSwitcher}>
           <Text style={styles.roleSwitcherTitle}>🔄 Cambiar Vista de la App</Text>
           <Text style={styles.roleSwitcherSubtitle}>
             Cambia completamente la navegación para ver la app como otro usuario
           </Text>
-          
+
           <View style={styles.roleButtons}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.roleButton, currentViewRole === 'admin' && styles.roleButtonActive]}
               onPress={() => handleRoleSwitch('admin')}
             >
-              <Ionicons name="shield" size={20} color={currentViewRole === 'admin' ? COLORS.white : '#6366f1'} />
+              <Ionicons name="shield" size={20} color={currentViewRole === 'admin' ? COLORS.white : COLORS.primary} />
               <Text style={[styles.roleButtonText, currentViewRole === 'admin' && styles.roleButtonTextActive]}>Admin</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.roleButton, currentViewRole === 'comprador' && styles.roleButtonActiveComprador]}
               onPress={() => handleRoleSwitch('comprador')}
             >
               <Ionicons name="person" size={20} color={currentViewRole === 'comprador' ? COLORS.white : COLORS.primary} />
               <Text style={[styles.roleButtonText, currentViewRole === 'comprador' && styles.roleButtonTextActive]}>Comprador</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.roleButton, currentViewRole === 'comercio' && styles.roleButtonActiveComercio]}
               onPress={() => handleRoleSwitch('comercio')}
             >
@@ -234,7 +236,7 @@ const AdminProfileScreen = () => {
               <Text style={[styles.roleButtonText, currentViewRole === 'comercio' && styles.roleButtonTextActive]}>Comercio</Text>
             </TouchableOpacity>
           </View>
-          
+
           {currentViewRole !== 'admin' && (
             <View style={styles.simulationWarning}>
               <Ionicons name="information-circle" size={16} color="#f59e0b" />
@@ -250,7 +252,7 @@ const AdminProfileScreen = () => {
           <View key={sectionIndex} style={styles.menuSection}>
             <Text style={styles.menuSectionTitle}>{section.title}</Text>
             {section.items.map((item, itemIndex) => (
-              <TouchableOpacity 
+              <TouchableOpacity
                 key={itemIndex}
                 style={[
                   styles.menuItem,
@@ -277,24 +279,24 @@ const AdminProfileScreen = () => {
         {/* Acciones rápidas de admin */}
         <View style={styles.quickActions}>
           <Text style={styles.quickActionsTitle}>⚡ Acciones Rápidas</Text>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.quickActionButton}
             onPress={() => navigation.navigate('EditProfileScreen', { profile })}
           >
             <Ionicons name="create-outline" size={20} color={COLORS.primary} />
             <Text style={styles.quickActionText}>Editar Mi Perfil</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.quickActionButton}
             onPress={() => navigation.navigate('ProductDetail', { productId: 1 })}
           >
-            <Ionicons name="eye-outline" size={20} color="#8b5cf6" />
+            <Ionicons name="eye-outline" size={20} color={COLORS.primary} />
             <Text style={styles.quickActionText}>Ver Producto de Ejemplo</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.quickActionButton, styles.quickActionButtonDanger]}
             onPress={handleGoToLogin}
           >
@@ -304,7 +306,7 @@ const AdminProfileScreen = () => {
         </View>
 
         {/* Cerrar Sesión */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.logoutButton}
           onPress={signOut}
           activeOpacity={0.7}
@@ -320,11 +322,11 @@ const AdminProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { 
-    flex: 1, 
+  safeArea: {
+    flex: 1,
     backgroundColor: COLORS.background,
   },
-  container: { 
+  container: {
     flex: 1,
   },
   loadingContainer: {
@@ -333,9 +335,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
-  
+
   // Header
-  header: { 
+  header: {
     alignItems: 'center',
     paddingTop: 16,
     paddingBottom: 24,
@@ -370,7 +372,7 @@ const styles = StyleSheet.create({
     height: 88,
     borderRadius: 44,
     borderWidth: 3,
-    borderColor: '#6366f1',
+    borderColor: COLORS.primary,
   },
   avatarIconContainer: {
     width: 88,
@@ -390,7 +392,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: '#6366f1',
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
@@ -410,7 +412,7 @@ const styles = StyleSheet.create({
   rolBadgeAdmin: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#6366f1',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -461,8 +463,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   roleButtonActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#4f46e5',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primaryDark,
   },
   roleButtonActiveComprador: {
     backgroundColor: COLORS.primary,
@@ -599,10 +601,10 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  errorText: { 
-    textAlign: 'center', 
-    marginTop: 50, 
-    fontSize: 16, 
+  errorText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
     color: COLORS.error,
   },
 });

@@ -6,6 +6,8 @@ import { COLORS } from '../src/constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 
 // Importación de todas las pantallas necesarias
+import WelcomeScreen from '../app/WelcomeScreen';
+import AdminVisitsScreen from '../app/admin/AdminVisitsScreen';
 import LoginScreen from '../app/LoginScreen';
 import RoleChoiceScreen from '../app/RoleChoiceScreen';
 import RegisterScreen from '../app/RegisterScreen';
@@ -53,6 +55,7 @@ const Stack = createNativeStackNavigator();
 // Las pantallas de pedidos y comercio requieren una sesión iniciada.
 const AuthStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="Welcome" component={WelcomeScreen} />
     <Stack.Screen name="Login" component={LoginScreen} />
     <Stack.Screen name="Register" component={RegisterScreen} />
     <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
@@ -91,6 +94,7 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="Descubre" component={DiscoverScreen} options={{ title: 'Descubrir', headerShown: false }} />
     <Stack.Screen name="Buscar" component={BrowseScreen} options={{ title: 'Buscar', headerShown: false }} />
     {/* Pantallas de admin accesibles desde perfil */}
+    <Stack.Screen name="AdminVisits" component={AdminVisitsScreen} />
     <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Métricas', headerShown: true }} />
     <Stack.Screen name="AdminPush" component={AdminPushScreen} options={{ title: 'Notificaciones push', headerShown: true }} />
     {/* Pantalla de configuración de notificaciones */}

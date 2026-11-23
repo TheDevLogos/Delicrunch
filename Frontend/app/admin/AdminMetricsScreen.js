@@ -27,7 +27,7 @@ const AdminMetricsScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('general'); // general, cities, stores
-  
+
   // Métricas generales
   const [generalMetrics, setGeneralMetrics] = useState({
     totalRevenue: 0,
@@ -88,7 +88,7 @@ const AdminMetricsScreen = () => {
         const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         return date.getMonth() === lastMonthDate.getMonth() && date.getFullYear() === lastMonthDate.getFullYear();
       });
-      
+
       const thisMonthRevenue = thisMonth.filter(o => o.estado === 'recogido').reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
       const lastMonthRevenue = lastMonth.filter(o => o.estado === 'recogido').reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
       const growthRate = lastMonthRevenue > 0 ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
@@ -218,10 +218,10 @@ const AdminMetricsScreen = () => {
           <Text style={styles.kpiValue}>{formatCurrency(generalMetrics.totalRevenue)}</Text>
           <Text style={styles.kpiLabel}>Valor de tickets entregados</Text>
           <View style={styles.kpiGrowth}>
-            <Ionicons 
-              name={generalMetrics.growthRate >= 0 ? 'trending-up' : 'trending-down'} 
-              size={14} 
-              color={generalMetrics.growthRate >= 0 ? '#34C759' : '#FF3B30'} 
+            <Ionicons
+              name={generalMetrics.growthRate >= 0 ? 'trending-up' : 'trending-down'}
+              size={14}
+              color={generalMetrics.growthRate >= 0 ? '#34C759' : '#FF3B30'}
             />
             <Text style={[
               styles.kpiGrowthText,
@@ -234,8 +234,8 @@ const AdminMetricsScreen = () => {
 
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, styles.kpiCardHalf]}>
-            <View style={[styles.kpiIconSmall, { backgroundColor: '#007AFF20' }]}>
-              <Ionicons name="receipt" size={20} color="#007AFF" />
+            <View style={[styles.kpiIconSmall, { backgroundColor: COLORS.primarySoft }]}>
+              <Ionicons name="receipt" size={20} color={COLORS.primary} />
             </View>
             <Text style={styles.kpiValueSmall}>{generalMetrics.totalOrders}</Text>
             <Text style={styles.kpiLabelSmall}>Pedidos</Text>
@@ -251,8 +251,8 @@ const AdminMetricsScreen = () => {
 
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, styles.kpiCardHalf]}>
-            <View style={[styles.kpiIconSmall, { backgroundColor: '#AF52DE20' }]}>
-              <Ionicons name="storefront" size={20} color="#AF52DE" />
+            <View style={[styles.kpiIconSmall, { backgroundColor: COLORS.primarySoft }]}>
+              <Ionicons name="storefront" size={20} color={COLORS.primary} />
             </View>
             <Text style={styles.kpiValueSmall}>{generalMetrics.totalStores}</Text>
             <Text style={styles.kpiLabelSmall}>Comercios</Text>
@@ -274,7 +274,7 @@ const AdminMetricsScreen = () => {
           {trends.dailySales.map((day, index) => {
             const maxSales = Math.max(...trends.dailySales.map(d => d.sales), 1);
             const barHeight = (day.sales / maxSales) * 100;
-            
+
             return (
               <View key={index} style={styles.barContainer}>
                 <Text style={styles.barValue}>{formatCurrency(day.sales)}</Text>
@@ -327,7 +327,7 @@ const AdminMetricsScreen = () => {
   const renderCitiesTab = () => (
     <View style={styles.tabContent}>
       <Text style={styles.sectionTitle}>Métricas por Ciudad</Text>
-      
+
       {cityMetrics.length > 0 ? (
         cityMetrics.map((city, index) => (
           <View key={city.city} style={styles.cityCard}>
@@ -341,7 +341,7 @@ const AdminMetricsScreen = () => {
               </View>
               <Text style={styles.cityRevenue}>{formatCurrency(city.revenue)}</Text>
             </View>
-            
+
             <View style={styles.cityStats}>
               <View style={styles.cityStat}>
                 <Ionicons name="fast-food-outline" size={16} color="#666" />
@@ -372,7 +372,7 @@ const AdminMetricsScreen = () => {
   const renderStoresTab = () => (
     <View style={styles.tabContent}>
       <Text style={styles.sectionTitle}>Comercios por valor de tickets</Text>
-      
+
       {storeMetrics.length > 0 ? (
         storeMetrics.slice(0, 20).map((store, index) => (
           <View key={store.id} style={styles.storeCard}>
@@ -399,7 +399,7 @@ const AdminMetricsScreen = () => {
                 ]} />
               </View>
             </View>
-            
+
             <View style={styles.storeMetrics}>
               <View style={styles.storeMetric}>
                 <Text style={styles.storeMetricValue}>{formatCurrency(store.revenue)}</Text>
@@ -433,7 +433,7 @@ const AdminMetricsScreen = () => {
   );
 
   const getCategoryColor = (index) => {
-    const colors = ['#34C759', '#007AFF', '#FF9500', '#AF52DE', '#999'];
+    const colors = ['#34C759', COLORS.primary, '#FF9500', COLORS.primary, '#999'];
     return colors[index % colors.length];
   };
 
@@ -451,7 +451,7 @@ const AdminMetricsScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Métricas</Text>
@@ -466,10 +466,10 @@ const AdminMetricsScreen = () => {
             style={[styles.tab, activeTab === tab.id && styles.tabActive]}
             onPress={() => setActiveTab(tab.id)}
           >
-            <Ionicons 
-              name={tab.icon} 
-              size={18} 
-              color={activeTab === tab.id ? COLORS.primary : '#666'} 
+            <Ionicons
+              name={tab.icon}
+              size={18}
+              color={activeTab === tab.id ? COLORS.primary : '#666'}
             />
             <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
               {tab.label}

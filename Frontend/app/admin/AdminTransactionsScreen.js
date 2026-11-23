@@ -30,7 +30,7 @@ const AdminTransactionsScreen = () => {
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [activePeriod, setActivePeriod] = useState('day'); // day, week, month, year
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Métricas por período
   const [periodMetrics, setPeriodMetrics] = useState({
     total: 0,
@@ -42,7 +42,7 @@ const AdminTransactionsScreen = () => {
   const loadTransactions = async () => {
     try {
       setIsLoading(true);
-      
+
       const response = await api.get('/admin/transactions');
       const allOrders = response.data || [];
 
@@ -165,7 +165,7 @@ const AdminTransactionsScreen = () => {
       case 'recogido':
         return { color: '#34C759', bg: '#E8F5E9', icon: 'checkmark-circle', label: 'Entregado' };
       case 'confirmado':
-        return { color: '#007AFF', bg: '#E8F0FF', icon: 'ticket', label: 'Reservado' };
+        return { color: COLORS.primary, bg: '#E8F0FF', icon: 'ticket', label: 'Reservado' };
       case 'pendiente':
         return { color: '#FF9500', bg: '#FFF3E0', icon: 'time', label: 'Pendiente' };
       case 'fallido':
@@ -177,7 +177,7 @@ const AdminTransactionsScreen = () => {
 
   const renderTransactionCard = (transaction) => {
     const statusStyle = getStatusStyle(transaction.estado);
-    
+
     return (
       <View key={transaction.id} style={styles.transactionCard}>
         <View style={styles.transactionHeader}>
@@ -185,7 +185,7 @@ const AdminTransactionsScreen = () => {
             <Text style={styles.transactionId}>#{transaction.id}</Text>
             <Text style={styles.transactionDate}>{formatDate(transaction.fecha)}</Text>
           </View>
-          
+
           <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
             <Ionicons name={statusStyle.icon} size={12} color={statusStyle.color} />
             <Text style={[styles.statusText, { color: statusStyle.color }]}>
@@ -265,7 +265,7 @@ const AdminTransactionsScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Tickets</Text>
@@ -283,10 +283,10 @@ const AdminTransactionsScreen = () => {
             ]}
             onPress={() => handlePeriodChange(tab.id)}
           >
-            <Ionicons 
-              name={tab.icon} 
-              size={18} 
-              color={activePeriod === tab.id ? '#fff' : '#666'} 
+            <Ionicons
+              name={tab.icon}
+              size={18}
+              color={activePeriod === tab.id ? '#fff' : '#666'}
             />
             <Text style={[
               styles.periodTabText,
@@ -307,18 +307,18 @@ const AdminTransactionsScreen = () => {
           <Text style={styles.metricValue}>{formatCurrency(periodMetrics.total)}</Text>
           <Text style={styles.metricLabel}>Valor entregado</Text>
         </View>
-        
+
         <View style={styles.metricCard}>
-          <View style={[styles.metricIcon, { backgroundColor: '#007AFF20' }]}>
-            <Ionicons name="receipt" size={18} color="#007AFF" />
+          <View style={[styles.metricIcon, { backgroundColor: COLORS.primarySoft }]}>
+            <Ionicons name="receipt" size={18} color={COLORS.primary} />
           </View>
           <Text style={styles.metricValue}>{periodMetrics.count}</Text>
           <Text style={styles.metricLabel}>Tickets</Text>
         </View>
-        
+
         <View style={styles.metricCard}>
-          <View style={[styles.metricIcon, { backgroundColor: '#AF52DE20' }]}>
-            <Ionicons name="trending-up" size={18} color="#AF52DE" />
+          <View style={[styles.metricIcon, { backgroundColor: COLORS.primarySoft }]}>
+            <Ionicons name="trending-up" size={18} color={COLORS.primary} />
           </View>
           <Text style={styles.metricValue}>{formatCurrency(periodMetrics.average)}</Text>
           <Text style={styles.metricLabel}>Promedio</Text>
@@ -369,7 +369,7 @@ const AdminTransactionsScreen = () => {
             <Ionicons name="receipt-outline" size={60} color="#ccc" />
             <Text style={styles.emptyText}>No hay transacciones</Text>
             <Text style={styles.emptySubtext}>
-              {searchQuery 
+              {searchQuery
                 ? 'No se encontraron resultados para tu búsqueda'
                 : `No hay transacciones en este período`
               }

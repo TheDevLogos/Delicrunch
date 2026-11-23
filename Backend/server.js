@@ -58,6 +58,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Usamos las rutas de autenticación
+app.use('/api/business-visits', require('./routes/businessVisitRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 // Usamos las rutas de perfiles
 app.use('/api/profiles', require('./routes/profileRoutes'));
