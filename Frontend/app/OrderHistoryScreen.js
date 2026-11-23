@@ -55,7 +55,7 @@ const OrderHistoryScreen = ({ navigation }) => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(order =>
-        order.codigo_recogida?.toLowerCase().includes(query) ||
+        `DC-${String(order.id).padStart(6,'0')}`.toLowerCase().includes(query) ||
         order.nombre_comprador?.toLowerCase().includes(query) ||
         order.id?.toString().includes(query)
       );

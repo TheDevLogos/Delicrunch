@@ -14,6 +14,7 @@ import {
   Platform,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -55,7 +56,7 @@ const AdminDashboardScreen = () => {
       setIsLoading(true);
 
       // Cargar tiendas
-      const storesRes = await api.get('/stores').catch(() => ({ data: [] }));
+      const storesRes = await api.get('/admin/stores');
       const stores = Array.isArray(storesRes.data) ? storesRes.data : (storesRes.data?.data || []);
 
       // Cargar usuarios reales
@@ -63,31 +64,27 @@ const AdminDashboardScreen = () => {
       try {
         const usersRes = await api.get('/admin/users');
         users = usersRes.data || [];
-      } catch (e) {
-        users = [];
-      }
+      } catch (e) { throw e; }
 
       // Cargar pedidos
       let orders = [];
       try {
         const ordersRes = await api.get('/admin/transactions');
         orders = ordersRes.data || [];
-      } catch (e) {
-        orders = [];
-      }
+      } catch (e) { throw e; }
 
       // Cargar productos
-      const productsRes = await api.get('/products').catch(() => ({ data: [] }));
+      const productsRes = await api.get('/admin/products');
       const products = productsRes.data || [];
 
       // Cargar reviews
       let reviews = [];
+      let pendingReviews=0;
       try {
-        const reviewsRes = await api.get('/reviews');
-        reviews = reviewsRes.data || [];
-      } catch (e) {
-        reviews = [];
-      }
+        const reviewsRes = await api.get('/reviews/admin/all');
+        reviews = reviewsRes.data.reviews || [];
+        pendingReviews=Number(reviewsRes.data.pending||0);
+      } catch (e) { throw e; }
 
       // Calcular métricas
       const today = new Date().toDateString();
@@ -106,7 +103,7 @@ const AdminDashboardScreen = () => {
         ordersToday: ordersToday.length,
         totalRevenue,
         revenueToday,
-        pendingReviews: reviews.filter(r => r.estado === 'pendiente').length,
+        pendingReviews,
         totalProducts: products.length,
         activeProducts: products.filter(p => p.cantidad_disponible > 0).length,
       });
@@ -158,6 +155,7 @@ const AdminDashboardScreen = () => {
 
     } catch (error) {
       console.error('Error loading admin dashboard:', error);
+      Alert.alert('Sin conexión','No se pudo actualizar el panel. Desliza para reintentar.');
     } finally {
       setIsLoading(false);
       setRefreshing(false);

@@ -3,7 +3,7 @@ const { randomInt } = require('crypto');
 const { calculateCO2Saved } = require('../utils/co2Factors');
 const LEVEL_XP = [0, 135, 340, 675, 1150, 1755, 2700, 4050, 6075, 8775, 12150, 16875, 23625, 33750, 47250];
 const asyncHandler = require('../middleware/asyncHandler');
-const { sendOrderPush } = require('../services/pushService');
+
 
 /**
  * Genera un código de recogida legible estilo TGTG (ej: AB-123)
@@ -29,7 +29,7 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         return res.status(403).json({ msg: 'Solo los compradores pueden realizar pedidos.' });
     }
 
-    const { productId, cantidad = 1, couponId = null, notas = '' } = req.body;
+    const { productId, cantidad = 1, couponId = null, notas = '', requestId = null } = req.body;
     const userId = req.user.id;
 
     if (!Number.isSafeInteger(Number(productId)) || Number(productId) <= 0 ||
@@ -39,11 +39,22 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         return res.status(400).json({ msg: 'Producto o cantidad inválida.' });
     }
 
+    if (requestId !== null && (typeof requestId !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(requestId))) return res.status(400).json({msg:'Referencia de solicitud inválida.'});
+
     const client = await pool.connect();
     let committed = false;
 
     try {
         await client.query('BEGIN');
+
+        if (requestId) {
+            await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`${userId}:${requestId}`]);
+            const previous=await client.query('SELECT * FROM orders WHERE user_id=$1 AND client_request_id=$2',[userId,requestId]);
+            if(previous.rows.length) {
+                await client.query('COMMIT');committed=true;
+                return res.status(200).json({...previous.rows[0],replayed:true});
+            }
+        }
 
         // 1. Obtener producto con bloqueo para evitar race conditions
         const productResult = await client.query(
@@ -127,8 +138,8 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         const orderResult = await client.query(
             `INSERT INTO orders (
                 user_id, store_id, codigo_recogida, subtotal, 
-                total, comision_plataforma, estado, metodo_pago, coupon_id, coupon_discount, notas
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                total, comision_plataforma, estado, metodo_pago, coupon_id, coupon_discount, notas, client_request_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *`,
             [
                 userId, 
@@ -141,7 +152,8 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
                 'efectivo',
                 couponId,
                 discount,
-                notas.trim() || null
+                notas.trim() || null,
+                requestId
             ]
         );
 
@@ -167,13 +179,6 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         await client.query('COMMIT');
         committed = true;
-
-        // El ticket ya está confirmado. Una falla de Expo no revierte la reserva.
-        try {
-            await sendOrderPush({ orderId: newOrder.id, storeId: product.store_id, productName: product.nombre });
-        } catch (pushError) {
-            console.error('No se pudo enviar el aviso del pedido:', pushError.message);
-        }
 
         res.status(201).json({
             ...newOrder,
@@ -211,8 +216,11 @@ exports.getMerchantOrderById = asyncHandler(async (req, res) => {
         return res.status(400).json({ msg: 'Pedido inválido.' });
     }
     const result = await pool.query(
-        `SELECT o.id, o.estado, o.created_at, o.total, o.notas, o.metodo_pago,
-                u.nombre AS nombre_comprador, p.nombre AS nombre_producto,
+        `SELECT o.id, o.estado, o.created_at, o.total, o.subtotal, o.fecha_recogida_real, o.notas, o.metodo_pago,
+                u.nombre AS nombre_comprador, p.nombre AS nombre_producto, p.nombre AS product_name, p.imagen_url,
+                s.direccion AS street, s.telefono AS phone, s.nombre_comercio AS seller_name,
+                s.direccion, s.telefono, s.latitud, s.longitud, p.hora_recogida_inicio, p.hora_recogida_fin,
+                oi.product_id, oi.cantidad AS quantity, oi.precio_unitario AS unit_price,
                 oi.cantidad, oi.precio_unitario, s.nombre_comercio
          FROM orders o JOIN stores s ON s.id = o.store_id
          JOIN users u ON u.id = o.user_id
@@ -239,7 +247,9 @@ exports.getOrderById = asyncHandler(async (req, res, next) => {
                 s.nombre_comercio as seller_name, s.direccion as street, s.telefono as phone, 
                 s.latitud as latitude, s.longitud as longitude,
                 oi.product_id, oi.cantidad as quantity, oi.precio_unitario as unit_price,
-                p.nombre AS product_name, p.imagen_url
+                p.nombre AS product_name, p.nombre AS nombre_producto, p.imagen_url,
+                s.nombre_comercio, s.direccion, s.telefono, s.latitud, s.longitud,
+                p.hora_recogida_inicio, p.hora_recogida_fin
          FROM orders o
          LEFT JOIN stores s ON o.store_id = s.id
          LEFT JOIN order_items oi ON oi.order_id = o.id
@@ -255,7 +265,7 @@ exports.getOrderById = asyncHandler(async (req, res, next) => {
     const order = orderResult.rows[0];
 
     // Verificar que el usuario sea el dueño del pedido o admin
-    if (order.user_id !== userId && !['admin', 'administrador'].includes(userRole)) {
+    if (String(order.user_id) !== String(userId) && !['admin', 'administrador'].includes(userRole)) {
         return res.status(403).json({ msg: 'No tienes permiso para ver este pedido.' });
     }
 
@@ -276,11 +286,13 @@ exports.getMyOrders = asyncHandler(async (req, res, next) => {
             o.user_id,
             o.store_id,
             o.created_at as fecha_pedido,
-            o.created_at as fecha_recogida,
+            COALESCE(o.fecha_recogida_real, o.fecha_recogida_programada) as fecha_recogida,
+            o.created_at, o.notas, o.total, oi.cantidad, p.imagen_url,
+            p.hora_recogida_inicio, p.hora_recogida_fin,
             o.codigo_recogida,
             o.metodo_pago,
             -- Mapear estado 'recogido' a 'Recogido' para el frontend
-            CASE WHEN o.estado = 'recogido' THEN 'Recogido' ELSE o.estado END AS estado,
+            o.estado AS estado,
             -- Alias del total para compatibilidad con frontend
             o.total AS precio_total,
             s.nombre_comercio as nombre_comercio,
@@ -318,7 +330,7 @@ exports.getStoreOrders = asyncHandler(async (req, res, next) => {
             oi.cantidad as cantidad, 
             oi.precio_unitario as precio_unitario,
             p.nombre AS nombre_producto, 
-            p.imagen_url as imagen_url
+            p.imagen_url as imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin
          FROM orders o
          JOIN users u ON o.user_id = u.id
          JOIN order_items oi ON oi.order_id = o.id
@@ -330,7 +342,7 @@ exports.getStoreOrders = asyncHandler(async (req, res, next) => {
     
     // The code is the customer's proof of pickup, so it must not be sent in
     // the merchant order list before the customer presents it.
-    res.json(orders.rows.map(({ codigo_recogida, ...order }) => order));
+    res.json(orders.rows.map(({ codigo_recogida, ...order }) => ({ ...order, ticket_reference: `DC-${String(order.id).padStart(6, '0')}` })));
 });
 
 // @desc    Actualizar el estado de un pedido (comercio puede marcar como listo/recogido)
@@ -374,7 +386,7 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
                 [order.store_id]
             );
             
-            if (storeOwner.rows.length === 0 || storeOwner.rows[0].user_id !== userId) {
+            if (storeOwner.rows.length === 0 || String(storeOwner.rows[0].user_id) !== String(userId)) {
                 await client.query('ROLLBACK');
                 return res.status(403).json({ msg: 'No tienes permisos para actualizar este pedido.' });
             }
@@ -392,6 +404,10 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
         if (!transitions[order.estado]?.includes(estado)) {
             await client.query('ROLLBACK');
             return res.status(409).json({ msg: 'Este cambio de estado no está permitido para el ticket.' });
+        }
+        if (estado === 'recogido' && req.body.pago_recibido === false) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ msg: 'Confirma el cobro en efectivo antes de entregar.' });
         }
         if (estado === 'recogido' &&
             String(codigo_recogida || '').trim().toUpperCase() !== order.codigo_recogida) {
@@ -476,7 +492,7 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
 
         res.json({
             msg: 'Estado actualizado exitosamente',
-            order: updateResult.rows[0]
+            order: { id: updateResult.rows[0].id, estado: updateResult.rows[0].estado, fecha_recogida_real: updateResult.rows[0].fecha_recogida_real }
         });
 
     } catch (error) {
@@ -583,7 +599,7 @@ exports.getStoreAnalytics = asyncHandler(async (req, res, next) => {
             COUNT(DISTINCT o.id) as total_pedidos,
             COUNT(DISTINCT CASE WHEN o.estado = 'recogido' THEN o.id END) as pedidos_completados,
             COUNT(DISTINCT CASE WHEN o.estado = 'cancelado' THEN o.id END) as pedidos_cancelados,
-            COUNT(DISTINCT CASE WHEN o.estado IN ('pendiente', 'confirmado', 'listo') THEN o.id END) as pedidos_activos,
+            COUNT(DISTINCT CASE WHEN o.estado IN ('pendiente', 'confirmado', 'en_preparacion', 'listo') THEN o.id END) as pedidos_activos,
             COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.total ELSE 0 END), 0) as ventas_totales,
             COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN o.comision_plataforma ELSE 0 END), 0) as comisiones_totales,
             COALESCE(SUM(CASE WHEN o.estado = 'recogido' THEN (o.total - o.comision_plataforma) ELSE 0 END), 0) as ingresos_netos,

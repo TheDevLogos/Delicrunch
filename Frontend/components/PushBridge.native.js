@@ -21,7 +21,7 @@ export default function PushBridge() {
   const { user } = useAuth();
   const [order, setOrder] = useState(null);
   const [busy, setBusy] = useState(false);
-  const enabled = Platform.OS === 'android' && user && !user.onboarding_required && ['comprador', 'comercio'].includes(user.rol);
+  const enabled = Platform.OS === 'android' && user && !user.onboarding_required && ['comprador', 'comercio', 'admin'].includes(user.rol);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -56,13 +56,18 @@ export default function PushBridge() {
   }, [enabled, user?.id]);
 
   useEffect(() => {
-    if (user?.rol !== 'comercio' || user.onboarding_required) return undefined;
+    if (!user || user.onboarding_required) return undefined;
     let active = true;
     const openOrder = async response => {
       const data = response?.notification?.request?.content?.data;
       const orderId = Number(data?.orderId);
-      if (data?.type !== 'merchant_order' || !Number.isSafeInteger(orderId) || orderId <= 0) return;
       emitNewOrder();
+      if (data?.type !== 'merchant_order' || user.rol !== 'comercio') {
+        if (data?.type && navigationRef.isReady()) navigationRef.navigate('Notifications');
+        await Notifications.clearLastNotificationResponseAsync();
+        return;
+      }
+      if (!Number.isSafeInteger(orderId) || orderId <= 0) return;
       try {
         const result = await api.get(`/orders/${orderId}/merchant`);
         if (active) setOrder(result.data);
@@ -72,7 +77,7 @@ export default function PushBridge() {
       await Notifications.clearLastNotificationResponseAsync();
     };
     const received = Notifications.addNotificationReceivedListener(notification => {
-      if (notification.request.content.data?.type === 'merchant_order') emitNewOrder();
+      emitNewOrder();
     });
     const responses = Notifications.addNotificationResponseReceivedListener(openOrder);
     Notifications.getLastNotificationResponseAsync().then(openOrder).catch(() => {});

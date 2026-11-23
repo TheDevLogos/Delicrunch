@@ -23,4 +23,5 @@ router.post('/forgot-password', authController.forgotPassword);
 // @desc    Restablecer la contraseña con un token
 // @acceso  Público
 router.post('/reset-password/:token', authController.resetPassword);
+router.put('/change-password', authMiddleware, authController.changePassword);
 module.exports = router;

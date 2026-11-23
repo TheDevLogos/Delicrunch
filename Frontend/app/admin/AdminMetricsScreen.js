@@ -13,6 +13,7 @@ import {
   Dimensions,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -59,8 +60,8 @@ const AdminMetricsScreen = () => {
 
       // Cargar datos base
       const [storesRes, productsRes, ordersRes, usersRes] = await Promise.all([
-        api.get('/stores').catch(() => ({ data: [] })),
-        api.get('/products').catch(() => ({ data: [] })),
+        api.get('/admin/stores'),
+        api.get('/admin/products'),
         api.get('/admin/transactions'),
         api.get('/admin/users'),
       ]);
@@ -76,7 +77,7 @@ const AdminMetricsScreen = () => {
       const totalRevenue = completedOrders.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
       const avgOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
 
-      // Calcular crecimiento (comparar con período anterior - demo)
+      // Calcular crecimiento (comparar con período anterior)
       const thisMonth = orders.filter(o => {
         const date = new Date(o.created_at);
         const now = new Date();
@@ -151,7 +152,7 @@ const AdminMetricsScreen = () => {
       }).sort((a, b) => b.revenue - a.revenue);
       setStoreMetrics(storeMetricsArray);
 
-      // Tendencias (demo data)
+      // Tendencias calculadas de pedidos reales
       const last7Days = [];
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
@@ -180,6 +181,7 @@ const AdminMetricsScreen = () => {
 
     } catch (error) {
       console.error('Error loading metrics:', error);
+      Alert.alert('Sin conexión','No se pudieron actualizar las métricas. Desliza para reintentar.');
     } finally {
       setIsLoading(false);
       setRefreshing(false);

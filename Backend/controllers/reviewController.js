@@ -40,7 +40,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
     
     const userId = req.user.id;
 
-    if (!finalRating || finalRating < 1 || finalRating > 5) {
+    if (!Number.isInteger(Number(finalRating)) || finalRating < 1 || finalRating > 5) {
         return res.status(400).json({ msg: 'La calificación debe ser entre 1 y 5.' });
     }
 
@@ -65,7 +65,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
                 throw new Error('El pedido no existe.');
             }
             
-            if (orderResult.rows[0].user_id !== userId) {
+            if (String(orderResult.rows[0].user_id) !== String(userId)) {
                 throw new Error('No tiene permiso para reseñar este pedido.');
             }
             if (orderResult.rows[0].estado !== 'recogido') {
@@ -276,7 +276,8 @@ exports.getAllReviews = asyncHandler(async (req, res, next) => {
         return res.status(403).json({ msg: 'Acceso denegado. Solo administradores.' });
     }
     
-    const { sellerId, storeId, page = 1, limit = 50 } = req.query;
+    const { sellerId, storeId } = req.query;
+    const page=Math.max(1,parseInt(req.query.page,10)||1),limit=Math.min(100,Math.max(1,parseInt(req.query.limit,10)||50));
     const offset = (page - 1) * limit;
     
     let query = `
@@ -324,7 +325,7 @@ exports.getAllReviews = asyncHandler(async (req, res, next) => {
     const reviews = await pool.query(query, params);
     
     // Obtener conteo total
-    let countQuery = `SELECT COUNT(*) FROM reviews r LEFT JOIN stores s ON r.store_id = s.id WHERE 1=1`;
+    let countQuery = `SELECT COUNT(*),COUNT(*) FILTER (WHERE r.respuesta_admin IS NULL) AS pending FROM reviews r LEFT JOIN stores s ON r.store_id = s.id WHERE 1=1`;
     const countParams = [];
     let countIndex = 1;
     
@@ -343,6 +344,7 @@ exports.getAllReviews = asyncHandler(async (req, res, next) => {
     res.json({
         reviews: reviews.rows,
         total: parseInt(countResult.rows[0].count),
+        pending: parseInt(countResult.rows[0].pending),
         page: parseInt(page),
         totalPages: Math.ceil(countResult.rows[0].count / limit)
     });
@@ -422,7 +424,7 @@ exports.storeRespondToReview = asyncHandler(async (req, res, next) => {
         return res.status(404).json({ msg: 'Reseña no encontrada.' });
     }
     
-    if (checkReview.rows[0].store_user_id !== userId) {
+    if (String(checkReview.rows[0].store_user_id) !== String(userId)) {
         return res.status(403).json({ msg: 'No tiene permiso para responder a esta reseña.' });
     }
     
@@ -503,7 +505,7 @@ exports.deleteReview = asyncHandler(async (req, res, next) => {
     const review = reviewResult.rows[0];
     
     // Verificar permisos: admin puede eliminar cualquiera, usuario solo las suyas
-    if (!['admin', 'administrador'].includes(userRole) && review.user_id !== userId) {
+    if (!['admin', 'administrador'].includes(userRole) && String(review.user_id) !== String(userId)) {
         return res.status(403).json({ msg: 'No tiene permiso para eliminar esta reseña.' });
     }
     
@@ -571,7 +573,8 @@ exports.updateReview = asyncHandler(async (req, res, next) => {
     const { reviewId } = req.params;
     const { calificacion, rating, comentario, comment } = req.body;
     const finalRating = calificacion || rating;
-    const finalComment = comentario || comment;
+    const finalComment = comentario ?? comment;
+    if (finalRating != null && (!Number.isInteger(Number(finalRating)) || finalRating < 1 || finalRating > 5)) return res.status(400).json({msg: 'La calificación debe ser de 1 a 5.'});
     const userId = req.user.id;
     
     // Verificar que la reseña pertenece al usuario

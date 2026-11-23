@@ -46,6 +46,11 @@ const sendPush = async ({ kind, audience, title, body, orderId = null, createdBy
     message = result.rows[0];
   }
 
+  if (kind === 'campaign') {
+    await pool.query(`INSERT INTO notifications(user_id,tipo,titulo,mensaje,data,event_key,push_status)
+      SELECT id,'campana',$2,$3,'{"type":"campaign"}'::jsonb,'campaign:'||$4::text,'skipped' FROM users WHERE rol=$1
+      ON CONFLICT(user_id,event_key) DO NOTHING`,[audience,title,body,message.id]);
+  }
   const devices = await selectDevices(audience, targetUserId);
   await pool.query('UPDATE push_messages SET recipient_count = $1 WHERE id = $2', [devices.length, message.id]);
   for (let offset = 0; offset < devices.length; offset += 100) {

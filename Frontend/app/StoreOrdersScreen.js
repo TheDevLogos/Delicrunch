@@ -120,6 +120,8 @@ const OrderItem = ({ item, onStatusChange, onPickup }) => {
         </View>
       )}
 
+      {item.estado === 'en_preparacion' && <TouchableOpacity style={styles.confirmButton} onPress={() => onStatusChange(item.id, 'listo')}><Ionicons name="checkmark-done" size={18} color={COLORS.white}/><Text style={styles.confirmButtonText}>Listo para recoger</Text></TouchableOpacity>}
+      {['confirmado','en_preparacion','listo'].includes(item.estado) && <TouchableOpacity onPress={() => Alert.alert('Cancelar reserva', 'Se liberará el stock y se avisará al comprador.', [{text:'Volver',style:'cancel'},{text:'Cancelar reserva',style:'destructive',onPress:()=>onStatusChange(item.id,'cancelado')}])}><Text style={{color:COLORS.error,paddingVertical:12}}>Cancelar reserva</Text></TouchableOpacity>}
       {['en_preparacion', 'listo'].includes(item.estado) && (
         <View style={styles.actionsRow}>
           <TouchableOpacity
@@ -162,7 +164,7 @@ const StoreOrdersScreen = () => {
       // Recargar pedidos
       fetchStoreOrders();
     } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar el estado del pedido');
+      Alert.alert('Error', error.response?.data?.msg || 'No se pudo actualizar el estado del pedido');
     }
   };
 
@@ -170,6 +172,8 @@ const StoreOrdersScreen = () => {
     useCallback(() => {
       setIsLoading(true);
       fetchStoreOrders();
+      const timer=setInterval(fetchStoreOrders,15000);
+      return () => clearInterval(timer);
     }, [])
   );
 

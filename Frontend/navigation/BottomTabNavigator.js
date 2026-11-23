@@ -5,6 +5,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import NotificationBell from '../components/NotificationBell';
 
 // Pantallas para compradores
 import DiscoverScreen from '../app/DiscoverScreen';
@@ -258,7 +259,12 @@ const screenOptionsConfig = () => ({
   tabBarInactiveTintColor: COLORS.textSecondary,
   tabBarStyle: styles.tabBar,
   tabBarLabelStyle: styles.tabBarLabel,
-  headerShown: false,
+  headerShown: true,
+  headerTitle: 'DeliCrunch',
+  headerShadowVisible: false,
+  headerStyle: {backgroundColor: COLORS.background},
+  headerTitleStyle: {color: COLORS.text, fontSize: 18, fontWeight: '800'},
+  headerRight: () => <NotificationBell />,
   tabBarHideOnKeyboard: true,
 });
 

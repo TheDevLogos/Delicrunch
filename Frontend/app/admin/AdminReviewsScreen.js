@@ -37,21 +37,15 @@ const AdminReviewsScreen = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [responseText, setResponseText] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [page,setPage]=useState(1);const [totalReviews,setTotalReviews]=useState(0);
 
-  const loadReviews = async () => {
+  const loadReviews = async (nextPage=1) => {
     try {
       setIsLoading(true);
       
       // Cargar todas las reviews del sistema usando el endpoint de admin
-      let allReviews = [];
-      try {
-        const response = await api.get('/reviews/admin/all');
-        allReviews = response.data.reviews || [];
-      } catch (e) {
-        console.log('Error cargando reviews:', e);
-        // Datos de demostración si no hay endpoint
-        allReviews = generateDemoReviews();
-      }
+      const response = await api.get('/reviews/admin/all',{params:{page:nextPage,limit:50}});
+      const allReviews = response.data.reviews || [];
 
       // Enriquecer con información adicional
       const enrichedReviews = allReviews.map(review => ({
@@ -61,56 +55,16 @@ const AdminReviewsScreen = () => {
         respuesta_admin: review.respuesta_admin || null,
       }));
 
-      setReviews(enrichedReviews);
-      applyFilters(enrichedReviews, activeFilter);
+      const combined=nextPage===1?enrichedReviews:[...reviews,...enrichedReviews];
+      setReviews(combined);setPage(nextPage);setTotalReviews(response.data.total);
+      applyFilters(combined, activeFilter);
     } catch (error) {
       console.error('Error loading reviews:', error);
+      Alert.alert('Sin conexión', 'No se pudieron cargar las reseñas. Desliza para reintentar.');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const generateDemoReviews = () => {
-    return [
-      {
-        id: 1,
-        usuario_nombre: 'María García',
-        producto_nombre: 'Pack Sorpresa Panadería',
-        comercio_nombre: 'La Casa del Pan',
-        rating: 5,
-        comentario: '¡Excelente! Recibí pan recién horneado a un precio increíble.',
-        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 2,
-        usuario_nombre: 'Carlos López',
-        producto_nombre: 'Pack Mix Frutas',
-        comercio_nombre: 'Frutería El Sol',
-        rating: 2,
-        comentario: 'Algunas frutas estaban muy maduras, casi pasadas. Esperaba mejor calidad.',
-        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 3,
-        usuario_nombre: 'Ana Martínez',
-        producto_nombre: 'Pack Desayuno',
-        comercio_nombre: 'Café Express',
-        rating: 4,
-        comentario: 'Muy bueno, solo faltó variedad en el pack.',
-        created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: 4,
-        usuario_nombre: 'Roberto Sánchez',
-        producto_nombre: 'Pack Vegetariano',
-        comercio_nombre: 'Green Market',
-        rating: 1,
-        comentario: 'El comercio no entregó el pedido. Muy mala experiencia.',
-        created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-        es_queja: true,
-      },
-    ];
   };
 
   const categorizeReview = (review) => {
@@ -341,7 +295,7 @@ const AdminReviewsScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Gestión de Reviews</Text>
-        <Text style={styles.headerSubtitle}>{reviews.length} reviews totales</Text>
+        <Text style={styles.headerSubtitle}>{reviews.length} de {totalReviews} reseñas cargadas</Text>
       </View>
 
       {/* Stats Summary */}
@@ -412,7 +366,7 @@ const AdminReviewsScreen = () => {
         }
       >
         {filteredReviews.length > 0 ? (
-          filteredReviews.map(renderReviewCard)
+          <View>{filteredReviews.map(renderReviewCard)}{reviews.length<totalReviews&&<TouchableOpacity onPress={()=>loadReviews(page+1)} style={{padding:16,alignItems:'center'}}><Text style={{color:COLORS.primary,fontWeight:'700'}}>Cargar más reseñas</Text></TouchableOpacity>}</View>
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="chatbubbles-outline" size={60} color="#ccc" />

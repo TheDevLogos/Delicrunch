@@ -26,7 +26,7 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
           <Ionicons name="ticket-outline" size={42} color={COLORS.primary} />
         </View>
         <Text style={styles.title}>Reserva confirmada</Text>
-        <Text style={styles.subtitle}>Ticket #{order.id}</Text>
+        <Text style={styles.subtitle}>DC-{String(order.id).padStart(6, '0')}</Text>
 
         <View style={styles.card}>
           <Text style={styles.label}>Código para recoger</Text>

@@ -81,8 +81,8 @@ const navigation = useNavigation();
       // No dependemos de una clave local 'token' (AuthProvider usa 'userToken').
       // Usamos `api` (que añade x-auth-token desde AsyncStorage) y dejamos
       // que el interceptor maneje la ausencia de token.
-      const response = await api.get('/profiles/favorites');
-      setFavoriteStores(response.data || []);
+      const saved = await AsyncStorage.getItem('favorites');
+      setFavoriteStores(saved ? JSON.parse(saved) : []);
     } catch (err) {
       // Si no hay sesión o recibimos 401/404, simplemente dejamos favoritos vacíos
       console.log('Error loading favorites (ignored):', err?.response?.status || err.message);

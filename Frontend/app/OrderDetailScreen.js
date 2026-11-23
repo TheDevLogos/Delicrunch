@@ -14,7 +14,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
 import logger from '../services/logger';
@@ -67,11 +67,16 @@ const getRatingLabel = (rating) => {
 const OrderDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { orderId } = route.params || {};
+  const { orderId, merchant = false } = route.params || {};
 
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  useFocusEffect(useCallback(() => {
+    const timer=setInterval(() => fetchOrderDetails(false),15000);
+    return () => clearInterval(timer);
+  }, [orderId,merchant]));
 
   // Estado para reseña
   const [hasReview, setHasReview] = useState(false);
@@ -82,15 +87,15 @@ const OrderDetailScreen = () => {
 
   useEffect(() => {
     fetchOrderDetails();
-  }, [orderId]);
+  }, [orderId, merchant]);
 
-  const fetchOrderDetails = async () => {
+  const fetchOrderDetails = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       setError(null);
 
       // Obtener detalles del pedido
-      const orderRes = await api.get(`/orders/${orderId}`);
+      const orderRes = await api.get(`/orders/${orderId}${merchant ? '/merchant' : ''}`);
       const orderData = orderRes.data;
       setOrder(orderData);
       
@@ -100,6 +105,7 @@ const OrderDetailScreen = () => {
         productId: orderData.product_id
       });
 
+      if (merchant) { setHasReview(true); return; }
       // Verificar si ya existe una reseña para este pedido
       try {
         const reviewsRes = await api.get('/reviews/my');
@@ -251,7 +257,7 @@ const OrderDetailScreen = () => {
   
   // Verificar si el pedido está en estado que permite reseñar
   const isDeliveredStatus = ['recogido', 'entregado'].includes(statusKey);
-  const canReview = isDeliveredStatus && !hasReview;
+  const canReview = !merchant && isDeliveredStatus && !hasReview;
   const showExistingReview = hasReview && existingReview;
   
   console.log('🔍 Review Status:', {
@@ -384,13 +390,15 @@ const OrderDetailScreen = () => {
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
               <Text style={styles.totalLabel}>
-                {order.metodo_pago === 'efectivo' ? 'Pagar en efectivo al recoger' : 'Total del pedido'}
+                {order.metodo_pago === 'efectivo' ? (order.estado === 'recogido' ? 'Efectivo recibido por el comercio' : order.estado === 'cancelado' ? 'Reserva cancelada, sin cobro' : 'Pagar en efectivo al recoger') : 'Total del pedido'}
               </Text>
               <Text style={styles.totalValue}>${formatPrice(order.total)}</Text>
             </View>
           </View>
         </View>
 
+        {order.notas ? <View style={styles.section}><Text style={styles.sectionTitle}>Petición para el comercio</Text><Text style={{color:COLORS.text,lineHeight:21}}>{order.notas}</Text></View> : null}
+        {merchant && <TouchableOpacity onPress={()=>navigation.navigate('StoreOrders')} style={{padding:16,backgroundColor:COLORS.primary,borderRadius:14,alignItems:'center'}}><Text style={{color:'#fff',fontWeight:'800'}}>Gestionar pedido</Text></TouchableOpacity>}
         {/* Review Section */}
         {(canReview || showExistingReview) && (
           <View style={styles.section}>
