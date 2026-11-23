@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
   ScrollView,
   ActivityIndicator,
   TouchableOpacity,
@@ -41,7 +41,7 @@ const getStatusInfo = (status) => {
 
 const OrderItem = ({ item, onStatusChange, onPickup }) => {
   const statusInfo = getStatusInfo(item.estado);
-  
+
   const handleConfirm = () => {
     Alert.alert(
       'Comenzar preparación',
@@ -56,7 +56,7 @@ const OrderItem = ({ item, onStatusChange, onPickup }) => {
   const handleMarkPickedUp = () => {
     onPickup(item.id);
   };
-  
+
   return (
     <View style={styles.orderCard}>
       {/* Header del pedido */}
@@ -110,7 +110,7 @@ const OrderItem = ({ item, onStatusChange, onPickup }) => {
       {/* Botones de acción */}
       {item.estado === 'confirmado' && (
         <View style={styles.actionsRow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.confirmButton}
             onPress={handleConfirm}
           >
@@ -119,10 +119,10 @@ const OrderItem = ({ item, onStatusChange, onPickup }) => {
           </TouchableOpacity>
         </View>
       )}
-      
+
       {['en_preparacion', 'listo'].includes(item.estado) && (
         <View style={styles.actionsRow}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.pickupButton}
             onPress={handleMarkPickedUp}
           >
@@ -191,7 +191,7 @@ const StoreOrdersScreen = () => {
     <View style={styles.headerContainer}>
       <Text style={styles.title}>Pedidos de tu tienda</Text>
       <Text style={styles.subtitle}>Valida el código del cliente al entregar su pack.</Text>
-      
+
       {/* Stats rápidos */}
       <View style={styles.statsRow}>
         <View style={[styles.statCard, { backgroundColor: COLORS.warning + '15' }]}>
@@ -264,8 +264,8 @@ const StoreOrdersScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
+  container: {
+    flex: 1,
     backgroundColor: COLORS.background,
   },
   loadingContainer: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 100,
   },
-  
+
   // Header
   headerContainer: {
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 16 : 16,
@@ -289,9 +289,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
     ...SHADOWS.md,
   },
-  title: { 
-    fontSize: 28, 
-    fontWeight: '700', 
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
     color: COLORS.text,
     marginBottom: SPACING.md,
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: COLORS.primary },
   filterText: { color: COLORS.primaryDark, fontSize: 12, fontWeight: '700' },
   filterTextActive: { color: COLORS.white },
-  
+
   // Stats
   statsRow: {
     flexDirection: 'row',
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
-  
+
   productInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primary,
   },
-  
+
   buyerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginLeft: 6,
   },
-  
+
   pickupCodeContainer: {
     backgroundColor: COLORS.primary + '10',
     borderRadius: 12,
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     letterSpacing: 4,
   },
-  
+
   pickupTimeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 6,
   },
-  
+
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -487,8 +487,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  emptyTitle: { 
-    fontSize: 22, 
+  emptyTitle: {
+    fontSize: 22,
     fontWeight: '700',
     color: COLORS.text,
     marginBottom: 8,

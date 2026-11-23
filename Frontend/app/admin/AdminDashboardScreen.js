@@ -28,7 +28,7 @@ const AdminDashboardScreen = () => {
   const navigation = useNavigation();
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Métricas principales
   const [metrics, setMetrics] = useState({
     totalStores: 0,
@@ -57,7 +57,7 @@ const AdminDashboardScreen = () => {
       // Cargar tiendas
       const storesRes = await api.get('/stores').catch(() => ({ data: [] }));
       const stores = Array.isArray(storesRes.data) ? storesRes.data : (storesRes.data?.data || []);
-      
+
       // Cargar usuarios reales
       let users = [];
       try {
@@ -147,8 +147,8 @@ const AdminDashboardScreen = () => {
           type: 'order',
           title: `Pedido #${o.id}`,
           subtitle: `${formatPrice(o.total)} - ${o.estado || 'pendiente'}`,
-          time: new Date(o.created_at).toLocaleString('es-MX', { 
-            hour: '2-digit', 
+          time: new Date(o.created_at).toLocaleString('es-MX', {
+            hour: '2-digit',
             minute: '2-digit',
             day: '2-digit',
             month: 'short'
@@ -185,7 +185,7 @@ const AdminDashboardScreen = () => {
       id: 'stores',
       icon: 'storefront',
       label: 'Comercios',
-      color: '#007AFF',
+      color: COLORS.primary,
       badge: metrics.pendingStores,
       onPress: () => navigation.navigate('AdminStores'),
     },
@@ -208,7 +208,7 @@ const AdminDashboardScreen = () => {
       id: 'metrics',
       icon: 'bar-chart',
       label: 'Métricas',
-      color: '#AF52DE',
+      color: COLORS.primary,
       onPress: () => navigation.navigate('AdminMetrics'),
     },
   ];
@@ -227,7 +227,7 @@ const AdminDashboardScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -283,8 +283,8 @@ const AdminDashboardScreen = () => {
 
           <View style={styles.metricRow}>
             <View style={[styles.metricCard, styles.metricCardHalf]}>
-              <View style={[styles.metricIcon, { backgroundColor: '#007AFF20' }]}>
-                <Ionicons name="storefront" size={20} color="#007AFF" />
+              <View style={[styles.metricIcon, { backgroundColor: COLORS.primarySoft }]}>
+                <Ionicons name="storefront" size={20} color={COLORS.primary} />
               </View>
               <Text style={styles.metricValue}>{metrics.totalStores}</Text>
               <Text style={styles.metricLabel}>Comercios</Text>
@@ -307,8 +307,8 @@ const AdminDashboardScreen = () => {
 
           <View style={styles.metricRow}>
             <View style={[styles.metricCard, styles.metricCardHalf]}>
-              <View style={[styles.metricIcon, { backgroundColor: '#AF52DE20' }]}>
-                <Ionicons name="people" size={20} color="#AF52DE" />
+              <View style={[styles.metricIcon, { backgroundColor: COLORS.primarySoft }]}>
+                <Ionicons name="people" size={20} color={COLORS.primary} />
               </View>
               <Text style={styles.metricValue}>{metrics.totalUsers}</Text>
               <Text style={styles.metricLabel}>Usuarios</Text>
@@ -361,8 +361,8 @@ const AdminDashboardScreen = () => {
           {recentActivity.length > 0 ? (
             <View style={styles.activityList}>
               {recentActivity.map((activity, index) => (
-                <View 
-                  key={activity.id} 
+                <View
+                  key={activity.id}
                   style={[
                     styles.activityItem,
                     index === recentActivity.length - 1 && styles.activityItemLast
