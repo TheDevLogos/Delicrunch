@@ -6,16 +6,19 @@ import { COLORS } from '../src/constants/theme';
 const PickupVerificationModal = ({ orderId, onClose, onVerified, onError }) => {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [paymentReceived,setPaymentReceived] = useState(false);
 
   const verify = async () => {
-    if (!code.trim() || busy) return;
+    if (!code.trim() || busy || !paymentReceived) return;
     setBusy(true);
     try {
       await api.patch(`/orders/${orderId}`, {
         estado: 'recogido',
+        pago_recibido: paymentReceived,
         codigo_recogida: code.trim().toUpperCase(),
       });
       setCode('');
+      setPaymentReceived(false);
       onVerified();
     } catch (error) {
       onError(error.response?.data?.msg || 'No se pudo verificar el código.');
@@ -41,11 +44,12 @@ const PickupVerificationModal = ({ orderId, onClose, onVerified, onError }) => {
             placeholder="Código del cliente"
             accessibilityLabel="Código del ticket"
           />
+          <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:paymentReceived}} onPress={()=>setPaymentReceived(v=>!v)} style={{paddingVertical:16}}><Text style={{color:COLORS.text}}>{paymentReceived?'☑':'☐'} Confirmo que recibí el pago en efectivo</Text></TouchableOpacity>
           <View style={styles.actions}>
             <TouchableOpacity onPress={onClose} disabled={busy}>
               <Text style={styles.cancel}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={verify} disabled={busy || !code.trim()}>
+            <TouchableOpacity style={styles.button} onPress={verify} disabled={busy || !code.trim() || !paymentReceived}>
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verificar</Text>}
             </TouchableOpacity>
           </View>

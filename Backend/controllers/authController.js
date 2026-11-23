@@ -354,3 +354,17 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     
     res.status(200).json({ msg: 'Contraseña actualizada exitosamente.' });
 });
+
+// Authenticated password change for password accounts; privileged accounts keep Google login.
+exports.changePassword = asyncHandler(async (req,res) => {
+ const {currentPassword,newPassword}=req.body;
+ if(typeof currentPassword!=='string'||typeof newPassword!=='string'||newPassword.length<12||newPassword.length>72||Buffer.byteLength(newPassword)>72)
+   return res.status(400).json({msg:'Usa una contraseña de 12 a 72 caracteres (máximo 72 bytes).'});
+ const result=await pool.query('SELECT rol,password_hash FROM users WHERE id=$1',[req.user.id]);
+ const user=result.rows[0];
+ if(!user||user.rol==='admin'||req.user.authProvider==='google')return res.status(403).json({msg:'Gestiona esta cuenta mediante Google.'});
+ if(!await bcrypt.compare(currentPassword,user.password_hash))return res.status(400).json({msg:'La contraseña actual no coincide.'});
+ const hash=await bcrypt.hash(newPassword,12);
+ await pool.query('UPDATE users SET password_hash=$1,password_reset_token=NULL,password_reset_expires=NULL WHERE id=$2',[hash,req.user.id]);
+ res.json({msg:'Contraseña actualizada.'});
+});

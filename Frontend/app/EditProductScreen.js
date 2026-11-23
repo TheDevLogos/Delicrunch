@@ -113,7 +113,7 @@ const EditProductScreen = ({ route, navigation }) => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await api.get(`/products/${productId}`);
+        const response = await api.get(`/products/${productId}/manage`);
         const product = response.data;
         setNombre(product.nombre);
         setDescripcion(product.descripcion);

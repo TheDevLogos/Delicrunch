@@ -2,6 +2,8 @@ const pool = require('../db');
 const asyncHandler = require('../middleware/asyncHandler');
 const fs = require('fs');
 const path = require('path');
+const validTime=value=>typeof value==='string'&&/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(value);
+const bool=value=>value===true||value==='true';
 
 
 exports.createProduct = asyncHandler(async (req, res, next) => {
@@ -26,6 +28,9 @@ exports.createProduct = asyncHandler(async (req, res, next) => {
         image_url: imageUrlBody
     } = req.body;
 
+    const start=req.body.hora_recogida_inicio||'14:00';
+    const end=req.body.hora_recogida_fin||'18:00';
+    if(!validTime(start)||!validTime(end))return res.status(400).json({msg:'Horario inválido. Usa HH:mm.'});
     // Mapear a nombres reales de la BD (inglés)
     const productName = nombre || name;
     const productDescription = descripcion || description || '';
@@ -65,8 +70,8 @@ exports.createProduct = asyncHandler(async (req, res, next) => {
     // Insertar el nuevo producto en la base de datos con columnas en español
     const newProduct = await pool.query(
         `INSERT INTO products (store_id, nombre, descripcion, precio_descuento, precio_original, 
-            cantidad_disponible, categoria, imagen_url, activo)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+            cantidad_disponible, categoria, imagen_url, activo, hora_recogida_inicio, hora_recogida_fin, producto_listo)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10, $11)
             RETURNING 
                 id,
                 nombre,
@@ -79,7 +84,7 @@ exports.createProduct = asyncHandler(async (req, res, next) => {
                 activo,
                 created_at`,
         [storeId, productName, productDescription, productPrice, productComparePrice, 
-         productStock, productCategory, finalImageUrl]
+         productStock, productCategory, finalImageUrl, start, end, bool(req.body.producto_listo)]
     );
 
     res.status(201).json(newProduct.rows[0]);
@@ -131,7 +136,7 @@ exports.getAllAvailableProducts = asyncHandler(async (req, res, next) => {
             p.precio_original,
             p.cantidad_disponible,
             p.categoria,
-            p.imagen_url,
+            p.imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin, p.producto_listo,
             p.activo,
             p.store_id,
             p.created_at,
@@ -214,7 +219,12 @@ exports.updateProduct = asyncHandler(async (req, res, next) => {
     const finalPrecioDescuento = precio_descuento || current.precio_descuento;
     const finalCantidadDisponible = cantidad_disponible !== undefined ? cantidad_disponible : current.cantidad_disponible;
     const finalCategoria = categoria || current.categoria;
-    const finalActivo = activo !== undefined ? activo : current.activo;
+    const finalActivo = activo !== undefined ? bool(activo) : current.activo;
+    if(activo!==undefined&&![true,false,'true','false'].includes(activo))return res.status(400).json({msg:'Disponibilidad inválida.'});
+    const start=req.body.hora_recogida_inicio??current.hora_recogida_inicio;
+    const end=req.body.hora_recogida_fin??current.hora_recogida_fin;
+    if((start&&!validTime(start))||(end&&!validTime(end)))return res.status(400).json({msg:'Horario inválido. Usa HH:mm.'});
+    const ready=req.body.producto_listo!==undefined?bool(req.body.producto_listo):current.producto_listo;
     if (!Number.isFinite(Number(finalPrecioDescuento)) || Number(finalPrecioDescuento) <= 0 ||
         !Number.isFinite(Number(finalPrecioOriginal)) || Number(finalPrecioOriginal) < Number(finalPrecioDescuento) ||
         !Number.isSafeInteger(Number(finalCantidadDisponible)) || Number(finalCantidadDisponible) < 0 ||
@@ -233,6 +243,7 @@ exports.updateProduct = asyncHandler(async (req, res, next) => {
             categoria = $6,
             imagen_url = $7,
             activo = $8,
+            hora_recogida_inicio = $10, hora_recogida_fin = $11, producto_listo = $12,
             updated_at = CURRENT_TIMESTAMP
          WHERE id = $9 
          RETURNING 
@@ -255,7 +266,7 @@ exports.updateProduct = asyncHandler(async (req, res, next) => {
             finalCategoria,
             newImageUrl || current.imagen_url,
             finalActivo,
-            productId
+            productId, start, end, ready
         ]
     );
 
@@ -311,7 +322,7 @@ exports.getProductById = asyncHandler(async (req, res, next) => {
             p.precio_original,
             p.cantidad_disponible,
             p.categoria,
-            p.imagen_url,
+            p.imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin, p.producto_listo,
             p.activo,
             p.destacado,
             p.store_id,
@@ -393,7 +404,7 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
                 p.precio_original,
                 p.cantidad_disponible,
                 p.categoria,
-                p.imagen_url,
+                p.imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin, p.producto_listo,
                 p.activo,
                 s.nombre_comercio,
                 s.direccion,
@@ -418,7 +429,7 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
             p.precio_original,
             p.cantidad_disponible,
             p.categoria,
-            p.imagen_url,
+            p.imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin, p.producto_listo,
             p.activo,
             s.nombre_comercio,
             s.direccion,
@@ -447,7 +458,7 @@ exports.getReadyProducts = asyncHandler(async (req, res, next) => {
             p.precio_original,
             p.cantidad_disponible,
             p.categoria,
-            p.imagen_url,
+            p.imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin, p.producto_listo,
             p.activo,
             p.destacado,
             p.producto_listo,
@@ -477,7 +488,7 @@ exports.getNewProducts = asyncHandler(async (req, res, next) => {
             p.precio_original,
             p.cantidad_disponible,
             p.categoria,
-            p.imagen_url,
+            p.imagen_url, p.hora_recogida_inicio, p.hora_recogida_fin, p.producto_listo,
             p.activo,
             p.created_at,
             s.nombre_comercio,
@@ -494,4 +505,9 @@ exports.getNewProducts = asyncHandler(async (req, res, next) => {
     );
 
     res.json(newProducts.rows);
+});
+exports.getProductForManagement=asyncHandler(async(req,res)=>{
+ const result=await pool.query('SELECT * FROM products WHERE id=$1',[req.params.id]);
+ if(!result.rows.length)return res.status(404).json({msg:'Producto no encontrado.'});
+ res.json(result.rows[0]);
 });

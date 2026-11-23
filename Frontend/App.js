@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthProvider';
 import { LocationProvider } from './contexts/LocationContext';
 import { GamificationProvider } from './contexts/GamificationContext';
 import PushBridge from './components/PushBridge';
+import {InboxProvider} from './contexts/InboxContext';
 import { navigationRef } from './navigation/navigationRef';
 
 const linking = {
@@ -24,10 +25,12 @@ export default function App() {
       <AuthProvider>
         <LocationProvider>
           <GamificationProvider>
+            <InboxProvider>
             <NavigationContainer linking={linking} ref={navigationRef}>
               <AppNavigator />
               <PushBridge />
             </NavigationContainer>
+            </InboxProvider>
           </GamificationProvider>
         </LocationProvider>
       </AuthProvider>

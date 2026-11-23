@@ -68,6 +68,8 @@ router.get('/stores', protect, adminOnly, asyncHandler(async (req, res) => {
       s.id, s.user_id, s.nombre_comercio, s.direccion, s.latitud, s.longitud,
       s.telefono, s.horario, s.descripcion, s.logo_url, s.cover_url,
       s.categoria, s.activo, s.created_at, s.updated_at,
+      COALESCE(to_jsonb(s)->>'ciudad','Sin ciudad') AS ciudad,
+      (SELECT COALESCE(AVG(calificacion),0) FROM reviews WHERE store_id=s.id AND visible=true) AS rating,
       u.nombre as owner_name,
       u.email as owner_email,
       (SELECT COUNT(*) FROM products WHERE store_id = s.id) as total_products,
@@ -132,6 +134,7 @@ router.put('/stores/:id/approve', protect, adminOnly, asyncHandler(async (req, r
 router.put('/stores/:id/toggle', protect, adminOnly, asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { activo } = req.body;
+  if (typeof activo !== 'boolean') return res.status(400).json({ message: 'Estado inválido.' });
 
   const result = await pool.query(`
     UPDATE stores 
@@ -316,9 +319,9 @@ router.get('/transactions/stats', protect, adminOnly, asyncHandler(async (req, r
   const result = await pool.query(`
     SELECT 
       COUNT(*) as total_orders,
-      COALESCE(SUM(total), 0) as total_revenue,
-      COALESCE(AVG(total), 0) as avg_order_value,
-      COUNT(CASE WHEN estado = 'completado' THEN 1 END) as completed_orders,
+      COALESCE(SUM(total) FILTER (WHERE estado = 'recogido'), 0) as total_revenue,
+      COALESCE(AVG(total) FILTER (WHERE estado = 'recogido'), 0) as avg_order_value,
+      COUNT(CASE WHEN estado = 'recogido' THEN 1 END) as completed_orders,
       COUNT(CASE WHEN estado = 'cancelado' THEN 1 END) as cancelled_orders
     FROM orders
     ${dateFilter}
@@ -375,17 +378,11 @@ router.get('/metrics/overview', protect, adminOnly, asyncHandler(async (req, res
  */
 router.get('/metrics/by-city', protect, adminOnly, asyncHandler(async (req, res) => {
   const result = await pool.query(`
-    SELECT 
-      COALESCE(s.ciudad, 'Sin ciudad') as ciudad,
-      COUNT(DISTINCT s.id) as stores,
-      COUNT(DISTINCT p.id) as products,
-      COUNT(DISTINCT o.id) as orders,
-      COALESCE(SUM(o.total), 0) as revenue
-    FROM stores s
-    LEFT JOIN products p ON p.store_id = s.id
-    LEFT JOIN orders o ON o.store_id = s.id
-    GROUP BY s.ciudad
-    ORDER BY revenue DESC
+    SELECT COALESCE(to_jsonb(s)->>'ciudad','Sin ciudad') AS ciudad, COUNT(*) AS stores,
+      SUM((SELECT COUNT(*) FROM products p WHERE p.store_id=s.id)) AS products,
+      SUM((SELECT COUNT(*) FROM orders o WHERE o.store_id=s.id)) AS orders,
+      SUM((SELECT COALESCE(SUM(o.total),0) FROM orders o WHERE o.store_id=s.id AND o.estado='recogido')) AS revenue
+    FROM stores s GROUP BY COALESCE(to_jsonb(s)->>'ciudad','Sin ciudad') ORDER BY revenue DESC
   `);
 
   res.json(result.rows);
@@ -397,22 +394,12 @@ router.get('/metrics/by-city', protect, adminOnly, asyncHandler(async (req, res)
  */
 router.get('/metrics/by-store', protect, adminOnly, asyncHandler(async (req, res) => {
   const result = await pool.query(`
-    SELECT 
-      s.id,
-      s.nombre_comercio as nombre,
-      COALESCE(s.ciudad, 'Sin ciudad') as ciudad,
-      s.activo,
-      COUNT(DISTINCT p.id) as products,
-      COUNT(DISTINCT o.id) as orders,
-      COALESCE(SUM(o.total), 0) as revenue,
-      COALESCE(AVG(r.calificacion), 0) as avg_rating
-    FROM stores s
-    LEFT JOIN products p ON p.store_id = s.id
-    LEFT JOIN orders o ON o.store_id = s.id
-    LEFT JOIN reviews r ON r.store_id = s.id
-    GROUP BY s.id, s.nombre_comercio, s.ciudad, s.activo
-    ORDER BY revenue DESC
-    LIMIT 50
+    SELECT s.id,s.nombre_comercio AS nombre,COALESCE(to_jsonb(s)->>'ciudad','Sin ciudad') AS ciudad,s.activo,
+      (SELECT COUNT(*) FROM products p WHERE p.store_id=s.id) AS products,
+      (SELECT COUNT(*) FROM orders o WHERE o.store_id=s.id) AS orders,
+      (SELECT COALESCE(SUM(o.total),0) FROM orders o WHERE o.store_id=s.id AND o.estado='recogido') AS revenue,
+      (SELECT COALESCE(AVG(r.calificacion),0) FROM reviews r WHERE r.store_id=s.id AND r.visible=true) AS avg_rating
+    FROM stores s ORDER BY revenue DESC LIMIT 50
   `);
 
   res.json(result.rows);
@@ -423,7 +410,7 @@ router.get('/metrics/by-store', protect, adminOnly, asyncHandler(async (req, res
  * Obtener tendencias de ventas
  */
 router.get('/metrics/trends', protect, adminOnly, asyncHandler(async (req, res) => {
-  const { days = 7 } = req.query;
+  const days = Math.min(366,Math.max(1,Number.parseInt(req.query.days,10)||7));
 
   const result = await pool.query(`
     SELECT 
@@ -433,10 +420,10 @@ router.get('/metrics/trends', protect, adminOnly, asyncHandler(async (req, res) 
       COALESCE(SUM(CASE WHEN estado = 'recogido' THEN total ELSE 0 END), 0) as revenue,
       COALESCE(SUM(CASE WHEN estado = 'recogido' THEN comision_plataforma ELSE 0 END), 0) as commission
     FROM orders
-    WHERE created_at >= CURRENT_DATE - INTERVAL '${parseInt(days)} days'
+    WHERE created_at >= CURRENT_DATE - ($1::int * INTERVAL '1 day')
     GROUP BY DATE(created_at)
     ORDER BY date ASC
-  `);
+  `,[days]);
 
   res.json(result.rows);
 }));
@@ -503,6 +490,13 @@ router.get('/metrics/financial', protect, adminOnly, asyncHandler(async (req, re
     byStore: byStoreResult.rows,
     byDate: byDateResult.rows,
   });
+}));
+
+
+
+router.get('/products', protect, adminOnly, asyncHandler(async(req,res)=>{
+ const result=await pool.query('SELECT id,store_id,nombre,activo,cantidad_disponible FROM products ORDER BY id DESC');
+ res.json(result.rows);
 }));
 
 module.exports = router;

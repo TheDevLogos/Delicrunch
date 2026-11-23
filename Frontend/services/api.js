@@ -77,6 +77,7 @@ console.log('🌐 API Base URL final:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -149,6 +150,7 @@ api.interceptors.response.use(
 // La usaremos para las llamadas a la API que no necesitan token de autenticación.
 export const publicApi = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 15000,
 });
 
 // Exportamos 'api' como la exportación por defecto.

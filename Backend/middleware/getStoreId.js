@@ -33,7 +33,8 @@ const getStoreId = asyncHandler(async (req, res, next) => {
 
     // 3. Si es admin y no tiene tienda (está simulando), usar tienda demo
     if (['admin', 'administrador'].includes(userRole) && storeResult.rows.length === 0) {
-        // Usar la primera tienda disponible como tienda demo para el admin
+        if (req.method !== 'GET') return res.status(403).json({msg:'La vista de comercio del administrador es de solo lectura. Gestiona el comercio desde Administración.'});
+        // Solo lectura: no modificar una tienda arbitraria desde la simulación.
         storeResult = await pool.query('SELECT id FROM stores ORDER BY id LIMIT 1');
         
         if (storeResult.rows.length === 0) {

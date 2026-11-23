@@ -154,6 +154,8 @@ const MyOrdersScreen = () => {
     useCallback(() => {
       setIsLoading(true);
       fetchOrders();
+      const timer=setInterval(fetchOrders,15000);
+      return () => clearInterval(timer);
     }, [])
   );
 

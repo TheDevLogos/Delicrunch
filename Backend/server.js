@@ -67,6 +67,7 @@ app.use('/api/products', require('./routes/productRoutes'));
 // Usamos las rutas de pedidos
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/push', require('./routes/pushRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 // Usamos las rutas de reseñas
 app.use('/api/reviews', require('./routes/reviewRoutes'));
 
@@ -92,4 +93,5 @@ app.use(errorHandler);
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor escuchando en el puerto ${PORT} en todas las interfaces`);
     checkDbConnection();
+    require('./services/operationalPush').startOperationalPush();
 });

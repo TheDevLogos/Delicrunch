@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +24,7 @@ const PaymentScreen = ({ route, navigation }) => {
   const [coupons, setCoupons] = useState([]);
   const [couponId, setCouponId] = useState(null);
   const [notes, setNotes] = useState('');
+  const requestId=useRef(`reserve_${Date.now()}_${Math.random().toString(36).slice(2,14)}`);
   const total = Number(product?.precio_descuento || 0) * Number(selectedQuantity);
 
   useEffect(() => {
@@ -46,6 +47,7 @@ const PaymentScreen = ({ route, navigation }) => {
     setSubmitting(true);
     try {
       const { data: order } = await api.post('/orders', {
+        requestId: requestId.current,
         productId: product.id,
         cantidad: selectedQuantity,
         couponId,

@@ -6,6 +6,7 @@ import { COLORS } from '../src/constants/theme';
 import { useAuth } from '../contexts/AuthContext';
 
 // Importación de todas las pantallas necesarias
+import NotificationsScreen from '../app/NotificationsScreen';
 import WelcomeScreen from '../app/WelcomeScreen';
 import AdminVisitsScreen from '../app/admin/AdminVisitsScreen';
 import LoginScreen from '../app/LoginScreen';
@@ -39,6 +40,8 @@ import DiscoverScreen from '../app/DiscoverScreen';
 import BrowseScreen from '../app/BrowseScreen';
 
 // Pantallas de admin
+import AdminStoresScreen from '../app/admin/AdminStoresScreen';
+import AdminReviewsScreen from '../app/admin/AdminReviewsScreen';
 import AdminMetricsScreen from '../app/admin/AdminMetricsScreen';
 import AdminPushScreen from '../app/admin/AdminPushScreen';
 
@@ -94,6 +97,9 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="Descubre" component={DiscoverScreen} options={{ title: 'Descubrir', headerShown: false }} />
     <Stack.Screen name="Buscar" component={BrowseScreen} options={{ title: 'Buscar', headerShown: false }} />
     {/* Pantallas de admin accesibles desde perfil */}
+    <Stack.Screen name="AdminStores" component={AdminStoresScreen} />
+    <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
+    <Stack.Screen name="Notifications" component={NotificationsScreen} options={{title: 'Notificaciones',headerShown:true}} />
     <Stack.Screen name="AdminVisits" component={AdminVisitsScreen} />
     <Stack.Screen name="AdminMetrics" component={AdminMetricsScreen} options={{ title: 'Métricas', headerShown: true }} />
     <Stack.Screen name="AdminPush" component={AdminPushScreen} options={{ title: 'Notificaciones push', headerShown: true }} />
