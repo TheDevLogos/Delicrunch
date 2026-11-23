@@ -15,3 +15,6 @@ CREATE TABLE IF NOT EXISTS business_visit_requests (
 CREATE INDEX IF NOT EXISTS business_visit_requests_status_created ON business_visit_requests(status, created_at DESC);
 -- Requests contain contact details; only the authenticated backend may access them.
 ALTER TABLE business_visit_requests ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public.business_visit_requests FROM anon, authenticated, PUBLIC;
+REVOKE ALL ON SEQUENCE public.business_visit_requests_id_seq FROM anon, authenticated, PUBLIC;
