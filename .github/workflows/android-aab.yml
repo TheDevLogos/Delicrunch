@@ -80,6 +80,7 @@ jobs:
       - name: Configure release signing
         run: |
           cat >> android/app/build.gradle <<'GRADLE'
+          
           android {
               signingConfigs {
                   delicrunchUpload {
