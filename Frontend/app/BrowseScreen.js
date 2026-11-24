@@ -182,9 +182,7 @@ const BrowseScreen = () => {
         p.nombre_comercio?.toLowerCase().includes(query) ||
         p.categoria?.toLowerCase().includes(query)
       );
-      filteredS = filteredS.filter(s =>
-        s.nombre_comercio?.toLowerCase().includes(query)
-      );
+
     }
     
     // Filtrar por categoría
