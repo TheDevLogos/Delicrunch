@@ -47,7 +47,9 @@ const ReviewItem = ({ review }) => (
       </View>
       <ReadOnlyStarRating rating={review.calificacion} size={14} />
     </View>
-    <Text style={styles.reviewComment}>{review.comentario}</Text>
+    <Text style={styles.reviewComment}>{review.comentario||review.comment}</Text>
+    {review.respuesta_comercio&&<Text style={styles.reviewComment}>Comercio: {review.respuesta_comercio}</Text>}
+    {review.respuesta_admin&&<Text style={styles.reviewComment}>Deli: {review.respuesta_admin}</Text>}
     <Text style={styles.reviewDate}>
       {new Date(review.created_at).toLocaleDateString('es-MX', { 
         day: 'numeric', month: 'short', year: 'numeric' 
@@ -67,6 +69,7 @@ const InfoBadge = ({ icon, text, color = COLORS.primary }) => (
 const ProductDetailScreen = ({ route, navigation }) => {
   const { productId } = route.params;
   const [product, setProduct] = useState(null);
+  const [showAllReviews,setShowAllReviews]=useState(false);
   const [reviews, setReviews] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -282,6 +285,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
         {/* Reviews section */}
         <View style={styles.reviewsSection}>
+          {reviews.length>3&&<TouchableOpacity onPress={()=>setShowAllReviews(v=>!v)}><Text style={{color:COLORS.primary,fontWeight:'700',paddingVertical:10}}>{showAllReviews?'Ver menos':'Ver todos los comentarios'}</Text></TouchableOpacity>}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Opiniones ({reviews.length})</Text>
             {reviews.length > 0 && formatRating(product.calificacion_promedio) && (
@@ -295,7 +299,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
           </View>
 
           {reviews.length > 0 ? (
-            reviews.slice(0, 3).map(review => (
+            (showAllReviews?reviews:reviews.slice(0,3)).map(review => (
               <ReviewItem key={review.id} review={review} />
             ))
           ) : (

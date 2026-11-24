@@ -88,20 +88,15 @@ const StoreProfileScreen = () => {
       setIsLoading(true);
       
       // Obtener información de la tienda
-      const [storesRes, productsRes, reviewsRes] = await Promise.all([
-        publicApi.get('/stores/with-products'),
-        publicApi.get('/products'),
-        publicApi.get(`/reviews/store/${storeId}`).catch(() => ({ data: [] })),
-      ]);
+      const [storeRes,reviewsRes]=await Promise.all([publicApi.get(`/stores/${storeId}`),publicApi.get(`/reviews/store/${storeId}`)]);
+      const storeData=storeRes.data;
+      const storeProducts=storeData.productos||[];
 
-      const storeData = storesRes.data?.find(s => s.id === storeId);
-      const storeProducts = productsRes.data?.filter(p => p.store_id === storeId) || [];
-      
       // Calcular rating promedio
       const reviews = reviewsRes.data || [];
       const avgRating = reviews.length > 0 
         ? reviews.reduce((sum, r) => sum + r.calificacion, 0) / reviews.length 
-        : 4.5;
+        : 0;
 
       if (storeData) {
         setStore({
@@ -256,6 +251,8 @@ const StoreProfileScreen = () => {
           ))}
         </View>
       </View>
+      {review.respuesta_comercio&&<Text style={styles.reviewComment}>Comercio: {review.respuesta_comercio}</Text>}
+      {review.respuesta_admin&&<Text style={styles.reviewComment}>Deli: {review.respuesta_admin}</Text>}
       {review.comentario && (
         <Text style={styles.reviewComment}>{review.comentario}</Text>
       )}
@@ -323,7 +320,7 @@ const StoreProfileScreen = () => {
             <View style={styles.storeMetaRow}>
               <View style={styles.ratingBadge}>
                 <Ionicons name="star" size={14} color="#FFFFFF" />
-                <Text style={styles.ratingText}>{formatNumber(store.rating, 1) || '4.5'}</Text>
+                <Text style={styles.ratingText}>{formatNumber(store.rating, 1) || 'Sin reseñas'}</Text>
                 <Text style={styles.reviewCountText}>({store.reviewCount || 0})</Text>
               </View>
               {distance && (
@@ -461,12 +458,12 @@ const StoreProfileScreen = () => {
           <View style={styles.reviewsSection}>
             {/* Resumen de ratings */}
             <View style={styles.ratingSummary}>
-              <Text style={styles.bigRating}>{formatNumber(store.rating, 1) || '4.5'}</Text>
+              <Text style={styles.bigRating}>{formatNumber(store.rating, 1) || 'Sin reseñas'}</Text>
               <View style={styles.starsRow}>
                 {[1, 2, 3, 4, 5].map(star => (
                   <Ionicons
                     key={star}
-                    name={star <= Math.round(store.rating || 4.5) ? 'star' : 'star-outline'}
+                    name={star <= Math.round(store.rating || 0) ? 'star' : 'star-outline'}
                     size={20}
                     color={COLORS.primary}
                   />

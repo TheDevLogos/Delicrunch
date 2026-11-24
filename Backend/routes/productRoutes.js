@@ -53,6 +53,7 @@ router.get('/mystore/stats', [authMiddleware, getStoreId], productController.get
 // @desc    Obtener un único producto por su ID
 // @acceso  Público
 // La colocamos aquí para que no entre en conflicto con '/mystore'
+router.get('/:id/pickup-slots', productController.getPickupSlots);
 router.get('/:id/manage', [authMiddleware,checkProductOwnership], productController.getProductForManagement);
 router.get('/:id', productController.getProductById);
 

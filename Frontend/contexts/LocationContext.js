@@ -72,11 +72,12 @@ export const LocationProvider = ({ children }) => {
       const { latitude, longitude } = position.coords;
       
       // Reverse geocoding para obtener ciudad
-      const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const geocode = await Location.reverseGeocodeAsync({ latitude, longitude }).catch(()=>[]);
       
       if (geocode && geocode[0]) {
         const geo = geocode[0];
         const newLocation = {
+          source:'gps',
           city: geo.city || geo.subregion || 'Mi ubicación',
           region: geo.region || '',
           fullAddress: [geo.city, geo.region].filter(Boolean).join(', ') || 'Mi ubicación',
@@ -94,6 +95,7 @@ export const LocationProvider = ({ children }) => {
       
       // Si no hay geocode, al menos guardamos las coordenadas
       const fallbackLocation = {
+        source:'gps',
         city: 'Mi ubicación',
         region: '',
         fullAddress: 'Mi ubicación',

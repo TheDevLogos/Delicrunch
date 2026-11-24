@@ -5,6 +5,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
+import {AppState} from 'react-native';
+import {useAuth} from './AuthContext';
+import {subscribeNewOrders} from '../services/orderEvents';
 import {
   getLevelFromXP,
   getNextLevel,
@@ -18,7 +21,7 @@ import {
 
 const GamificationContext = createContext();
 
-const STORAGE_KEYS = {
+const BASE_STORAGE_KEYS = {
   STATS: '@delicrunch_gamification_stats',
   BADGES: '@delicrunch_unlocked_badges',
   LAST_ACTIVITY: '@delicrunch_last_activity',
@@ -41,6 +44,9 @@ const DEFAULT_STATS = {
 };
 
 export const GamificationProvider = ({ children }) => {
+  const {user}=useAuth();
+  const accountRef=useRef(user?.id);accountRef.current=user?.id;
+  const STORAGE_KEYS=Object.fromEntries(Object.entries(BASE_STORAGE_KEYS).map(([key,value])=>[key,`${value}:${user?.id||'guest'}`]));
   const [stats, setStats] = useState(DEFAULT_STATS);
   const [unlockedBadges, setUnlockedBadges] = useState([]);
   const [currentLevel, setCurrentLevel] = useState(LEVELS[0]);
@@ -51,8 +57,13 @@ export const GamificationProvider = ({ children }) => {
 
   // Cargar datos al iniciar
   useEffect(() => {
+    setStats({...DEFAULT_STATS});setUnlockedBadges([]);setNewBadgeQueue([]);
+    if(!user||user.onboarding_required){setIsLoading(false);return;}
     loadGamificationData();
-  }, []);
+    const off=subscribeNewOrders(()=>loadGamificationData(false));
+    const sub=AppState.addEventListener('change',state=>{if(state==='active')loadGamificationData(false);});
+    return()=>{off();sub.remove();};
+  }, [user?.id,user?.onboarding_required]);
 
   // Actualizar nivel cuando cambia XP
   useEffect(() => {
@@ -70,9 +81,10 @@ export const GamificationProvider = ({ children }) => {
     }
   }, [newBadgeQueue, showBadgeNotification]);
 
-  const loadGamificationData = async () => {
+  const loadGamificationData = async (showLoading=true) => {
+    const account=user?.id;if(!account)return;
     try {
-      setIsLoading(true);
+      if(showLoading)setIsLoading(true);
       
       // Cargar stats locales
       const storedStats = await AsyncStorage.getItem(STORAGE_KEYS.STATS);
@@ -136,6 +148,7 @@ export const GamificationProvider = ({ children }) => {
       // Calcular kWh
       loadedStats.totalKWhSaved = calculateKWhFromCO2(loadedStats.totalCO2Saved);
       
+      if(accountRef.current!==account)return;
       setStats(loadedStats);
       setUnlockedBadges(loadedBadges);
       

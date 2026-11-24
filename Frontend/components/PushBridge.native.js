@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform, AppState } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
 import { navigationRef } from '../navigation/navigationRef';
-import { emitNewOrder } from '../services/orderEvents';
+import {syncPickupReminders} from '../services/pickupReminders';
+import { emitNewOrder, subscribeNewOrders } from '../services/orderEvents';
 import api from '../services/api';
 import { COLORS } from '../src/constants/theme';
 
@@ -47,6 +48,7 @@ export default function PushBridge() {
         if (cancelled) return;
         await api.put('/push/devices', { token, platform: Platform.OS });
         await AsyncStorage.setItem(PUSH_TOKEN_KEY, token);
+        emitNewOrder();
       } catch (error) {
         console.warn('No se pudo registrar este dispositivo para avisos:', error.message);
       }
@@ -83,6 +85,13 @@ export default function PushBridge() {
     Notifications.getLastNotificationResponseAsync().then(openOrder).catch(() => {});
     return () => { active = false; received.remove(); responses.remove(); };
   }, [user?.id, user?.rol, user?.onboarding_required]);
+
+  useEffect(()=>{
+    let active=true;
+    const sync=async()=>{try{const {data}=user&&!user.onboarding_required&&['comprador','admin'].includes(user.rol)?await api.get('/orders/myorders'):{data:[]};if(active)await syncPickupReminders(data,user?.id);}catch(e){console.warn('No se pudieron sincronizar los recordatorios:',e.message);}};
+    sync();const off=subscribeNewOrders(sync);const sub=AppState.addEventListener('change',state=>{if(state==='active')sync();});
+    return()=>{active=false;off();sub.remove();};
+  },[user?.id,user?.rol,user?.onboarding_required]);
 
   const goToOrders = () => {
     setOrder(null);

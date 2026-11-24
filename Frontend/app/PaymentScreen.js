@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../services/api';
+import {emitNewOrder} from '../services/orderEvents';
 import { formatPrice } from '../src/utils/format';
 import { COLORS } from '../src/constants/theme';
 
@@ -23,6 +24,8 @@ const PaymentScreen = ({ route, navigation }) => {
   const [submitting, setSubmitting] = useState(false);
   const [coupons, setCoupons] = useState([]);
   const [couponId, setCouponId] = useState(null);
+  const [slots,setSlots]=useState([]);const [pickupAt,setPickupAt]=useState(null);const [slotError,setSlotError]=useState(null);
+  useEffect(()=>{let active=true;api.get(`/products/${product?.id}/pickup-slots`).then(({data})=>{if(active){setSlots(data.slots);setPickupAt(data.slots[0]||null);setSlotError(data.slots.length?null:'No hay horarios disponibles.');}}).catch(()=>{if(active)setSlotError('No se pudieron cargar los horarios. Vuelve a abrir esta reserva.');});return()=>{active=false;};},[product?.id]);
   const [notes, setNotes] = useState('');
   const requestId=useRef(`reserve_${Date.now()}_${Math.random().toString(36).slice(2,14)}`);
   const total = Number(product?.precio_descuento || 0) * Number(selectedQuantity);
@@ -43,11 +46,12 @@ const PaymentScreen = ({ route, navigation }) => {
   }, [product?.id, product?.categoria, total, selectedQuantity]);
 
   const reserve = async () => {
-    if (submitting || !product?.id) return;
+    if (submitting || !product?.id || !pickupAt) return;
     setSubmitting(true);
     try {
       const { data: order } = await api.post('/orders', {
         requestId: requestId.current,
+        pickupAt,
         productId: product.id,
         cantidad: selectedQuantity,
         couponId,
@@ -56,6 +60,7 @@ const PaymentScreen = ({ route, navigation }) => {
       if (!order?.id || !order?.codigo_recogida) {
         throw new Error('El servidor no devolvió un ticket válido.');
       }
+      emitNewOrder();
       navigation.replace('OrderConfirmation', { order, product });
     } catch (error) {
       Alert.alert(
@@ -107,6 +112,7 @@ const PaymentScreen = ({ route, navigation }) => {
           </Text>
         </View>
 
+        <View style={styles.card}><Text style={styles.totalLabel}>Elige cuándo recoger</Text><Text style={styles.notice}>Hora local de Delicias. Llega al comercio en el horario elegido.</Text>{slotError&&<Text style={{color:COLORS.error}}>{slotError}</Text>}<ScrollView horizontal>{slots.map(slot=><TouchableOpacity key={slot} accessibilityRole="radio" accessibilityState={{selected:slot===pickupAt}} onPress={()=>setPickupAt(slot)} style={{padding:12,marginTop:12,marginRight:8,borderRadius:12,backgroundColor:pickupAt===slot?COLORS.primary:COLORS.background}}><Text style={{color:pickupAt===slot?'#fff':COLORS.text}}>{new Date(slot).toLocaleString('es-MX',{timeZone:'America/Chihuahua',weekday:'short',hour:'2-digit',minute:'2-digit'})}</Text></TouchableOpacity>)}</ScrollView><Text style={styles.notice}>Recordatorios a 30, 15 y 5 minutos, si reservas con suficiente anticipación y permites notificaciones.</Text></View>
         <View style={styles.card}>
           <Text style={styles.totalLabel}>¿Alguna petición para el comercio?</Text>
           <Text style={styles.notice}>Opcional. El comercio la verá junto con tu reserva.</Text>
@@ -151,7 +157,7 @@ const PaymentScreen = ({ route, navigation }) => {
         <TouchableOpacity
           style={[styles.button, submitting && styles.disabled]}
           onPress={reserve}
-          disabled={submitting}
+          disabled={submitting || !pickupAt}
         >
           {submitting ? (
             <ActivityIndicator color="#fff" />

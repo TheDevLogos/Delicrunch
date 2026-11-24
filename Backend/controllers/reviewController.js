@@ -166,7 +166,7 @@ exports.getProductReviews = asyncHandler(async (req, res, next) => {
     const { productId } = req.params;
     
     const reviews = await pool.query(
-        `SELECT r.id, r.calificacion as rating, r.comentario as comment, r.created_at, r.is_verified,
+        `SELECT r.id, r.calificacion, r.comentario, r.calificacion as rating, r.comentario as comment, r.created_at, r.is_verified,
                 r.respuesta_admin, r.respuesta_comercio, r.fecha_respuesta_admin, r.fecha_respuesta_comercio,
                 u.nombre as nombre_usuario,
                 p.foto_perfil as user_avatar
@@ -199,7 +199,7 @@ exports.getStoreReviews = asyncHandler(async (req, res, next) => {
     
     // Obtener reseñas de todos los productos de este vendedor
     const reviews = await pool.query(
-        `SELECT r.id, r.calificacion as rating, r.comentario as comment, r.created_at, r.is_verified,
+        `SELECT r.id, r.calificacion, r.comentario, r.calificacion as rating, r.comentario as comment, r.created_at, r.is_verified,
                 r.respuesta_admin, r.respuesta_comercio, r.fecha_respuesta_admin, r.fecha_respuesta_comercio,
                 u.nombre as nombre_usuario,
                 prof.foto_perfil as user_avatar,
@@ -208,9 +208,9 @@ exports.getStoreReviews = asyncHandler(async (req, res, next) => {
          JOIN users u ON r.user_id = u.id 
          LEFT JOIN profiles prof ON r.user_id = prof.user_id
          LEFT JOIN products p ON r.product_id = p.id
-         WHERE p.store_id = (SELECT id FROM stores WHERE user_id = $1 LIMIT 1) AND r.visible = true
+         WHERE r.store_id = $1 AND r.visible = true
          ORDER BY r.created_at DESC`,
-        [sellerId]
+        [storeId]
     );
     res.json(reviews.rows);
 });

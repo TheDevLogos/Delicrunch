@@ -29,7 +29,7 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         return res.status(403).json({ msg: 'Solo los compradores pueden realizar pedidos.' });
     }
 
-    const { productId, cantidad = 1, couponId = null, notas = '', requestId = null } = req.body;
+    const { productId, cantidad = 1, couponId = null, notas = '', requestId = null, pickupAt = null } = req.body;
     const userId = req.user.id;
 
     if (!Number.isSafeInteger(Number(productId)) || Number(productId) <= 0 ||
@@ -74,6 +74,10 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         if (!product.activo || !product.store_id || !product.store_active) {
             throw new Error('Producto no disponible.');
         }
+
+        const availableSlots=await client.query(require('../utils/pickupSlots').slotsSql,[productId]);
+        const selectedPickup=pickupAt ? new Date(pickupAt) : new Date(availableSlots.rows[0]?.pickup_at);
+        if(!Number.isFinite(selectedPickup.getTime()) || !availableSlots.rows.some(r=>new Date(r.pickup_at).getTime()===selectedPickup.getTime())) throw new Error('Horario de recogida no disponible. Elige otro horario.');
 
         // 2. Verificar stock
         if (product.cantidad_disponible < cantidad) {
@@ -138,8 +142,8 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
         const orderResult = await client.query(
             `INSERT INTO orders (
                 user_id, store_id, codigo_recogida, subtotal, 
-                total, comision_plataforma, estado, metodo_pago, coupon_id, coupon_discount, notas, client_request_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                total, comision_plataforma, estado, metodo_pago, coupon_id, coupon_discount, notas, client_request_id, fecha_recogida_programada
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING *`,
             [
                 userId, 
@@ -153,7 +157,7 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
                 couponId,
                 discount,
                 notas.trim() || null,
-                requestId
+                requestId, selectedPickup.toISOString()
             ]
         );
 
@@ -168,9 +172,9 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         // 7. Crear items del pedido
         await client.query(
-            `INSERT INTO order_items (order_id, product_id, cantidad, precio_unitario, subtotal)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [newOrder.id, productId, cantidad, product.precio_descuento, subtotal]
+            `INSERT INTO order_items (order_id, product_id, cantidad, precio_unitario, subtotal, precio_original, categoria_snapshot)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [newOrder.id, productId, cantidad, product.precio_descuento, subtotal, product.precio_original, product.categoria]
         );
 
         // El ahorro se acredita cuando el comercio verifica la entrega.
@@ -216,7 +220,7 @@ exports.getMerchantOrderById = asyncHandler(async (req, res) => {
         return res.status(400).json({ msg: 'Pedido inválido.' });
     }
     const result = await pool.query(
-        `SELECT o.id, o.estado, o.created_at, o.total, o.subtotal, o.fecha_recogida_real, o.notas, o.metodo_pago,
+        `SELECT o.id, o.estado, o.created_at, o.total, o.subtotal, o.fecha_recogida_real, o.fecha_recogida_programada, o.notas, o.metodo_pago,
                 u.nombre AS nombre_comprador, p.nombre AS nombre_producto, p.nombre AS product_name, p.imagen_url,
                 s.direccion AS street, s.telefono AS phone, s.nombre_comercio AS seller_name,
                 s.direccion, s.telefono, s.latitud, s.longitud, p.hora_recogida_inicio, p.hora_recogida_fin,
@@ -287,7 +291,7 @@ exports.getMyOrders = asyncHandler(async (req, res, next) => {
             o.store_id,
             o.created_at as fecha_pedido,
             COALESCE(o.fecha_recogida_real, o.fecha_recogida_programada) as fecha_recogida,
-            o.created_at, o.notas, o.total, oi.cantidad, p.imagen_url,
+            o.created_at, o.notas, o.total, o.fecha_recogida_programada, oi.cantidad, p.imagen_url,
             p.hora_recogida_inicio, p.hora_recogida_fin,
             o.codigo_recogida,
             o.metodo_pago,
@@ -448,12 +452,12 @@ exports.updateOrderStatus = asyncHandler(async (req, res, next) => {
         // Si la orden se completa (recogido), actualizar métricas si existen funciones
         if (estado === 'recogido' && order.estado !== 'recogido') {
             const delivered = await client.query(
-                `SELECT oi.cantidad, p.categoria, p.precio_original, oi.precio_unitario
+                `SELECT oi.cantidad, COALESCE(oi.categoria_snapshot,p.categoria) AS categoria, COALESCE(oi.precio_original,p.precio_original) AS precio_original, oi.precio_unitario
                  FROM order_items oi JOIN products p ON p.id = oi.product_id
                  WHERE oi.order_id = $1`, [id]
             );
             const ahorro = delivered.rows.reduce((sum, item) =>
-                sum + Math.max(0, (Number(item.precio_original || item.precio_unitario) - Number(item.precio_unitario)) * item.cantidad), 0);
+                sum + Math.max(0, (Number(item.precio_original || item.precio_unitario) - Number(item.precio_unitario)) * item.cantidad), Number(order.coupon_discount||0));
             const co2Ahorrado = delivered.rows.reduce((sum, item) =>
                 sum + calculateCO2Saved(item.categoria || 'otros', item.cantidad), 0);
             const packsSaved = delivered.rows.reduce((sum, item) => sum + Number(item.cantidad), 0);

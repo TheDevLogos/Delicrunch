@@ -4,7 +4,7 @@ function files(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e
 function pattern(route){return new RegExp('^'+route.replace(/:[^/]+/g,'[^/]+')+'$');}
 const routes=[];
 for(const file of files(path.join(root,'Backend/routes')).filter(x=>x.endsWith('Routes.js'))){
- const mount={authRoutes:'auth',profileRoutes:'profiles',productRoutes:'products',orderRoutes:'orders',pushRoutes:'push',reviewRoutes:'reviews',storeRoutes:'stores',adminRoutes:'admin',couponRoutes:'coupons',businessVisitRoutes:'business-visits',notificationRoutes:'notifications'}[path.basename(file,'.js')];
+ const mount={authRoutes:'auth',profileRoutes:'profiles',productRoutes:'products',orderRoutes:'orders',pushRoutes:'push',reviewRoutes:'reviews',storeRoutes:'stores',adminRoutes:'admin',couponRoutes:'coupons',businessVisitRoutes:'business-visits',notificationRoutes:'notifications',merchantRewardRoutes:'merchant-rewards'}[path.basename(file,'.js')];
  if(!mount)continue;
  for(const m of fs.readFileSync(file,'utf8').matchAll(/router\.(get|post|put|patch|delete)\(['"]([^'"]+)['"]/g))routes.push({method:m[1],route:'/'+mount+(m[2]==='/'?'':m[2])});
 }
