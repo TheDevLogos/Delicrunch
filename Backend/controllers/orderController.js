@@ -49,7 +49,7 @@ exports.createOrder = asyncHandler(async (req, res, next) => {
 
         if (requestId) {
             await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`${userId}:${requestId}`]);
-            const previous=await client.query('SELECT * FROM orders WHERE user_id=$1 AND client_request_id=$2',[userId,requestId]);
+            const previous=await client.query(`SELECT o.*,oi.cantidad,p.nombre AS nombre_producto,s.nombre_comercio FROM orders o JOIN order_items oi ON oi.order_id=o.id JOIN products p ON p.id=oi.product_id JOIN stores s ON s.id=o.store_id WHERE o.user_id=$1 AND o.client_request_id=$2`,[userId,requestId]);
             if(previous.rows.length) {
                 await client.query('COMMIT');committed=true;
                 return res.status(200).json({...previous.rows[0],replayed:true});
