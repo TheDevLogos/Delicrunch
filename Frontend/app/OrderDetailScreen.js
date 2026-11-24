@@ -306,6 +306,7 @@ const OrderDetailScreen = () => {
           </View>
         </View>
 
+        {order.fecha_recogida_programada&&<View style={{backgroundColor:COLORS.primarySoft,padding:18,borderRadius:16,marginBottom:16}}><Text style={{fontWeight:'800',fontSize:17,color:COLORS.primaryDark}}>Tu horario de recogida</Text><Text style={{fontSize:17,color:COLORS.text,marginTop:6}}>{new Date(order.fecha_recogida_programada).toLocaleString('es-MX',{timeZone:'America/Chihuahua',dateStyle:'medium',timeStyle:'short'})}</Text><Text style={{color:COLORS.textSecondary,marginTop:5}}>Hora de Delicias · presenta tu código al llegar</Text></View>}
         {/* Store Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tienda</Text>

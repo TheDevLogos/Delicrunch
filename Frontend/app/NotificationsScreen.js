@@ -10,10 +10,12 @@ export default function NotificationsScreen({navigation}){
  const {user}=useAuth();const [busy,setBusy]=useState(false);
  const open=async item=>{if(busy)return;setBusy(true);try{
   await markRead(item.id);const data=item.data||{};
-  if(['merchant_order','buyer_order','admin_order'].includes(data.type)&&data.orderId) navigation.navigate('OrderDetail',{orderId:data.orderId,merchant:data.type==='merchant_order'});
+  if(['merchant_order','buyer_order','admin_order','pickup_reminder'].includes(data.type)&&data.orderId) navigation.navigate('OrderDetail',{orderId:data.orderId,merchant:data.type==='merchant_order'});
   else if(data.type==='buyer_review') {if(data.orderId)navigation.navigate('OrderDetail',{orderId:data.orderId});else navigation.navigate('MyReviews');}
   else if(data.type==='merchant_review')navigation.navigate('StoreReviews');
   else if(data.type==='admin_review'&&user.rol==='admin')navigation.navigate('AdminReviews');
+  else if(data.type==='merchant_reward'&&user.rol==='admin')navigation.navigate('AdminMerchantRewards');
+  else if(data.type==='merchant_rewards')navigation.navigate('MerchantRewards');
   else if(data.type==='business_visit'&&user.rol==='admin')navigation.navigate('AdminVisits');
   else if(data.type==='admin_store'&&user.rol==='admin')navigation.navigate('AdminStores');
   else if(data.type==='store_status')navigation.navigate('MainTabs',{screen:'Perfil'});

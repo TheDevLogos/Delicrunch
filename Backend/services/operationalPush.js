@@ -10,7 +10,7 @@ async function drainNotifications() {
     const batch = await pool.query(`UPDATE notifications SET push_status='sending', push_attempts=push_attempts+1, push_updated_at=NOW()
       WHERE id IN (SELECT id FROM notifications WHERE
         (push_status='pending' OR (push_status='sending' AND push_updated_at<NOW()-INTERVAL '2 minutes'))
-        AND push_attempts<4 AND (push_updated_at IS NULL OR push_updated_at<NOW()-INTERVAL '30 seconds')
+        AND visible_at<=NOW() AND push_attempts<4 AND (push_updated_at IS NULL OR push_updated_at<NOW()-INTERVAL '30 seconds')
         ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 30)
       RETURNING id,user_id,titulo,mensaje,data,push_attempts`);
     for (const notice of batch.rows) {

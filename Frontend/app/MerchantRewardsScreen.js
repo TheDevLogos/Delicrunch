@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../services/api';
 import Constants from 'expo-constants';
+import {useFocusEffect} from '@react-navigation/native';
 
 import {
   MERCHANT_LEVEL_TIERS,
@@ -61,67 +62,8 @@ const MerchantRewardsScreen = ({ navigation }) => {
     let totalXP = 0;
     let claimed = [];
     try {
-      // Profile (optional)
-      try {
-        await api.get('/profiles/me');
-      } catch (pErr) {
-        const url = pErr.response?.config?.url || '/profiles/me';
-        const status = pErr.response?.status;
-        if (status === 404) {
-          console.warn(`Profile endpoint not found (404): ${url}`);
-        } else {
-          console.warn('Profile fetch error:', url, status, pErr.message || pErr);
-        }
-      }
-
-      // Orders for XP calculation (graceful on 404)
-      try {
-        const ordersRes = await api.get('/orders/mystoreorders');
-        if (ordersRes?.data) {
-          const orders = ordersRes.data;
-          const completedOrders = orders.filter(o => o.estado === 'recogido');
-          completedOrders.forEach(order => {
-            const orderXP = Math.floor(parseFloat(order.total || 0));
-            totalXP += orderXP;
-          });
-        }
-      } catch (oErr) {
-        const url = oErr.response?.config?.url || '/orders/mystoreorders';
-        const status = oErr.response?.status;
-        if (status === 404) {
-          console.warn(`Orders endpoint not found (404): ${url}`);
-        } else {
-          console.warn('Error fetching orders:', url, status, oErr.message || oErr);
-        }
-      }
-
-      // Reviews for bonus XP (graceful on 404)
-      try {
-        const reviewsRes = await api.get('/reviews/mystore');
-        if (reviewsRes?.data) {
-          const reviews = reviewsRes.data;
-          reviews.forEach(review => {
-            if (review.calificacion === 5) totalXP += 50;
-            else if (review.calificacion === 4) totalXP += 25;
-          });
-        }
-      } catch (rErr) {
-        const url = rErr.response?.config?.url || '/reviews/mystore';
-        const status = rErr.response?.status;
-        if (status === 404) {
-          console.warn(`Reviews endpoint not found (404): ${url}`);
-        } else {
-          console.warn('Error fetching reviews:', url, status, rErr.message || rErr);
-        }
-      }
-
-      // Load claimed rewards from storage
-      try {
-        const savedClaimed = await AsyncStorage.getItem('merchant_claimed_rewards');
-        claimed = savedClaimed ? JSON.parse(savedClaimed) : [];
-      } catch (sErr) {
-        console.warn('Error reading claimed rewards from storage:', sErr.message || sErr);
-      }
+      const {data}=await api.get('/merchant-rewards');
+      totalXP=data.xp;claimed=data.claims.filter(c=>c.status!=='rejected').map(c=>c.reward_id);
 
       setMerchantXP(totalXP);
       const level = getMerchantLevelFromXP(totalXP);
@@ -156,9 +98,7 @@ const MerchantRewardsScreen = ({ navigation }) => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchMerchantData();
-  }, [fetchMerchantData]);
+  useFocusEffect(useCallback(() => {fetchMerchantData();}, [fetchMerchantData]));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -166,13 +106,12 @@ const MerchantRewardsScreen = ({ navigation }) => {
   }, [fetchMerchantData]);
 
   const handleClaimReward = async (rewardId) => {
-    // In real app, this would call an API
-    const newClaimed = [...claimedRewards, rewardId];
-    setClaimedRewards(newClaimed);
-    await AsyncStorage.setItem('merchant_claimed_rewards', JSON.stringify(newClaimed));
-    
-    // Show success feedback
-    Alert.alert('¡Recompensa reclamada!', 'Nos pondremos en contacto contigo para coordinar tu premio.');
+    try {
+      await api.post('/merchant-rewards/claims',{rewardId});
+      await fetchMerchantData();
+      Alert.alert('Solicitud registrada','Administración revisará la entrega del beneficio. Puedes ver tu solicitud desde cualquier dispositivo.');
+    } catch(error) {Alert.alert('No se pudo solicitar',error.response?.data?.msg||'Intenta más tarde.');}
+
   };
 
   // Función para mostrar información de la recompensa

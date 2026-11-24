@@ -1,0 +1,9 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const code=fs.readFileSync(__dirname+'/../../Frontend/services/pickupReminders.native.js','utf8').replace(/import[^\n]+\n/,'').replace('export async function','async function');
+const scheduled=[],cancelled=[];let existing=[];
+const Notifications={getPermissionsAsync:async()=>({granted:true}),getAllScheduledNotificationsAsync:async()=>existing,cancelScheduledNotificationAsync:async id=>cancelled.push(id),scheduleNotificationAsync:async n=>scheduled.push(n),SchedulableTriggerInputTypes:{DATE:'date'}};
+const context=vm.createContext({Notifications,Date,Map,Set});vm.runInContext(code,context);
+test.beforeEach(()=>{scheduled.length=0;cancelled.length=0;existing=[];});
+test('schedules exactly 30, 15 and 5 minute reminders per order',async()=>{const at=Date.now()+3600000;await context.syncPickupReminders([{id:1,estado:'confirmado',fecha_recogida_programada:new Date(at).toISOString()}],23);assert.equal(scheduled.length,3);assert.deepEqual(scheduled.map(n=>Math.round((at-n.trigger.date.getTime())/60000)),[30,15,5]);assert.ok(scheduled.every(n=>!JSON.stringify(n.content).includes('codigo_recogida')));});
+test('cancelled and collected orders have their old reminders removed',async()=>{existing=[{identifier:'pickup:23:1:30',content:{data:{type:'pickup_reminder'}}}];await context.syncPickupReminders([{id:1,estado:'cancelado',fecha_recogida_programada:new Date(Date.now()+3600000).toISOString()}],23);assert.equal(scheduled.length,0);assert.deepEqual(cancelled,['pickup:23:1:30']);});
+test('past reminders are not replayed and different accounts are isolated',async()=>{existing=[{identifier:'pickup:22:1:30',content:{data:{type:'pickup_reminder'}}}];await context.syncPickupReminders([{id:1,estado:'listo',fecha_recogida_programada:new Date(Date.now()+60000).toISOString()}],23);assert.equal(scheduled.length,0);assert.equal(cancelled.length,1);});

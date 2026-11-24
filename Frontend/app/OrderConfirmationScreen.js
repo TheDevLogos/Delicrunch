@@ -28,6 +28,7 @@ const OrderConfirmationScreen = ({ route, navigation }) => {
         <Text style={styles.title}>Reserva confirmada</Text>
         <Text style={styles.subtitle}>DC-{String(order.id).padStart(6, '0')}</Text>
 
+        {order.fecha_recogida_programada&&<View style={{backgroundColor:COLORS.primarySoft,padding:18,borderRadius:16,marginBottom:16}}><Text style={{fontWeight:'800',fontSize:17,color:COLORS.primaryDark}}>Tu horario de recogida</Text><Text style={{fontSize:17,color:COLORS.text,marginTop:6}}>{new Date(order.fecha_recogida_programada).toLocaleString('es-MX',{timeZone:'America/Chihuahua',dateStyle:'medium',timeStyle:'short'})}</Text><Text style={{color:COLORS.textSecondary,marginTop:5}}>Hora de Delicias · presenta tu código al llegar</Text></View>}
         <View style={styles.card}>
           <Text style={styles.label}>Código para recoger</Text>
           <Text style={styles.code} selectable>{order.codigo_recogida}</Text>

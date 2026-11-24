@@ -18,6 +18,7 @@ import {
   Modal,
   ScrollView,
   Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
@@ -26,6 +27,7 @@ import { publicApi } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocation } from '../contexts/LocationContext';
 import { COLORS, SPACING, LAYOUT } from '../src/constants/theme';
+import {BUSINESS_CATEGORIES} from '../src/constants/categories';
 import { formatPrice, formatNumber } from '../src/utils/format';
 // WebView se cargará dinámicamente para evitar fallos en Expo Go
 
@@ -40,16 +42,7 @@ try {
 }
 
 // Categorías de comercio disponibles
-const CATEGORIES = [
-  { id: 'all', name: 'Todos', icon: 'grid-outline' },
-  { id: 'tacos', name: 'Tacos', icon: 'restaurant-outline' },
-  { id: 'pizza', name: 'Pizza', icon: 'pizza-outline' },
-  { id: 'sushi', name: 'Sushi', icon: 'fish-outline' },
-  { id: 'cafe', name: 'Café', icon: 'cafe-outline' },
-  { id: 'desayunos', name: 'Desayunos', icon: 'sunny-outline' },
-  { id: 'postres', name: 'Postres', icon: 'ice-cream-outline' },
-  { id: 'barbacoa', name: 'Barbacoa', icon: 'flame-outline' },
-];
+const CATEGORIES = [{id:'all',name:'Todos',icon:'grid-outline'},...BUSINESS_CATEGORIES.map(c=>({id:c.id,name:c.label,icon:'restaurant-outline'}))];
 
 // Rangos de precios
 const PRICE_RANGES = [
@@ -62,11 +55,12 @@ const PRICE_RANGES = [
 
 // Distancias
 const DISTANCE_OPTIONS = [
-  { id: 1, name: '1 mi' },
-  { id: 5, name: '5 mi' },
-  { id: 12, name: '12 mi' },
-  { id: 25, name: '25 mi' },
-  { id: 50, name: '50 mi' },
+  { id: 0, name: 'Todas' },
+  { id: 0.621371, name: '1 km' },
+  { id: 3.106855, name: '5 km' },
+  { id: 7.456452, name: '12 km' },
+  { id: 15.534275, name: '25 km' },
+  { id: 31.06855, name: '50 km' },
 ];
 
 // Helper para formatear calificación de forma segura
@@ -106,7 +100,8 @@ const BrowseScreen = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedPriceRange, setSelectedPriceRange] = useState('all');
-  const [selectedDistance, setSelectedDistance] = useState(nearbyRadius);
+  const [selectedDistance, setSelectedDistance] = useState(0);
+  const [pickupWindow,setPickupWindow]=useState('all');
   
   // Region del mapa
   const [region, setRegion] = useState({
@@ -171,22 +166,14 @@ const BrowseScreen = () => {
 
   // Aplicar filtros
   const applyFilters = useCallback(() => {
-    let filtered = [...products];
-    let filteredS = [...stores];
-    
-    // Filtrar por ciudad del usuario automáticamente
-    if (userLocation?.city) {
-      const userCity = userLocation.city.toLowerCase();
-      filtered = filtered.filter(p => {
-        const productCity = (p.ciudad || '').toLowerCase();
-        return !productCity || productCity.includes(userCity) || userCity.includes(productCity);
-      });
-      filteredS = filteredS.filter(s => {
-        const storeCity = (s.ciudad || '').toLowerCase();
-        return !storeCity || storeCity.includes(userCity) || userCity.includes(storeCity);
-      });
-    }
-    
+    const withDistance=item=>{
+      const store=stores.find(s=>String(s.id)===String(item.store_id));
+      const lat=Number(item.latitud??store?.latitud),lng=Number(item.longitud??store?.longitud);
+      const distancia=Number.isFinite(lat)&&Number.isFinite(lng)?calculateDistance(userLocation.latitude,userLocation.longitude,lat,lng):Infinity;
+      return {...item,distancia};
+    };
+    let filtered = products.map(withDistance);
+    let filteredS = stores.map(withDistance);
     // Filtrar por búsqueda
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -202,14 +189,12 @@ const BrowseScreen = () => {
     
     // Filtrar por categoría
     if (selectedCategory !== 'all') {
-      const catQuery = selectedCategory.toLowerCase();
+      const catQuery = CATEGORIES.find(c=>c.id===selectedCategory)?.name.toLowerCase()||selectedCategory;
       filtered = filtered.filter(p =>
         p.categoria?.toLowerCase().includes(catQuery) ||
         p.nombre_comercio?.toLowerCase().includes(catQuery)
       );
-      filteredS = filteredS.filter(s =>
-        s.nombre_comercio?.toLowerCase().includes(catQuery)
-      );
+
     }
     
     // Filtrar por precio
@@ -223,23 +208,24 @@ const BrowseScreen = () => {
       }
     }
     
+    if(pickupWindow!=='all')filtered=filtered.filter(p=>{const start=Number(String(p.hora_recogida_inicio||'14:00').slice(0,2));return pickupWindow==='morning'?start<12:pickupWindow==='afternoon'?start>=12&&start<18:start>=18;});
     // Filtrar por distancia
     if (selectedDistance && userLocation?.latitude) {
-      filtered = filtered.filter(p => (p.distancia || 999) <= selectedDistance);
-      filteredS = filteredS.filter(s => (s.distancia || 999) <= selectedDistance);
+      filtered = filtered.filter(p => (p.distancia ?? Infinity) <= selectedDistance);
+      filteredS = filteredS.filter(s => (s.distancia ?? Infinity) <= selectedDistance);
     }
 
     // Los marcadores deben representar comercios con packs que pasaron los filtros.
-    const visibleStoreIds = new Set(filtered.map(p => p.store_id));
-    filteredS = filteredS.filter(s => visibleStoreIds.has(s.id));
+    const visibleStoreIds = new Set(filtered.map(p => String(p.store_id)));
+    filteredS = filteredS.filter(s => visibleStoreIds.has(String(s.id)));
     
     // Ordenar por distancia
-    filtered.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
-    filteredS.sort((a, b) => (a.distancia || 999) - (b.distancia || 999));
+    filtered.sort((a, b) => (a.distancia ?? Infinity) - (b.distancia ?? Infinity));
+    filteredS.sort((a, b) => (a.distancia ?? Infinity) - (b.distancia ?? Infinity));
     
     setFilteredProducts(filtered);
     setFilteredStores(filteredS);
-  }, [products, stores, searchQuery, selectedCategory, selectedPriceRange, selectedDistance, userLocation]);
+  }, [products, stores, searchQuery, selectedCategory, selectedPriceRange, selectedDistance, pickupWindow, userLocation]);
 
   useEffect(() => {
     applyFilters();
@@ -272,7 +258,7 @@ const BrowseScreen = () => {
           longitudeDelta: 0.05,
         };
         setRegion(newRegion);
-        if (mapRef.current && MapView) {
+        if (false) {
           mapRef.current.animateToRegion(newRegion, 600);
         }
       }
@@ -294,7 +280,7 @@ const BrowseScreen = () => {
   // Centrar mapa en ubicación del usuario
   const centerOnUser = async () => {
     const result = await detectLocation();
-    if (!result.success) return;
+    if (!result.success) {Alert.alert('Ubicación no disponible','Permite el GPS para ver tu posición. Mostramos el catálogo sin inventar tu ubicación.');return;}
     const target = {
       latitude: result.location.latitude,
       longitude: result.location.longitude,
@@ -302,7 +288,7 @@ const BrowseScreen = () => {
       longitudeDelta: 0.05,
     };
     setRegion(target);
-    if (MapView && mapRef.current) {
+    if (false) {
       mapRef.current.animateToRegion(target, 600);
     } else if (webViewRef.current) {
       const js = 'window.centerMap(' + target.latitude + ', ' + target.longitude + '); true;';
@@ -379,6 +365,7 @@ const BrowseScreen = () => {
               ))}
             </View>
             
+            <Text style={styles.filterSectionTitle}>Horario de recogida</Text><View style={styles.filterChipsContainer}>{[['all','Cualquier horario'],['morning','Mañana · antes de 12'],['afternoon','Tarde · 12 a 18'],['evening','Noche · desde 18']].map(([id,label])=><TouchableOpacity key={id} style={[styles.filterChip,pickupWindow===id&&styles.filterChipActive]} onPress={()=>setPickupWindow(id)}><Text style={{color:pickupWindow===id?'#fff':COLORS.text}}>{label}</Text></TouchableOpacity>)}</View>
             {/* Distancia */}
             <Text style={styles.filterSectionTitle}>Distancia máxima</Text>
             <View style={styles.filterChipsContainer}>
@@ -406,7 +393,8 @@ const BrowseScreen = () => {
               onPress={() => {
                 setSelectedCategory('all');
                 setSelectedPriceRange('all');
-                setSelectedDistance(12);
+                setSelectedDistance(0);
+                setPickupWindow('all');
                 setNearbyRadius(12);
               }}
             >
@@ -414,7 +402,7 @@ const BrowseScreen = () => {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.applyFiltersBtn}
-              onPress={() => setShowFilters(false)}
+              onPress={async()=>{setShowFilters(false);await centerOnUser();setViewMode('map');}}
             >
               <Text style={styles.applyFiltersText}>Aplicar ({filteredProducts.length})</Text>
             </TouchableOpacity>
@@ -477,7 +465,7 @@ const BrowseScreen = () => {
           <View style={styles.listCardFooter}>
             <View style={styles.ratingContainer}>
               {formatRating(product.calificacion_promedio) && <><Ionicons name="star" size={14} color={COLORS.star} /><Text style={styles.ratingText}>{formatRating(product.calificacion_promedio)}</Text></>}
-              {Number.isFinite(product.distancia) && product.distancia < 999 && <Text style={styles.distanceText}>  {formatNumber(product.distancia, 1)} mi</Text>}
+              {Number.isFinite(product.distancia) && product.distancia < 999 && <Text style={styles.distanceText}>  {formatNumber(product.distancia*1.609344, 1)} km</Text>}
             </View>
             <View style={styles.priceContainer}>
               {Number(product.precio_original) > Number(product.precio_descuento) && <Text style={styles.originalPrice}>${formatPrice(product.precio_original, 0)}</Text>}
@@ -493,7 +481,7 @@ const BrowseScreen = () => {
   const StorePreviewCard = ({ store, details }) => {
     if (!store) return null;
     
-    const storeProducts = details?.productos?.length ? details.productos : products.filter(p => p.store_id === store.id);
+    const storeProducts = details?.productos?.length ? details.productos : products.filter(p => String(p.store_id) === String(store.id));
     const mainProduct = storeProducts[0];
     const ratings = storeProducts.map(p => Number(p.calificacion_promedio)).filter(r => Number.isFinite(r) && r > 0);
     const avgRating = details?.calificacion_promedio || (ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : null);
@@ -515,7 +503,7 @@ const BrowseScreen = () => {
           </Text>
           <View style={styles.previewRatingRow}>
             {avgRating && <><Ionicons name="star" size={14} color={COLORS.star} /><Text style={styles.previewRating}>{formatNumber(avgRating,1)}</Text></>}
-            {Number.isFinite(store.distancia) && store.distancia < 999 && <Text style={styles.previewDistance}>• {formatNumber(store.distancia,1)} mi</Text>}
+            {Number.isFinite(store.distancia) && store.distancia < 999 && <Text style={styles.previewDistance}>• {formatNumber(store.distancia*1.609344,1)} km</Text>}
           </View>
           <Text style={styles.previewProducts}>
             {storeProducts.length} producto{storeProducts.length !== 1 ? 's' : ''} disponible{storeProducts.length !== 1 ? 's' : ''}
@@ -557,7 +545,7 @@ const BrowseScreen = () => {
     const userLatVal = (userLocation && userLocation.latitude) ? userLocation.latitude : region.latitude;
     const userLngVal = (userLocation && userLocation.longitude) ? userLocation.longitude : region.longitude;
     const storesSource = filteredStores
-      .map((s) => ({ id: s.id, name: s.nombre_comercio, lat: parseFloat(s.latitud), lng: parseFloat(s.longitud) }))
+      .map((s) => ({ id: s.id, name: s.nombre_comercio, count: filteredProducts.filter(p=>String(p.store_id)===String(s.id)).length, packs: filteredProducts.filter(p=>String(p.store_id)===String(s.id)).map(p=>({name:p.nombre,price:p.precio_descuento})), lat: parseFloat(s.latitud), lng: parseFloat(s.longitud) }))
       .filter((s) => !isNaN(s.lat) && !isNaN(s.lng));
     const storesJson = JSON.stringify(storesSource).replace(/</g, '\\u003c');
 
@@ -581,10 +569,10 @@ const BrowseScreen = () => {
       '    window.map = map;',
       '    window.centerMap = function(lat, lng) { try { map.setView([lat, lng], 13); } catch (e) {} };',
       '    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);',
-      '    L.circleMarker([userLat, userLng], { radius: 6, color: "#2E86DE" }).addTo(map).bindPopup("Tu ubicación");',
+      '    L.circleMarker([userLat, userLng], { radius: 6, color: "#2E86DE" }).addTo(map).bindPopup("Ubicación del mapa · pulsa GPS para actualizar");',
       '    stores.forEach(function(s){',
       '      if (isNaN(s.lat) || isNaN(s.lng)) return;',
-      '      var label = document.createElement("div"); label.textContent = s.name || "Tienda";',
+      '      var label = document.createElement("div"); label.textContent = (s.name || "Tienda")+" · "+s.count+" packs"; s.packs.forEach(function(p){var row=document.createElement("div");row.textContent=p.name+" · $"+p.price;label.appendChild(row);});',
       '      var m = L.marker([s.lat, s.lng]).addTo(map).bindPopup(label);',
       '      m.on("click", function(){',
       '        if (window.ReactNativeWebView) {',
@@ -592,6 +580,7 @@ const BrowseScreen = () => {
       '        }',
       '      });',
       '    });',
+      '    if(stores.length){map.fitBounds([[userLat,userLng],...stores.map(s=>[s.lat,s.lng])],{padding:[35,35],maxZoom:14});}',
       '  </script>',
       '</body>',
       '</html>'
@@ -621,7 +610,7 @@ const BrowseScreen = () => {
             try {
               const msg = JSON.parse(event.nativeEvent.data);
               if (msg.type === 'markerPress') {
-                const store = filteredStores.find(s => s.id === msg.storeId);
+                const store = filteredStores.find(s => String(s.id) === String(msg.storeId));
                 setSelectedStore(store || null);
                 if (store) {
                   try {
@@ -705,7 +694,7 @@ const BrowseScreen = () => {
           )}
           <View style={styles.locationTextContainer}>
             <Text style={styles.locationTitle}>{userLocation?.city || 'Mi ubicación'}</Text>
-            <Text style={styles.locationSubtitle}>dentro de {selectedDistance} mi</Text>
+            <Text style={styles.locationSubtitle}>{selectedDistance?`dentro de ${(selectedDistance*1.609344).toFixed(0)} km`:'todos los packs disponibles'}</Text>
           </View>
           <Ionicons name="chevron-down" size={16} color={COLORS.text} />
         </TouchableOpacity>
@@ -754,7 +743,7 @@ const BrowseScreen = () => {
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.toggleButton, viewMode === 'map' && styles.toggleActive]}
-          onPress={() => setViewMode('map')}
+          onPress={async()=>{await centerOnUser();setViewMode('map');}}
         >
           <Ionicons name="map" size={18} color={viewMode === 'map' ? '#FFFFFF' : '#8E8E93'} />
           <Text style={[styles.toggleText, viewMode === 'map' && styles.toggleTextActive]}>

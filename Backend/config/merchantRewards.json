@@ -1,0 +1,435 @@
+{
+  "levels": [
+    {
+      "level": 1,
+      "tier": "STARTER",
+      "xpRequired": 0,
+      "title": "Iniciante",
+      "description": "Bienvenido a Delicrunch. ¡Empieza a vender y ganar puntos!"
+    },
+    {
+      "level": 2,
+      "tier": "BRONZE",
+      "xpRequired": 500,
+      "title": "Bronce III",
+      "description": "¡Vas por buen camino! Sigue vendiendo."
+    },
+    {
+      "level": 3,
+      "tier": "BRONZE",
+      "xpRequired": 1500,
+      "title": "Bronce II",
+      "description": "Tus clientes te están conociendo."
+    },
+    {
+      "level": 4,
+      "tier": "BRONZE",
+      "xpRequired": 3000,
+      "title": "Bronce I",
+      "description": "¡Casi llegas a Plata!"
+    },
+    {
+      "level": 5,
+      "tier": "SILVER",
+      "xpRequired": 5000,
+      "title": "Plata III",
+      "description": "Ya eres un comercio reconocido."
+    },
+    {
+      "level": 6,
+      "tier": "SILVER",
+      "xpRequired": 8000,
+      "title": "Plata II",
+      "description": "Tus ventas van en aumento."
+    },
+    {
+      "level": 7,
+      "tier": "SILVER",
+      "xpRequired": 12000,
+      "title": "Plata I",
+      "description": "¡El Oro está cerca!"
+    },
+    {
+      "level": 8,
+      "tier": "GOLD",
+      "xpRequired": 18000,
+      "title": "Oro III",
+      "description": "¡Felicidades! Eres un comercio Oro."
+    },
+    {
+      "level": 9,
+      "tier": "GOLD",
+      "xpRequired": 25000,
+      "title": "Oro II",
+      "description": "Tu negocio brilla en Delicrunch."
+    },
+    {
+      "level": 10,
+      "tier": "GOLD",
+      "xpRequired": 35000,
+      "title": "Oro I",
+      "description": "¡Siguiente parada: Platino!"
+    },
+    {
+      "level": 11,
+      "tier": "PLATINUM",
+      "xpRequired": 50000,
+      "title": "Platino III",
+      "description": "Eres parte de la élite de comercios."
+    },
+    {
+      "level": 12,
+      "tier": "PLATINUM",
+      "xpRequired": 70000,
+      "title": "Platino II",
+      "description": "Tu reputación te precede."
+    },
+    {
+      "level": 13,
+      "tier": "PLATINUM",
+      "xpRequired": 100000,
+      "title": "Platino I",
+      "description": "¡El Diamante está a tu alcance!"
+    },
+    {
+      "level": 14,
+      "tier": "DIAMOND",
+      "xpRequired": 150000,
+      "title": "Diamante III",
+      "description": "¡Increíble! Eres Diamante."
+    },
+    {
+      "level": 15,
+      "tier": "DIAMOND",
+      "xpRequired": 200000,
+      "title": "Diamante II",
+      "description": "Uno de los mejores comercios."
+    },
+    {
+      "level": 16,
+      "tier": "DIAMOND",
+      "xpRequired": 300000,
+      "title": "Diamante I",
+      "description": "¡Leyenda de Delicrunch!"
+    }
+  ],
+  "rewards": [
+    {
+      "level": 2,
+      "rewards": [
+        {
+          "id": "badge_first_sale",
+          "type": "badge",
+          "name": "Primera Venta",
+          "icon": "ribbon",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 3,
+      "rewards": [
+        {
+          "id": "fb_post_1",
+          "type": "social",
+          "name": "1 Post en Facebook Delicrunch",
+          "description": "Publicaremos tu negocio en nuestra página de Facebook",
+          "icon": "logo-facebook",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 4,
+      "rewards": [
+        {
+          "id": "ig_story_1",
+          "type": "social",
+          "name": "1 Historia en Instagram",
+          "description": "Te mencionaremos en nuestras historias de Instagram",
+          "icon": "logo-instagram",
+          "claimed": false
+        },
+        {
+          "id": "badge_rising_star",
+          "type": "badge",
+          "name": "Estrella en Ascenso",
+          "icon": "star-half",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 5,
+      "rewards": [
+        {
+          "id": "featured_week",
+          "type": "feature",
+          "name": "Destacado de la Semana",
+          "description": "Tu tienda aparecerá como destacada en la app durante 7 días",
+          "icon": "flame",
+          "claimed": false
+        },
+        {
+          "id": "ig_post_1",
+          "type": "social",
+          "name": "1 Post en Instagram",
+          "description": "Publicación permanente en nuestro feed de Instagram",
+          "icon": "logo-instagram",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 6,
+      "rewards": [
+        {
+          "id": "tiktok_1",
+          "type": "social",
+          "name": "1 Video en TikTok",
+          "description": "Crearemos un TikTok promocionando tu negocio",
+          "icon": "logo-tiktok",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 7,
+      "rewards": [
+        {
+          "id": "radio_mention",
+          "type": "media",
+          "name": "Mención en Radio Local",
+          "description": "3 menciones de tu negocio en radio local (15 seg c/u)",
+          "icon": "radio",
+          "claimed": false
+        },
+        {
+          "id": "badge_silver",
+          "type": "badge",
+          "name": "Comercio Plata",
+          "icon": "shield-checkmark",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 8,
+      "rewards": [
+        {
+          "id": "featured_month",
+          "type": "feature",
+          "name": "Destacado del Mes",
+          "description": "Tu tienda destacada en la app durante 30 días",
+          "icon": "trophy",
+          "claimed": false
+        },
+        {
+          "id": "fb_campaign",
+          "type": "social",
+          "name": "Campaña Facebook Ads",
+          "description": "$500 MXN en publicidad de Facebook para tu negocio",
+          "icon": "megaphone",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 9,
+      "rewards": [
+        {
+          "id": "radio_spot_30",
+          "type": "media",
+          "name": "Spot de Radio 30 seg",
+          "description": "5 spots de 30 segundos en radio local",
+          "icon": "radio",
+          "claimed": false
+        },
+        {
+          "id": "ig_campaign",
+          "type": "social",
+          "name": "Campaña Instagram Ads",
+          "description": "$500 MXN en publicidad de Instagram para tu negocio",
+          "icon": "logo-instagram",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 10,
+      "rewards": [
+        {
+          "id": "blog_feature",
+          "type": "media",
+          "name": "Artículo en Blog",
+          "description": "Artículo destacando tu negocio en el blog de Delicrunch",
+          "icon": "newspaper",
+          "claimed": false
+        },
+        {
+          "id": "podcast_mention",
+          "type": "media",
+          "name": "Mención en Podcast",
+          "description": "Te mencionaremos en podcasts locales de emprendimiento",
+          "icon": "mic",
+          "claimed": false
+        },
+        {
+          "id": "badge_gold",
+          "type": "badge",
+          "name": "Comercio Oro",
+          "icon": "medal",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 11,
+      "rewards": [
+        {
+          "id": "tv_mention",
+          "type": "media",
+          "name": "Mención en TV Local",
+          "description": "Mención de tu negocio en programa de TV local",
+          "icon": "tv",
+          "claimed": false
+        },
+        {
+          "id": "google_ads",
+          "type": "social",
+          "name": "Campaña Google Ads",
+          "description": "$1,000 MXN en publicidad de Google para tu negocio",
+          "icon": "logo-google",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 12,
+      "rewards": [
+        {
+          "id": "interview_radio",
+          "type": "media",
+          "name": "Entrevista en Radio",
+          "description": "Entrevista de 5 minutos en programa de radio local",
+          "icon": "mic",
+          "claimed": false
+        },
+        {
+          "id": "influencer_collab",
+          "type": "social",
+          "name": "Colaboración con Influencer",
+          "description": "Un influencer local promocionará tu negocio",
+          "icon": "people",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 13,
+      "rewards": [
+        {
+          "id": "tv_segment",
+          "type": "media",
+          "name": "Segmento en TV",
+          "description": "Segmento de 2 minutos sobre tu negocio en TV local",
+          "icon": "videocam",
+          "claimed": false
+        },
+        {
+          "id": "billboard_digital",
+          "type": "outdoor",
+          "name": "Anuncio Digital Outdoor",
+          "description": "1 semana en pantalla digital en zona céntrica",
+          "icon": "desktop",
+          "claimed": false
+        },
+        {
+          "id": "badge_platinum",
+          "type": "badge",
+          "name": "Comercio Platino",
+          "icon": "diamond-outline",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 14,
+      "rewards": [
+        {
+          "id": "newspaper_ad",
+          "type": "media",
+          "name": "Anuncio en Periódico",
+          "description": "Anuncio de 1/4 de página en periódico local",
+          "icon": "newspaper",
+          "claimed": false
+        },
+        {
+          "id": "premium_placement",
+          "type": "feature",
+          "name": "Posición Premium Permanente",
+          "description": "Tu tienda siempre aparecerá en las primeras posiciones",
+          "icon": "rocket",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 15,
+      "rewards": [
+        {
+          "id": "documentary_short",
+          "type": "media",
+          "name": "Mini Documental",
+          "description": "Video documental de 3 minutos sobre tu negocio",
+          "icon": "film",
+          "claimed": false
+        },
+        {
+          "id": "multi_platform_campaign",
+          "type": "social",
+          "name": "Campaña Multi-Plataforma",
+          "description": "$3,000 MXN en publicidad en todas las redes sociales",
+          "icon": "globe",
+          "claimed": false
+        }
+      ]
+    },
+    {
+      "level": 16,
+      "rewards": [
+        {
+          "id": "tv_interview",
+          "type": "media",
+          "name": "Entrevista en TV",
+          "description": "Entrevista de 5 minutos en noticiero local",
+          "icon": "tv",
+          "claimed": false
+        },
+        {
+          "id": "brand_ambassador",
+          "type": "feature",
+          "name": "Embajador de Marca",
+          "description": "Serás embajador oficial de Delicrunch en tu ciudad",
+          "icon": "ribbon",
+          "claimed": false
+        },
+        {
+          "id": "annual_feature",
+          "type": "feature",
+          "name": "Destacado Anual",
+          "description": "Aparición en el informe anual de Delicrunch",
+          "icon": "document",
+          "claimed": false
+        },
+        {
+          "id": "badge_diamond",
+          "type": "badge",
+          "name": "Comercio Diamante",
+          "icon": "diamond",
+          "claimed": false
+        }
+      ]
+    }
+  ]
+}

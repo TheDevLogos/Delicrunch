@@ -129,7 +129,7 @@ exports.getAllAvailableProducts = asyncHandler(async (req, res, next) => {
     // Obtenemos productos con aliases para compatibilidad con frontend (español)
     const products = await pool.query(
         `SELECT 
-            p.id,
+            p.id, (SELECT ROUND(AVG(r.calificacion),1) FROM reviews r WHERE r.product_id=p.id AND r.visible=true) AS calificacion_promedio,
             p.nombre,
             p.descripcion,
             p.precio_descuento,
@@ -315,7 +315,7 @@ exports.getProductById = asyncHandler(async (req, res, next) => {
 
     const product = await pool.query(
         `SELECT 
-            p.id,
+            p.id, (SELECT ROUND(AVG(r.calificacion),1) FROM reviews r WHERE r.product_id=p.id AND r.visible=true) AS calificacion_promedio,
             p.nombre,
             p.descripcion,
             p.precio_descuento,
@@ -358,7 +358,7 @@ exports.getProductStats = asyncHandler(async (req, res, next) => {
 
     const stats = await pool.query(
         `SELECT 
-            p.id, 
+            p.id, (SELECT ROUND(AVG(r.calificacion),1) FROM reviews r WHERE r.product_id=p.id AND r.visible=true) AS calificacion_promedio, 
             p.nombre, 
             p.cantidad_disponible,
             p.precio_descuento,
@@ -397,7 +397,7 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
         // Si no hay categorías, devolver productos aleatorios
         const randomProducts = await pool.query(
             `SELECT 
-                p.id,
+                p.id, (SELECT ROUND(AVG(r.calificacion),1) FROM reviews r WHERE r.product_id=p.id AND r.visible=true) AS calificacion_promedio,
                 p.nombre,
                 p.descripcion,
                 p.precio_descuento,
@@ -422,7 +422,7 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
     // Obtener productos de las categorías favoritas del usuario
     const recommendedProducts = await pool.query(
         `SELECT 
-            p.id,
+            p.id, (SELECT ROUND(AVG(r.calificacion),1) FROM reviews r WHERE r.product_id=p.id AND r.visible=true) AS calificacion_promedio,
             p.nombre,
             p.descripcion,
             p.precio_descuento,
@@ -451,7 +451,7 @@ exports.getRecommendedProducts = asyncHandler(async (req, res, next) => {
 exports.getReadyProducts = asyncHandler(async (req, res, next) => {
     const readyProducts = await pool.query(
         `SELECT 
-            p.id,
+            p.id, (SELECT ROUND(AVG(r.calificacion),1) FROM reviews r WHERE r.product_id=p.id AND r.visible=true) AS calificacion_promedio,
             p.nombre,
             p.descripcion,
             p.precio_descuento,
@@ -481,7 +481,7 @@ exports.getReadyProducts = asyncHandler(async (req, res, next) => {
 exports.getNewProducts = asyncHandler(async (req, res, next) => {
     const newProducts = await pool.query(
         `SELECT 
-            p.id,
+            p.id, (SELECT ROUND(AVG(r.calificacion),1) FROM reviews r WHERE r.product_id=p.id AND r.visible=true) AS calificacion_promedio,
             p.nombre,
             p.descripcion,
             p.precio_descuento,
@@ -510,4 +510,10 @@ exports.getProductForManagement=asyncHandler(async(req,res)=>{
  const result=await pool.query('SELECT * FROM products WHERE id=$1',[req.params.id]);
  if(!result.rows.length)return res.status(404).json({msg:'Producto no encontrado.'});
  res.json(result.rows[0]);
+});
+
+exports.getPickupSlots=asyncHandler(async(req,res)=>{
+ if(!/^\d+$/.test(req.params.id))return res.status(400).json({msg:'Producto inválido.'});
+ const result=await pool.query(require('../utils/pickupSlots').slotsSql,[req.params.id]);
+ res.json({timeZone:'America/Chihuahua',slots:result.rows.map(r=>r.pickup_at)});
 });

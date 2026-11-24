@@ -21,3 +21,13 @@ test('retrying a reservation reuses its ticket before touching stock',async()=>{
  assert.equal(status,200);assert.equal(payload.id,'71');assert.equal(payload.replayed,true);assert.ok(queries.some(([s])=>s.includes('pg_advisory_xact_lock')));assert.ok(!queries.some(([s])=>s.includes('UPDATE products')));
  }finally{client.query=original;}
 });
+test('pickup credits every delivered unit and the applied coupon once',async()=>{
+ const original=client.query;
+ client.query=async(sql,args)=>{
+  if(sql.includes('SELECT oi.cantidad')){queries.push([sql,args]);return {rows:[{cantidad:2,categoria:'pizza',precio_original:100,precio_unitario:50},{cantidad:1,categoria:'tacos',precio_original:80,precio_unitario:40}]};}
+  if(sql.includes('RETURNING total_xp')){queries.push([sql,args]);return {rows:[{total_xp:500,current_streak:1,best_streak:1}]};}
+  return original(sql,args);
+ };
+ order.coupon_discount=10;
+ try{const r=await update({estado:'recogido',codigo_recogida:'AB-12345',pago_recibido:true});assert.equal(r.code,200);const metrics=queries.find(([s])=>s.includes('total_packs_saved ='));assert.equal(metrics[1][0],3);assert.equal(metrics[1][1],150);assert.equal(queries.filter(([s])=>s.includes('INSERT INTO xp_transactions')).length,1);}finally{client.query=original;}
+});

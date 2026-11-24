@@ -40,6 +40,7 @@ import DiscoverScreen from '../app/DiscoverScreen';
 import BrowseScreen from '../app/BrowseScreen';
 
 // Pantallas de admin
+import AdminMerchantRewardsScreen from '../app/admin/AdminMerchantRewardsScreen';
 import AdminStoresScreen from '../app/admin/AdminStoresScreen';
 import AdminReviewsScreen from '../app/admin/AdminReviewsScreen';
 import AdminMetricsScreen from '../app/admin/AdminMetricsScreen';
@@ -97,6 +98,7 @@ const AppStack = ({ userRole }) => (
     <Stack.Screen name="Descubre" component={DiscoverScreen} options={{ title: 'Descubrir', headerShown: false }} />
     <Stack.Screen name="Buscar" component={BrowseScreen} options={{ title: 'Buscar', headerShown: false }} />
     {/* Pantallas de admin accesibles desde perfil */}
+    <Stack.Screen name="AdminMerchantRewards" component={AdminMerchantRewardsScreen} options={{title:'Recompensas de comercios',headerShown:true}} />
     <Stack.Screen name="AdminStores" component={AdminStoresScreen} />
     <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} options={{title: 'Notificaciones',headerShown:true}} />
