@@ -3,7 +3,7 @@
 ## Cambios
 
 - Español conservado como único idioma.
-- 56 packs adicionales, dos por cada una de las 28 categorías compartidas por la app. Comercio asociado a `alonsovl.logos@gmail.com`, conservando su rol Admin y acceso a la vista Comercio. Se identifican como PRUEBA, con fotografía ilustrativa y ubicación ilustrativa en Delicias. No se alteraron los comercios existentes ni se inventaron opiniones de clientes.
+- 56 packs adicionales, dos por cada una de las 28 categorías compartidas por la app. Comercio asociado a la cuenta de comercio indicada por el propietario, conservando su rol Admin y acceso a la vista Comercio. Se identifican como PRUEBA, con fotografía ilustrativa y ubicación ilustrativa en Delicias. No se alteraron los comercios existentes ni se inventaron opiniones de clientes.
 - Fotografías de categoría verificadas por HTTP; cuatro enlaces rotos sustituidos. Catálogo reproducible en `Backend/db/seeds/closed-testing-catalog.json`.
 - Filtros de categorías, precio, distancia en km y ventana de recogida en Explorar. Aplicar filtros abre el mapa y solicita GPS. Distancias recalculadas con la ubicación vigente y claves de tienda normalizadas. Los pines agrupan todos los packs filtrados de cada comercio e indican su cantidad; no se excluyen categorías por el nombre del negocio. Vista general sin radio predeterminado para no ocultar el catálogo lejano.
 - Un GPS denegado no se presenta como posición real. El centro inicial es una referencia; las ubicaciones ilustrativas del negocio de pruebas están identificadas.
@@ -15,7 +15,7 @@
 
 ## Verificación
 
-- 25 pruebas de contratos HTTP, permisos, ciclo de órdenes, stock/cupón, XP por unidad, reintentos y recordatorios/recompensas.
+- 29 pruebas de filtros de Explorar y contratos HTTP, permisos, ciclo de órdenes, stock/cupón, XP por unidad, reintentos y recordatorios/recompensas.
 - Exportación Android de producción con Metro.
 - SQL de horarios ejecutado en Supabase; recordatorios futuros y cancelación probados en transacción revertida.
 - Migración `closed_testing_pickup_rewards` aplicada: visibilidad temporal de avisos, snapshots de items, solicitudes de recompensas con RLS y privilegios públicos revocados.
