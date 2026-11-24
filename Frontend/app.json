@@ -2,7 +2,7 @@
   "expo": {
     "name": "Delicrunch",
     "slug": "delicrunch-frontend",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -28,7 +28,7 @@
         "backgroundColor": "#FFF7E6"
       },
       "package": "com.delicrunch.app",
-      "versionCode": 11,
+      "versionCode": 12,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
@@ -79,7 +79,8 @@
           "color": "#F46A16",
           "defaultChannel": "orders"
         }
-      ]
+      ],
+      "./plugins/withOptionalPortrait"
     ],
     "extra": {
       "apiUrl": "https://delicrunch.onrender.com/api",
